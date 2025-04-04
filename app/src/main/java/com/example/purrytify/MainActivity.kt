@@ -10,9 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.purrytify.ui.screens.HomeScreen
-import com.example.purrytify.ui.screens.LoginScreen
-import com.example.purrytify.ui.screens.SplashScreen
+import com.example.purrytify.ui.screens.*
 import com.example.purrytify.ui.theme.PurrytifyTheme
 
 class MainActivity : ComponentActivity() {
@@ -22,11 +20,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             PurrytifyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    // Create a NavController for navigation
                     val navController = rememberNavController()
 
+                    // Set up the NavHost with the navigation graph
                     NavHost(
                         navController = navController,
-                        startDestination = "splash"
+                        startDestination = "splash" // Start with splash screen
                     ) {
                         composable("splash") {
                             SplashScreen(navController = navController)
@@ -40,6 +40,13 @@ class MainActivity : ComponentActivity() {
                             HomeScreen(navController = navController)
                         }
 
+                        composable("library") {
+                            LibraryScreen(navController = navController)
+                        }
+
+                        composable("profile") {
+                            ProfileScreen(navController = navController)
+                        }
                     }
                 }
             }
