@@ -18,43 +18,61 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.purrytify.ui.components.BottomNavBar
 
 @Composable
 fun HomeScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212))
+            .background(Color.Black)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Main content area (takes up most of the screen)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+            ) {
+                // Content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(48.dp))
 
-            Text(
-                text = "Purrytify Home",
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
+                    Text(
+                        text = "Purrytify Home",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Login successful! Welcome to Purrytify.",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 16.sp
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Bottom Navigation Bar
+            BottomNavBar(
+                navController = navController,
+                currentRoute = "home"
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Login successful! Welcome to Purrytify.",
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 16.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-
         }
     }
 }
