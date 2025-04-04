@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Circle background -->
+    <path
+        android:fillColor="#6CCBDF"
+        android:pathData="M100,100m-100,0a100,100 0,1 1,200 0a100,100 0,1 1,-200 0" />
+
+    <!-- Generic profile silhouette -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,60 C85,60 73,72 73,87 C73,102 85,114 100,114 C115,114 127,102 127,87 C127,72 115,60 100,60" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,120 C70,120 46,137 43,160 C54,185 77,200 100,200 C123,200 146,185 157,160 C154,137 130,120 100,120" />
+</vector>
