@@ -47,6 +47,11 @@ class MainActivity : ComponentActivity() {
                         composable("profile") {
                             ProfileScreen(navController = navController)
                         }
+
+                        // Add the settings screen to the navigation
+                        composable("settings") {
+                            SettingsScreen(navController = navController)
+                        }
                     }
                 }
             }
