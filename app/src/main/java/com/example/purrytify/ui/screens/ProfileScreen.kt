@@ -1,7 +1,6 @@
 package com.example.purrytify.ui.screens
 
 import android.util.Log
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -142,7 +141,7 @@ fun ProfileScreen(navController: NavController) {
                                     modifier = Modifier
                                         .size(150.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF6CCBDF)), // Light blue background for profile pic
+                                        .background(Color(0xFF6CCB64)), // Light blue background for profile pic
                                     error = painterResource(id = R.drawable.default_profile),
                                     placeholder = painterResource(id = R.drawable.default_profile)
                                 )
