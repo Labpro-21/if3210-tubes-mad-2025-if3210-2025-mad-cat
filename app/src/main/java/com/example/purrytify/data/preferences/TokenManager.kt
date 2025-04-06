@@ -35,7 +35,7 @@ class TokenManager(context: Context) {
             return
         }
         Log.d(TAG, "Saving refresh token: ${refreshToken.take(10)}...")
-        sharedPrefs.edit().putString("refresh_token", refreshToken).apply()
+        sharedPrefs.edit().putString("refreshToken", refreshToken).apply()
     }
 
     fun getToken(): String? {
@@ -49,7 +49,7 @@ class TokenManager(context: Context) {
     }
 
     fun getRefreshToken(): String? {
-        return sharedPrefs.getString("refresh_token", null)
+        return sharedPrefs.getString("refreshToken", null)
     }
 
     fun clearTokens() {

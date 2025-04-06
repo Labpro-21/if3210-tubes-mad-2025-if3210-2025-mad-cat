@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.material3.lint)
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Testing
     testImplementation(libs.junit)

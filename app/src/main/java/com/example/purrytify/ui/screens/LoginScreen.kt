@@ -200,69 +200,52 @@ fun LoginScreen(navController: NavController) {
                                 }
 
                                 Log.d("LoginScreen", "Attempting login with email: $email")
-
                                 val request = LoginRequest(email, password)
 
                                 try {
                                     val response = RetrofitClient.apiService.login(request)
                                     Log.d("LoginScreen", "Response received: ${response.code()}")
 
-                                    val rawResponseString = response.raw().toString()
-                                    Log.d("LoginScreen", "Raw response: $rawResponseString")
-
                                     if (response.isSuccessful) {
                                         response.body()?.let { loginResponse ->
                                             Log.d("LoginScreen", "Login response: $loginResponse")
 
-                                            if (loginResponse.token.isNullOrEmpty()) {
+                                            if (loginResponse.accessToken.isNullOrEmpty()) {
                                                 Log.e("LoginScreen", "Server returned empty token")
+                                                errorMessage = "Invalid authentication response. Please try again."
+                                                isLoading = false
+                                                return@let
+                                            }
 
-                                                // For development purposes only
-                                                Log.w(
-                                                    "LoginScreen",
-                                                    "Using temporary token for development"
-                                                )
-                                                tokenManager.saveToken("dev_temp_token")
+                                            Log.d("LoginScreen", "Got token: ${loginResponse.accessToken.take(10)}...")
+                                            tokenManager.saveToken(loginResponse.accessToken)
 
-                                                navController.navigate("home") {
-                                                    popUpTo("login") { inclusive = true }
-                                                }
-                                            } else {
-                                                Log.d(
-                                                    "LoginScreen",
-                                                    "Got token: ${loginResponse.token.take(10)}..."
-                                                )
-                                                tokenManager.saveToken(loginResponse.token)
+                                            loginResponse.refreshToken?.let {
+                                                Log.d("LoginScreen", "Got refresh token: ${it.take(10)}...")
+                                                tokenManager.saveRefreshToken(it)
+                                            }
 
-                                                loginResponse.refreshToken?.let {
-                                                    Log.d(
-                                                        "LoginScreen",
-                                                        "Got refresh token: ${it.take(10)}..."
-                                                    )
-                                                    tokenManager.saveRefreshToken(it)
-                                                }
-
-                                                navController.navigate("home") {
-                                                    popUpTo("login") { inclusive = true }
-                                                }
+                                            navController.navigate("home") {
+                                                popUpTo("login") { inclusive = true }
                                             }
                                         } ?: run {
-                                            Log.e(
-                                                "LoginScreen",
-                                                "Body was null despite successful response"
-                                            )
+                                            Log.e("LoginScreen", "Body was null despite successful response")
                                             errorMessage = "Invalid response from server."
                                         }
                                     } else {
                                         when (response.code()) {
                                             401 -> errorMessage =
                                                 "Invalid credentials. Check your email and password."
+
                                             403 -> errorMessage =
                                                 "Access forbidden. Please try again later."
+
                                             404 -> errorMessage =
                                                 "Login service not found. Please contact support."
+
                                             500 -> errorMessage =
                                                 "Server error. Please try again later."
+
                                             else -> {
                                                 val errorBody = response.errorBody()?.string()
                                                     ?: "Unknown error"
