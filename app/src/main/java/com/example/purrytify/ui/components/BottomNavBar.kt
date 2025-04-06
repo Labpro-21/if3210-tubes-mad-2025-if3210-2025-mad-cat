@@ -21,10 +21,11 @@ import com.example.purrytify.R
 @Composable
 fun BottomNavBar(
     navController: NavController,
-    currentRoute: String = "home"
+    currentRoute: String = "home",
+    modifier: Modifier = Modifier  // Added modifier parameter with default value
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier  // Use the passed modifier here
             .fillMaxWidth()
             .background(Color.Black)
             .padding(vertical = 12.dp)
