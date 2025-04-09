@@ -7,11 +7,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.purrytify.ui.screens.*
 import com.example.purrytify.ui.theme.PurrytifyTheme
+import com.example.purrytify.ui.viewmodel.MusicViewModel
+import com.example.purrytify.ui.viewmodel.SongViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,6 +25,10 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     // Create a NavController for navigation
                     val navController = rememberNavController()
+
+                    // Create shared ViewModels
+                    val musicViewModel: MusicViewModel = viewModel()
+                    val songViewModel: SongViewModel = viewModel()
 
                     // Set up the NavHost with the navigation graph
                     NavHost(
@@ -37,20 +44,41 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("home") {
-                            HomeScreen(navController = navController)
+                            HomeScreen(
+                                navController = navController,
+                                musicViewModel = musicViewModel,
+                                onNavigateToPlayer = { navController.navigate("player") }
+                            )
                         }
 
                         composable("library") {
-                            LibraryScreen(navController = navController)
+                            LibraryScreen(
+                                navController = navController,
+                                musicViewModel = musicViewModel,
+                                songViewModel = songViewModel,
+                                onNavigateToPlayer = { navController.navigate("player") }
+                            )
                         }
 
                         composable("profile") {
-                            ProfileScreen(navController = navController)
+                            ProfileScreen(
+                                navController = navController,
+                                musicViewModel = musicViewModel,
+                                onNavigateToPlayer = { navController.navigate("player") }
+                            )
                         }
 
                         // Add the settings screen to the navigation
                         composable("settings") {
                             SettingsScreen(navController = navController)
+                        }
+
+                        // Add the music player screen
+                        composable("player") {
+                            MusicPlayerScreen(
+                                musicViewModel = musicViewModel,
+                                onBackClick = { navController.popBackStack() }
+                            )
                         }
                     }
                 }
