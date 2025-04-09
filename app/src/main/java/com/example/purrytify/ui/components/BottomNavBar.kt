@@ -17,50 +17,59 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.purrytify.R
+import com.example.purrytify.ui.viewmodel.MusicViewModel
 
 @Composable
 fun BottomNavBar(
     navController: NavController,
+    musicViewModel: MusicViewModel,
     currentRoute: String = "home",
-    modifier: Modifier = Modifier  // Added modifier parameter with default value
+    onMiniPlayerClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier  // Use the passed modifier here
+        modifier = modifier
             .fillMaxWidth()
             .background(Color.Black)
-            .padding(vertical = 12.dp)
     ) {
-        // Navigation items row with increased horizontal spacing
-        Row(
+        MiniPlayer(
+            musicViewModel = musicViewModel,
+            onPlayerClick = onMiniPlayerClick
+        )
+
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp), // Increased horizontal spacing
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(vertical = 12.dp)
         ) {
-            // Home Navigation Item
-            NavItem(
-                icon = R.drawable.nav_home,
-                label = "Home",
-                isSelected = currentRoute == "home",
-                onClick = { if (currentRoute != "home") navController.navigate("home") }
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NavItem(
+                    icon = R.drawable.nav_home,
+                    label = "Home",
+                    isSelected = currentRoute == "home",
+                    onClick = { if (currentRoute != "home") navController.navigate("home") }
+                )
 
-            // Library Navigation Item
-            NavItem(
-                icon = R.drawable.nav_library,
-                label = "Your Library",
-                isSelected = currentRoute == "library",
-                onClick = { if (currentRoute != "library") navController.navigate("library") }
-            )
+                NavItem(
+                    icon = R.drawable.nav_library,
+                    label = "Your Library",
+                    isSelected = currentRoute == "library",
+                    onClick = { if (currentRoute != "library") navController.navigate("library") }
+                )
 
-            // Profile Navigation Item
-            NavItem(
-                icon = R.drawable.nav_profile,
-                label = "Profile",
-                isSelected = currentRoute == "profile",
-                onClick = { if (currentRoute != "profile") navController.navigate("profile") }
-            )
+                NavItem(
+                    icon = R.drawable.nav_profile,
+                    label = "Profile",
+                    isSelected = currentRoute == "profile",
+                    onClick = { if (currentRoute != "profile") navController.navigate("profile") }
+                )
+            }
         }
     }
 }
