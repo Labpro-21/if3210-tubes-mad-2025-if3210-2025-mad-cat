@@ -36,10 +36,15 @@ import com.example.purrytify.data.api.RetrofitClient
 import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(
+    navController: NavController,
+    musicViewModel: MusicViewModel,
+    onNavigateToPlayer: () -> Unit
+) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val coroutineScope = rememberCoroutineScope()
@@ -131,6 +136,7 @@ fun ProfileScreen(navController: NavController) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
+                    .padding(bottom = 56.dp) // Add padding to account for mini player + navbar
             ) {
                 Column(
                     modifier = Modifier
@@ -263,13 +269,16 @@ fun ProfileScreen(navController: NavController) {
                     }
                 }
             }
-
-            // Bottom Navigation Bar
-            BottomNavBar(
-                navController = navController,
-                currentRoute = "profile"
-            )
         }
+
+        // Bottom Navigation Bar with mini player
+        BottomNavBar(
+            navController = navController,
+            musicViewModel = musicViewModel,
+            currentRoute = "profile",
+            onMiniPlayerClick = onNavigateToPlayer,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 

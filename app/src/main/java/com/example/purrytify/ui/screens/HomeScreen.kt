@@ -29,17 +29,14 @@ import com.example.purrytify.ui.components.BottomNavBar
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-
-data class Song(
-    val title: String,
-    val artist: String,
-    val coverUri: String,
-    val uri: String,
-    val duration: String
-)
+import com.example.purrytify.ui.viewmodel.MusicViewModel
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    navController: NavController,
+    musicViewModel: MusicViewModel,
+    onNavigateToPlayer: () -> Unit
+) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
 
@@ -52,7 +49,6 @@ fun HomeScreen(navController: NavController) {
         try {
             val token = tokenManager.getToken()
             if (token != null) {
-                // TODO: Implement actual API calls to fetch new and recently played songs
                 // For now, we'll use dummy data
                 newSongs = getDummyNewSongs()
                 recentlySongs = getDummyRecentlySongs()
@@ -103,7 +99,8 @@ fun HomeScreen(navController: NavController) {
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(0.5f)
             ) {
                 items(newSongs) { song ->
                     NewSongItem(song)
@@ -121,7 +118,9 @@ fun HomeScreen(navController: NavController) {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 80.dp), // Added padding for mini-player
+                modifier = Modifier.weight(0.5f)
             ) {
                 items(recentlySongs) { song ->
                     RecentlySongItem(song)
@@ -129,10 +128,12 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        // Bottom Navigation Bar
+        // Bottom Navigation Bar with mini player
         BottomNavBar(
             navController = navController,
+            musicViewModel = musicViewModel,
             currentRoute = "home",
+            onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
@@ -176,7 +177,8 @@ fun RecentlySongItem(song: Song) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = song.coverUri,
