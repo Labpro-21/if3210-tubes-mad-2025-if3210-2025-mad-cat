@@ -14,11 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.AddCircle
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,11 +44,20 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.launch
 
+data class Song(
+    val title: String,
+    val artist: String,
+    val coverUri: String,
+    val uri: String,
+    val duration: String
+)
+
 @Composable
 fun LibraryScreen(
     navController: NavController,
     songViewModel: SongViewModel = viewModel(),
-    musicViewModel: MusicViewModel = viewModel()
+    musicViewModel: MusicViewModel = viewModel(),
+    onNavigateToPlayer: () -> Unit
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
@@ -65,10 +69,6 @@ fun LibraryScreen(
 
     // Collect songs from the ViewModel
     val songs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
-
-    // Collect current playing song from MusicViewModel
-    val currentPlayingSong by musicViewModel.currentSong.collectAsStateWithLifecycle()
-    val isPlaying by musicViewModel.isPlaying.collectAsStateWithLifecycle()
 
     // State for upload dialog
     var showUploadDialog by remember { mutableStateOf(false) }
@@ -117,6 +117,27 @@ fun LibraryScreen(
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
             val fileName = "song_${System.currentTimeMillis()}.mp3"
+            val file = File(context.filesDir, fileName)
+            val outputStream = FileOutputStream(file)
+
+            inputStream?.use { input ->
+                outputStream.use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // Function to save the image file to app's private storage
+    fun saveImageFile(uri: Uri): String? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val fileName = "cover_${System.currentTimeMillis()}.jpg"
             val file = File(context.filesDir, fileName)
             val outputStream = FileOutputStream(file)
 
@@ -216,8 +237,9 @@ fun LibraryScreen(
             if (songs.value.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 80.dp),
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(bottom = 56.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -243,8 +265,10 @@ fun LibraryScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 56.dp)
                 ) {
                     items(songs.value) { song ->
                         LibrarySongItem(
@@ -260,90 +284,12 @@ fun LibraryScreen(
             }
         }
 
-        // Now Playing Bar
-        if (currentPlayingSong != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 56.dp)
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF3D1D29)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = if (currentPlayingSong!!.coverUri.isNotEmpty())
-                                File(currentPlayingSong!!.coverUri)
-                            else
-                                "https://example.com/placeholder.jpg",
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = currentPlayingSong!!.title,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Text(
-                                text = currentPlayingSong!!.artist.split(",").firstOrNull() ?: "",
-                                color = Color.LightGray,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { /* TODO: Add to favorites */ }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddCircle,
-                                contentDescription = "Add to favorites",
-                                tint = Color.White
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { musicViewModel.togglePlayPause() }
-                        ) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Bottom Navigation Bar
+        // Bottom Navigation Bar - now placed outside the Column to ensure proper layout
         BottomNavBar(
             navController = navController,
+            musicViewModel = musicViewModel,
             currentRoute = "library",
+            onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
 
@@ -608,11 +554,17 @@ fun LibraryScreen(
                                                 return@launch
                                             }
 
+                                            // Save image file if selected
+                                            var savedImagePath = ""
+                                            if (newSongImageUri != null) {
+                                                savedImagePath = saveImageFile(newSongImageUri!!) ?: ""
+                                            }
+
                                             // Create new song object
                                             val newSong = Song(
                                                 title = newSongTitle,
                                                 artist = newSongArtist,
-                                                coverUri = "",
+                                                coverUri = savedImagePath,
                                                 uri = savedAudioPath,
                                                 duration = audioDuration
                                             )
@@ -716,74 +668,6 @@ fun LibrarySongItem(song: Song, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-    }
-}
-
-@Composable
-fun BottomNavBar(navController: NavController, currentRoute: String, modifier: Modifier = Modifier) {
-    BottomAppBar(
-        modifier = modifier
-            .height(56.dp),
-        containerColor = Color.Black
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // Home
-            IconButton(
-                onClick = { navController.navigate("home") }
-            ) {
-                Column(horizontalAlignment = CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Outlined.Home,
-                        contentDescription = "Home",
-                        tint = if (currentRoute == "home") Color.White else Color.Gray
-                    )
-                    Text(
-                        text = "Home",
-                        color = if (currentRoute == "home") Color.White else Color.Gray,
-                        fontSize = 10.sp
-                    )
-                }
-            }
-
-            // Library
-            IconButton(
-                onClick = { /* Already in library */ }
-            ) {
-                Column(horizontalAlignment = CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Add, // Placeholder for library icon
-                        contentDescription = "Your Library",
-                        tint = if (currentRoute == "library") Color.White else Color.Gray
-                    )
-                    Text(
-                        text = "Your Library",
-                        color = if (currentRoute == "library") Color.White else Color.Gray,
-                        fontSize = 10.sp
-                    )
-                }
-            }
-
-            // Profile
-            IconButton(
-                onClick = { navController.navigate("profile") }
-            ) {
-                Column(horizontalAlignment = CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = "Profile",
-                        tint = if (currentRoute == "profile") Color.White else Color.Gray
-                    )
-                    Text(
-                        text = "Profile",
-                        color = if (currentRoute == "profile") Color.White else Color.Gray,
-                        fontSize = 10.sp
-                    )
-                }
-            }
         }
     }
 }
