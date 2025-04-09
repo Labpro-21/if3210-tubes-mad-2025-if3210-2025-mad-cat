@@ -31,10 +31,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 
 data class Song(
-    val id: Int,
     val title: String,
     val artist: String,
-    val coverUrl: String
+    val coverUri: String,
+    val uri: String,
+    val duration: String
 )
 
 @Composable
@@ -144,7 +145,7 @@ fun NewSongItem(song: Song) {
             .width(160.dp)
     ) {
         AsyncImage(
-            model = song.coverUrl,
+            model = song.coverUri,
             contentDescription = song.title,
             modifier = Modifier
                 .aspectRatio(1f)
@@ -178,7 +179,7 @@ fun RecentlySongItem(song: Song) {
             .padding(vertical = 8.dp)
     ) {
         AsyncImage(
-            model = song.coverUrl,
+            model = song.coverUri,
             contentDescription = song.title,
             modifier = Modifier
                 .size(60.dp)
@@ -208,16 +209,16 @@ fun RecentlySongItem(song: Song) {
 
 // Dummy data functions
 fun getDummyNewSongs(): List<Song> = listOf(
-    Song(1, "Starboy", "The Weeknd", "https://example.com/starboy.jpg"),
-    Song(2, "Here Comes the Sun", "The Beatles", "https://example.com/beatles.jpg"),
-    Song(3, "Midnight Pretenders", "Tomoko Aran", "https://example.com/tomoko.jpg"),
-    Song(4, "Violent", "Kanye West", "https://example.com/kanye.jpg")
+    Song("Starboy", "The Weeknd", "https://example.com/starboy.jpg", "https://example.com/audio/starboy.mp3", "3:50"),
+    Song("Here Comes the Sun", "The Beatles", "https://example.com/beatles.jpg", "https://example.com/audio/sun.mp3", "3:05"),
+    Song("Midnight Pretenders", "Tomoko Aran", "https://example.com/tomoko.jpg", "https://example.com/audio/midnight.mp3", "5:15"),
+    Song("Violent Crimes", "Kanye West", "https://example.com/kanye.jpg", "https://example.com/audio/violent.mp3", "3:35")
 )
 
 fun getDummyRecentlySongs(): List<Song> = listOf(
-    Song(1, "Jazz is for ordinary people", "berlioz", "https://example.com/berlioz.jpg"),
-    Song(2, "Loose", "Daniel Caesar", "https://example.com/daniel.jpg"),
-    Song(3, "Nights", "Frank Ocean", "https://example.com/frank.jpg"),
-    Song(4, "Kiss of Life", "Sade", "https://example.com/sade.jpg"),
-    Song(5, "BEST INTEREST", "Tyler, The Creator", "https://example.com/tyler.jpg")
+    Song("Jazz is for Ordinary People", "berlioz", "https://example.com/berlioz.jpg", "https://example.com/audio/jazz.mp3", "4:10"),
+    Song("Loose", "Daniel Caesar", "https://example.com/daniel.jpg", "https://example.com/audio/loose.mp3", "3:45"),
+    Song("Nights", "Frank Ocean", "https://example.com/frank.jpg", "https://example.com/audio/nights.mp3", "5:08"),
+    Song("Kiss of Life", "Sade", "https://example.com/sade.jpg", "https://example.com/audio/kiss.mp3", "4:18"),
+    Song("BEST INTEREST", "Tyler, The Creator", "https://example.com/tyler.jpg", "https://example.com/audio/bestinterest.mp3", "2:57")
 )
