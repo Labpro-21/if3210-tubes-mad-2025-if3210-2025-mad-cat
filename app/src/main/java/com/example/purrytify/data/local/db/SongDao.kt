@@ -4,7 +4,6 @@ import androidx.room.*
 import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
 import com.example.purrytify.data.local.db.entities.SongUploader
-
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -35,7 +34,6 @@ interface SongDao {
     """)
     fun getSongsByUser(userEmail: String): Flow<List<SongEntity>>
 
-
     @Query("""
         SELECT songs.* FROM songs
         INNER JOIN liked_songs ON songs.id = liked_songs.songId
@@ -52,4 +50,18 @@ interface SongDao {
 
     @Query("SELECT id FROM songs WHERE title = :title AND artist = :artist")
     suspend fun getSongId(title: String, artist: String): Int
+
+    // New methods for edit and delete functionality
+
+    @Update
+    suspend fun updateSong(song: SongEntity)
+
+    @Query("DELETE FROM songs WHERE id = :songId")
+    suspend fun deleteSong(songId: Int)
+
+    @Query("DELETE FROM song_uploader WHERE uploaderEmail = :userEmail AND songId = :songId")
+    suspend fun deleteUserSong(userEmail: String, songId: Int)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM song_uploader WHERE songId = :songId)")
+    suspend fun isSongUsedByOthers(songId: Int): Boolean
 }
