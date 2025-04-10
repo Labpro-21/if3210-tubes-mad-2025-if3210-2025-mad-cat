@@ -17,22 +17,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.purrytify.ui.viewmodel.MusicViewModel
+import com.example.purrytify.ui.viewmodel.RepeatMode
+import com.example.purrytify.ui.viewmodel.SongViewModel
 import java.io.File
 import kotlin.math.floor
 
 @Composable
 fun MusicPlayerScreen(
     musicViewModel: MusicViewModel,
+    songViewModel: SongViewModel = viewModel(),
     onBackClick: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    // Initialize playback controls when the screen is first composed
+    LaunchedEffect(Unit) {
+        musicViewModel.initializePlaybackControls(songViewModel, context)
+    }
+
     val currentSong by musicViewModel.currentSong.collectAsState()
     val isPlaying by musicViewModel.isPlaying.collectAsState()
     val currentPosition by musicViewModel.currentPosition.collectAsState()
     val duration by musicViewModel.duration.collectAsState()
-
-    val context = LocalContext.current
+    val repeatMode by musicViewModel.repeatMode.collectAsState()
+    val isShuffleOn by musicViewModel.isShuffleOn.collectAsState()
 
     if (currentSong == null) {
         Box(
@@ -173,9 +184,22 @@ fun MusicPlayerScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Shuffle button
+                IconButton(
+                    onClick = { musicViewModel.toggleShuffle() },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (isShuffleOn) Color.Green else Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
                 // Previous button
                 IconButton(
-                    onClick = { /* Previous song */ },
+                    onClick = { musicViewModel.playPrevious() },
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
@@ -204,7 +228,7 @@ fun MusicPlayerScreen(
 
                 // Next button
                 IconButton(
-                    onClick = { /* Next song */ },
+                    onClick = { musicViewModel.playNext() },
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
@@ -214,12 +238,32 @@ fun MusicPlayerScreen(
                         modifier = Modifier.size(36.dp)
                     )
                 }
+
+                // Repeat button
+                IconButton(
+                    onClick = { musicViewModel.toggleRepeatMode() },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = when (repeatMode) {
+                            RepeatMode.OFF -> Icons.Default.Repeat
+                            RepeatMode.ALL -> Icons.Default.Repeat
+                            RepeatMode.ONE -> Icons.Default.RepeatOne
+                        },
+                        contentDescription = "Repeat",
+                        tint = when (repeatMode) {
+                            RepeatMode.OFF -> Color.White
+                            RepeatMode.ALL -> Color.Green
+                            RepeatMode.ONE -> Color.Green
+                        },
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
         }
     }
 }
 
-// Helper function to format duration
 private fun formatDuration(milliseconds: Int): String {
     val totalSeconds = floor(milliseconds / 1000f).toInt()
     val minutes = totalSeconds / 60
