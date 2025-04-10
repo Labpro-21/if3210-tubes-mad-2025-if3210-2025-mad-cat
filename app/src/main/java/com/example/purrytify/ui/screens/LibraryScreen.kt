@@ -1,6 +1,5 @@
 package com.example.purrytify.ui.screens
 
-import android.content.ContentResolver
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.widget.Toast
@@ -52,6 +51,24 @@ data class Song(
     val duration: String
 )
 
+fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<String, String> {
+    val retriever = MediaMetadataRetriever()
+    try {
+        retriever.setDataSource(context, uri)
+
+        val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: ""
+        val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?:
+        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST) ?: ""
+
+        return Pair(title, artist)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return Pair("", "")
+    } finally {
+        retriever.release()
+    }
+}
+
 @Composable
 fun LibraryScreen(
     navController: NavController,
@@ -64,16 +81,12 @@ fun LibraryScreen(
     val userEmail = remember { "13522126@std.stei.itb.ac.id" } // This would typically come from your auth system
     val scope = rememberCoroutineScope()
 
-    // State for library view mode
     var selectedLibraryMode by remember { mutableStateOf("All") }
 
-    // Collect songs from the ViewModel
     val songs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // State for upload dialog
     var showUploadDialog by remember { mutableStateOf(false) }
 
-    // State for new song inputs
     var newSongTitle by remember { mutableStateOf("") }
     var newSongArtist by remember { mutableStateOf("") }
     var newSongImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -82,27 +95,38 @@ fun LibraryScreen(
     var isUploading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         newSongImageUri = uri
     }
 
-    // Audio picker launcher
     val audioPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             newSongAudioUri = it
-            // Extract duration
+
             val retriever = MediaMetadataRetriever()
             try {
                 retriever.setDataSource(context, it)
+
                 val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0
                 val seconds = (durationMs / 1000) % 60
                 val minutes = (durationMs / (1000 * 60)) % 60
                 audioDuration = "$minutes:${String.format("%02d", seconds)}"
+
+                val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                if (!title.isNullOrBlank()) {
+                    newSongTitle = title
+                }
+
+                val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?:
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+                if (!artist.isNullOrBlank()) {
+                    newSongArtist = artist
+                }
+
             } catch (e: Exception) {
                 e.printStackTrace()
                 audioDuration = "0:00"
@@ -112,7 +136,6 @@ fun LibraryScreen(
         }
     }
 
-    // Function to save the file to app's private storage
     fun saveAudioFile(uri: Uri): String? {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
@@ -133,7 +156,6 @@ fun LibraryScreen(
         }
     }
 
-    // Function to save the image file to app's private storage
     fun saveImageFile(uri: Uri): String? {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
@@ -164,7 +186,6 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
         ) {
-            // Header with Title and Add Button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -189,7 +210,6 @@ fun LibraryScreen(
                 }
             }
 
-            // Library Mode Selector (All/Liked)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -233,7 +253,6 @@ fun LibraryScreen(
                 }
             }
 
-            // Songs List
             if (songs.value.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -284,7 +303,6 @@ fun LibraryScreen(
             }
         }
 
-        // Bottom Navigation Bar - now placed outside the Column to ensure proper layout
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
@@ -293,13 +311,11 @@ fun LibraryScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
 
-        // Upload Song Dialog
         if (showUploadDialog) {
             Dialog(
                 onDismissRequest = {
                     if (!isUploading) {
                         showUploadDialog = false
-                        // Reset input fields
                         newSongTitle = ""
                         newSongArtist = ""
                         newSongImageUri = null
@@ -339,7 +355,6 @@ fun LibraryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            // Upload Photo Button
                             Column(
                                 horizontalAlignment = CenterHorizontally
                             ) {
@@ -383,7 +398,6 @@ fun LibraryScreen(
                                 }
                             }
 
-                            // Upload File Button
                             Column(
                                 horizontalAlignment = CenterHorizontally
                             ) {
@@ -428,7 +442,6 @@ fun LibraryScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Title input
                         Text(
                             text = "Title",
                             color = Color.White,
@@ -455,7 +468,6 @@ fun LibraryScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Artist input
                         Text(
                             text = "Artist",
                             color = Color.White,
@@ -480,7 +492,6 @@ fun LibraryScreen(
                             shape = RoundedCornerShape(8.dp)
                         )
 
-                        // Error message
                         if (errorMessage != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
@@ -492,7 +503,6 @@ fun LibraryScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -501,7 +511,6 @@ fun LibraryScreen(
                                 onClick = {
                                     if (!isUploading) {
                                         showUploadDialog = false
-                                        // Reset input fields
                                         newSongTitle = ""
                                         newSongArtist = ""
                                         newSongImageUri = null
@@ -539,13 +548,11 @@ fun LibraryScreen(
                                         return@Button
                                     }
 
-                                    // All validations passed, proceed with upload
                                     errorMessage = null
                                     isUploading = true
 
                                     scope.launch {
                                         try {
-                                            // Save audio file to app private storage
                                             val savedAudioPath = saveAudioFile(newSongAudioUri!!)
 
                                             if (savedAudioPath == null) {
@@ -554,13 +561,27 @@ fun LibraryScreen(
                                                 return@launch
                                             }
 
-                                            // Save image file if selected
                                             var savedImagePath = ""
                                             if (newSongImageUri != null) {
                                                 savedImagePath = saveImageFile(newSongImageUri!!) ?: ""
+                                            } else {
+                                                val retriever = MediaMetadataRetriever()
+                                                try {
+                                                    retriever.setDataSource(context, newSongAudioUri!!)
+                                                    val embeddedArt = retriever.embeddedPicture
+                                                    if (embeddedArt != null) {
+                                                        val fileName = "artwork_${System.currentTimeMillis()}.jpg"
+                                                        val file = File(context.filesDir, fileName)
+                                                        file.writeBytes(embeddedArt)
+                                                        savedImagePath = file.absolutePath
+                                                    }
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                } finally {
+                                                    retriever.release()
+                                                }
                                             }
 
-                                            // Create new song object
                                             val newSong = Song(
                                                 title = newSongTitle,
                                                 artist = newSongArtist,
@@ -569,7 +590,6 @@ fun LibraryScreen(
                                                 duration = audioDuration
                                             )
 
-                                            // Insert using the ViewModel
                                             songViewModel.checkAndInsertSong(
                                                 context,
                                                 newSong,
@@ -580,7 +600,6 @@ fun LibraryScreen(
                                                 }
                                             )
 
-                                            // Close dialog and reset
                                             isUploading = false
                                             showUploadDialog = false
                                             newSongTitle = ""
@@ -630,7 +649,6 @@ fun LibrarySongItem(song: Song, onClick: () -> Unit) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Check if coverUri is a local file path
         val imageModel = if (song.coverUri.isNotEmpty() && File(song.coverUri).exists()) {
             File(song.coverUri)
         } else {
