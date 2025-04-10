@@ -39,7 +39,7 @@ import com.example.purrytify.ui.components.BottomNavBar
 import kotlinx.coroutines.launch
 
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(navController: NavController, isConnected: Boolean) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val coroutineScope = rememberCoroutineScope()
@@ -103,7 +103,6 @@ fun ProfileScreen(navController: NavController) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Settings button in top right corner
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
