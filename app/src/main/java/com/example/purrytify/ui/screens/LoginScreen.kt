@@ -225,6 +225,8 @@ fun LoginScreen(navController: NavController) {
                                                 tokenManager.saveRefreshToken(it)
                                             }
 
+                                            tokenManager.scheduleTokenRefresh()
+
                                             navController.navigate("home") {
                                                 popUpTo("login") { inclusive = true }
                                             }
