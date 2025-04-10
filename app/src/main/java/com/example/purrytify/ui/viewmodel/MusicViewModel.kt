@@ -48,12 +48,13 @@ class MusicViewModel : ViewModel() {
     private var context: Context? = null
 
     fun initializePlaybackControls(songViewModel: SongViewModel, context: Context) {
-        this.songViewModel = songViewModel
         this.context = context
-
         viewModelScope.launch {
+            // Save the full playlist
             currentPlaylist = songViewModel.allSongs.first()
-            if (currentPlaylist.isNotEmpty()) {
+
+            // If no song is currently playing, start with the first song
+            if (currentSong.value == null && currentPlaylist.isNotEmpty()) {
                 currentIndex = 0
                 playSong(currentPlaylist[currentIndex], context)
             }
@@ -61,6 +62,12 @@ class MusicViewModel : ViewModel() {
     }
 
     fun playSong(song: Song, context: Context) {
+        // Find the index of the song in the playlist
+        currentIndex = currentPlaylist.indexOfFirst {
+            it.title == song.title && it.artist == song.artist
+        }.takeIf { it != -1 } ?: 0
+
+        // Existing playSong logic
         _currentSong.value = song
         try {
             mediaPlayer?.release()
@@ -71,7 +78,6 @@ class MusicViewModel : ViewModel() {
                 _duration.value = duration
                 _isPlaying.value = true
 
-                // Set up completion listener
                 setOnCompletionListener { onSongCompletion() }
             }
             startUpdatingProgress()
@@ -121,7 +127,8 @@ class MusicViewModel : ViewModel() {
             else -> (currentIndex + 1) % currentPlaylist.size
         }
 
-        context?.let { playSong(currentPlaylist[currentIndex], it) }
+        // Play the next song
+        playSong(currentPlaylist[currentIndex], context ?: return)
     }
 
     // Play previous song
@@ -135,7 +142,8 @@ class MusicViewModel : ViewModel() {
             else -> (currentIndex - 1 + currentPlaylist.size) % currentPlaylist.size
         }
 
-        context?.let { playSong(currentPlaylist[currentIndex], it) }
+        // Play the previous song
+        playSong(currentPlaylist[currentIndex], context ?: return)
     }
 
     // Toggle repeat mode
@@ -188,6 +196,94 @@ class MusicViewModel : ViewModel() {
             RepeatMode.ALL, RepeatMode.OFF -> {
                 // Play next song
                 playNext()
+            }
+        }
+    }
+
+    // New methods for edit and delete functionality
+
+    // Update the current song with new details (after editing)
+    fun updateCurrentSong(updatedSong: Song) {
+        val wasPlaying = _isPlaying.value
+        val currentPosition = _currentPosition.value
+
+        // Update the current song reference
+        _currentSong.value = updatedSong
+
+        // Update the playlist
+        viewModelScope.launch {
+            songViewModel?.let { viewModel ->
+                // Get fresh playlist
+                currentPlaylist = viewModel.allSongs.first()
+
+                // Find updated song in playlist
+                val updatedIndex = currentPlaylist.indexOfFirst {
+                    it.uri == updatedSong.uri
+                }
+
+                if (updatedIndex != -1) {
+                    currentIndex = updatedIndex
+                }
+
+                // If the song was playing, restart it with the updated details
+                if (wasPlaying) {
+                    context?.let { ctx ->
+                        mediaPlayer?.release()
+                        mediaPlayer = MediaPlayer().apply {
+                            setDataSource(ctx, Uri.parse(updatedSong.uri))
+                            prepare()
+                            // Restore position if possible
+                            if (currentPosition > 0 && currentPosition < duration) {
+                                seekTo(currentPosition)
+                            }
+                            if (wasPlaying) {
+                                start()
+                                _isPlaying.value = true
+                            }
+                            _duration.value = duration
+                            setOnCompletionListener { onSongCompletion() }
+                        }
+                        startUpdatingProgress()
+                    }
+                }
+            }
+        }
+    }
+
+    // Stop playing and clear current song (for deletion)
+    fun stopAndClearCurrentSong() {
+        mediaPlayer?.apply {
+            if (isPlaying) {
+                stop()
+            }
+            release()
+        }
+        mediaPlayer = null
+        updateJob?.cancel()
+
+        _isPlaying.value = false
+        _currentPosition.value = 0
+        _duration.value = 0
+
+        // Try to play next song if available
+        viewModelScope.launch {
+            songViewModel?.let { viewModel ->
+                // Get fresh playlist (after deletion)
+                val refreshedPlaylist = viewModel.allSongs.first()
+
+                if (refreshedPlaylist.isNotEmpty()) {
+                    currentPlaylist = refreshedPlaylist
+                    if (currentIndex >= currentPlaylist.size) {
+                        currentIndex = 0
+                    }
+                    context?.let { ctx ->
+                        playSong(currentPlaylist[currentIndex], ctx)
+                    }
+                } else {
+                    // No songs left
+                    _currentSong.value = null
+                    currentPlaylist = emptyList()
+                }
             }
         }
     }

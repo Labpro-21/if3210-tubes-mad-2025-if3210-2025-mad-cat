@@ -15,10 +15,11 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 class SongViewModel(application: Application) : AndroidViewModel(application) {
-    private val songDao = AppDatabase.Companion.getDatabase(application).songDao()
+    private val songDao = AppDatabase.getDatabase(application).songDao()
+    private val defaultUserEmail = "13522126@std.stei.itb.ac.id"
 
     val allSongs: Flow<List<Song>> =
-        songDao.getSongsByUser("13522126@std.stei.itb.ac.id").map { entities ->
+        songDao.getSongsByUser(defaultUserEmail).map { entities ->
             entities.map { entity ->
                 Song(
                     title = entity.title,
@@ -48,8 +49,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
-    fun insertSong(song: Song, userEmail: String){
+    fun insertSong(song: Song, userEmail: String = defaultUserEmail){
         viewModelScope.launch {
             val entity = SongEntity(
                 title = song.title,
@@ -67,7 +67,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     fun checkAndInsertSong(
         context: Context,
         song: Song,
-        userEmail: String,
+        userEmail: String = defaultUserEmail,
         onExists: () -> Unit
     ) {
         viewModelScope.launch {
@@ -78,11 +78,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 onExists()
             } else if (exists) {
                 val songId = songDao.getSongId(song.title, song.artist)
-                val registerUploader = SongUploader(
-                    uploaderEmail = userEmail,
-                    songId = songId
-                )
-                songDao.registerUserToSong(registerUploader.uploaderEmail, registerUploader.songId)
+                songDao.registerUserToSong(userEmail, songId)
             } else {
                 val savedArtworkPath = extractAndSaveArtwork(context, Uri.parse(song.uri)) ?: ""
 
@@ -91,7 +87,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                     artist = song.artist,
                     duration = song.duration,
                     uri = song.uri,
-                    coverUri = savedArtworkPath // 👈 pakai path lokal
+                    coverUri = savedArtworkPath
                 )
                 val newId = songDao.insertSong(entity).toInt()
                 songDao.registerUserToSong(userEmail, newId)
@@ -99,6 +95,73 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // New methods for edit and delete functionality
 
+    // Delete a song
+    fun deleteSong(song: Song, userEmail: String = defaultUserEmail, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                // Get the song ID first
+                val songId = songDao.getSongId(song.title, song.artist)
 
+                // Delete song uploader relationship
+                songDao.deleteUserSong(userEmail, songId)
+
+                // Check if the song is still used by other users
+                val isUsedByOthers = songDao.isSongUsedByOthers(songId)
+
+                // If not used by others, delete the actual song and its files
+                if (!isUsedByOthers) {
+                    // Delete physical files
+                    if (song.coverUri.isNotEmpty()) {
+                        val coverFile = File(song.coverUri)
+                        if (coverFile.exists()) {
+                            coverFile.delete()
+                        }
+                    }
+
+                    val audioFile = File(song.uri)
+                    if (audioFile.exists()) {
+                        audioFile.delete()
+                    }
+
+                    // Delete from database
+                    songDao.deleteSong(songId)
+                }
+
+                onComplete()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // Update a song
+    fun updateSong(
+        oldSong: Song,
+        newSong: Song,
+        userEmail: String = defaultUserEmail,
+        onComplete: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val songId = songDao.getSongId(oldSong.title, oldSong.artist)
+
+                // Update the song entity
+                val entity = SongEntity(
+                    id = songId,
+                    title = newSong.title,
+                    artist = newSong.artist,
+                    duration = newSong.duration,
+                    uri = newSong.uri,
+                    coverUri = newSong.coverUri
+                )
+
+                songDao.updateSong(entity)
+                onComplete()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }
