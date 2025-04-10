@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,6 +59,22 @@ fun MusicPlayerScreen(
     val duration by musicViewModel.duration.collectAsState()
     val repeatMode by musicViewModel.repeatMode.collectAsState()
     val isShuffleOn by musicViewModel.isShuffleOn.collectAsState()
+
+    // New state for liked song
+    var isSongLiked by remember { mutableStateOf(false) }
+    val currentSongId = remember { mutableStateOf(-1) }
+
+    // Check if the current song is liked when it changes
+    LaunchedEffect(currentSong) {
+        currentSong?.let { song ->
+            // Get song ID for the current song
+            val songId = songViewModel.getSongId(song.title, song.artist)
+            currentSongId.value = songId
+
+            // Check if it's liked
+            isSongLiked = songViewModel.isSongLiked(userEmail, songId)
+        }
+    }
 
     // States for edit and delete functionality
     var showMenu by remember { mutableStateOf(false) }
@@ -280,7 +297,38 @@ fun MusicPlayerScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Like button - NEW!
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(
+                    onClick = {
+                        scope.launch {
+                            if (isSongLiked) {
+                                // Unlike the song
+                                songViewModel.unlikeSong(userEmail, currentSongId.value)
+                                isSongLiked = false
+                                Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                            } else {
+                                // Like the song
+                                songViewModel.likeSong(userEmail, currentSongId.value)
+                                isSongLiked = true
+                                Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = if (isSongLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isSongLiked) "Unlike" else "Like",
+                        tint = if (isSongLiked) Color(0xFFE91E63) else Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
 
             // Song title and artist
             Text(

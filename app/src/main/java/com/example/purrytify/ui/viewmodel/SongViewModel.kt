@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
 import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.data.local.db.entities.SongUploader
 import com.example.purrytify.ui.screens.Song
@@ -20,6 +21,20 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
 
     val allSongs: Flow<List<Song>> =
         songDao.getSongsByUser(defaultUserEmail).map { entities ->
+            entities.map { entity ->
+                Song(
+                    title = entity.title,
+                    artist = entity.artist,
+                    duration = entity.duration,
+                    uri = entity.uri,
+                    coverUri = entity.coverUri ?: ""
+                )
+            }
+        }
+
+    // New: Flow for liked songs
+    val likedSongs: Flow<List<Song>> =
+        songDao.getLikedSongsFlow(defaultUserEmail).map { entities ->
             entities.map { entity ->
                 Song(
                     title = entity.title,
@@ -95,7 +110,31 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // New methods for edit and delete functionality
+    // NEW: Get song ID by title and artist
+    suspend fun getSongId(title: String, artist: String): Int {
+        return songDao.getSongId(title, artist)
+    }
+
+    // NEW: Check if a song is liked
+    suspend fun isSongLiked(userEmail: String = defaultUserEmail, songId: Int): Boolean {
+        return songDao.isSongLiked(userEmail, songId)
+    }
+
+    // NEW: Like a song
+    fun likeSong(userEmail: String = defaultUserEmail, songId: Int) {
+        viewModelScope.launch {
+            val crossRef = LikedSongCrossRef(userEmail, songId)
+            songDao.likeSong(crossRef)
+        }
+    }
+
+    // NEW: Unlike a song
+    fun unlikeSong(userEmail: String = defaultUserEmail, songId: Int) {
+        viewModelScope.launch {
+            val crossRef = LikedSongCrossRef(userEmail, songId)
+            songDao.unlikeSong(crossRef)
+        }
+    }
 
     // Delete a song
     fun deleteSong(song: Song, userEmail: String = defaultUserEmail, onComplete: () -> Unit = {}) {

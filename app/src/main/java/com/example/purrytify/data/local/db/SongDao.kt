@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SongDao {
-
     @Query("SELECT EXISTS(SELECT 1 FROM songs AS s JOIN song_uploader AS su WHERE s.title = :title AND s.artist = :artist AND su.uploaderEmail = :userEmail AND s.id = su.songId)")
     suspend fun isSongExistsForUser(title: String, artist: String, userEmail: String): Boolean
 
@@ -41,6 +40,14 @@ interface SongDao {
     """)
     suspend fun getLikedSongs(userEmail: String): List<SongEntity>
 
+    // NEW: Added this to get liked songs as a Flow
+    @Query("""
+        SELECT songs.* FROM songs
+        INNER JOIN liked_songs ON songs.id = liked_songs.songId
+        WHERE liked_songs.userEmail = :userEmail
+    """)
+    fun getLikedSongsFlow(userEmail: String): Flow<List<SongEntity>>
+
     @Query("""
         SELECT EXISTS(
             SELECT 1 FROM liked_songs WHERE userEmail = :userEmail AND songId = :songId
@@ -51,7 +58,7 @@ interface SongDao {
     @Query("SELECT id FROM songs WHERE title = :title AND artist = :artist")
     suspend fun getSongId(title: String, artist: String): Int
 
-    // New methods for edit and delete functionality
+    // Methods for edit and delete functionality
 
     @Update
     suspend fun updateSong(song: SongEntity)

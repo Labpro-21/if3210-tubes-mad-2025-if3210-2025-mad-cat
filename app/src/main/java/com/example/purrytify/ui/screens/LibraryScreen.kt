@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -83,7 +84,17 @@ fun LibraryScreen(
 
     var selectedLibraryMode by remember { mutableStateOf("All") }
 
-    val songs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
+    // Get both all songs and liked songs
+    val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
+    val likedSongs = songViewModel.likedSongs.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    // Determine which songs to display based on selected mode
+    val songsToDisplay = remember(selectedLibraryMode, allSongs.value, likedSongs.value) {
+        when (selectedLibraryMode) {
+            "Liked" -> likedSongs.value
+            else -> allSongs.value
+        }
+    }
 
     var showUploadDialog by remember { mutableStateOf(false) }
 
@@ -253,7 +264,7 @@ fun LibraryScreen(
                 }
             }
 
-            if (songs.value.isEmpty()) {
+            if (songsToDisplay.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -264,22 +275,50 @@ fun LibraryScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = "Your library is empty",
-                            style = TextStyle(
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium
+                        // Show different message based on selected mode
+                        if (selectedLibraryMode == "Liked") {
+                            Icon(
+                                imageVector = Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(48.dp)
                             )
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Add songs by clicking the + button",
-                            style = TextStyle(
-                                color = Color.Gray,
-                                fontSize = 14.sp
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "No liked songs yet",
+                                style = TextStyle(
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
                             )
-                        )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Like your favorite songs to see them here",
+                                style = TextStyle(
+                                    color = Color.Gray,
+                                    fontSize = 14.sp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                        } else {
+                            Text(
+                                text = "Your library is empty",
+                                style = TextStyle(
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Add songs by clicking the + button",
+                                style = TextStyle(
+                                    color = Color.Gray,
+                                    fontSize = 14.sp
+                                )
+                            )
+                        }
                     }
                 }
             } else {
@@ -289,7 +328,7 @@ fun LibraryScreen(
                         .weight(1f),
                     contentPadding = PaddingValues(bottom = 56.dp)
                 ) {
-                    items(songs.value) { song ->
+                    items(songsToDisplay) { song ->
                         LibrarySongItem(
                             song = song,
                             onClick = {
