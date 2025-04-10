@@ -1,8 +1,10 @@
 package com.example.purrytify.ui.viewmodel
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
@@ -10,6 +12,12 @@ import com.example.purrytify.ui.screens.Song
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlin.random.Random
+
+enum class RepeatMode {
+    OFF, ALL, ONE
+}
 
 class MusicViewModel : ViewModel() {
     private val _currentSong = MutableStateFlow<Song?>(null)
@@ -24,8 +32,33 @@ class MusicViewModel : ViewModel() {
     private val _duration = MutableStateFlow(0)
     val duration: StateFlow<Int> = _duration
 
+    private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
+    val repeatMode: StateFlow<RepeatMode> = _repeatMode
+
+    private val _isShuffleOn = MutableStateFlow(false)
+    val isShuffleOn: StateFlow<Boolean> = _isShuffleOn
+
     private var mediaPlayer: MediaPlayer? = null
     private var updateJob: Job? = null
+
+    private var currentPlaylist: List<Song> = listOf()
+    private var currentIndex: Int = 0
+
+    private var songViewModel: SongViewModel? = null
+    private var context: Context? = null
+
+    fun initializePlaybackControls(songViewModel: SongViewModel, context: Context) {
+        this.songViewModel = songViewModel
+        this.context = context
+
+        viewModelScope.launch {
+            currentPlaylist = songViewModel.allSongs.first()
+            if (currentPlaylist.isNotEmpty()) {
+                currentIndex = 0
+                playSong(currentPlaylist[currentIndex], context)
+            }
+        }
+    }
 
     fun playSong(song: Song, context: Context) {
         _currentSong.value = song
@@ -37,6 +70,9 @@ class MusicViewModel : ViewModel() {
                 start()
                 _duration.value = duration
                 _isPlaying.value = true
+
+                // Set up completion listener
+                setOnCompletionListener { onSongCompletion() }
             }
             startUpdatingProgress()
         } catch (e: Exception) {
@@ -62,7 +98,7 @@ class MusicViewModel : ViewModel() {
         updateJob = viewModelScope.launch {
             while (true) {
                 mediaPlayer?.let {
-                    _currentPosition.value= it.currentPosition
+                    _currentPosition.value = it.currentPosition
                 }
                 delay(1000)
             }
@@ -74,8 +110,91 @@ class MusicViewModel : ViewModel() {
         _currentPosition.value = position
     }
 
+    // Play next song
+    fun playNext() {
+        if (currentPlaylist.isEmpty()) return
+
+        // Determine next index based on repeat and shuffle modes
+        currentIndex = when {
+            _isShuffleOn.value -> Random.nextInt(currentPlaylist.size)
+            _repeatMode.value == RepeatMode.ALL && currentIndex == currentPlaylist.size - 1 -> 0
+            else -> (currentIndex + 1) % currentPlaylist.size
+        }
+
+        context?.let { playSong(currentPlaylist[currentIndex], it) }
+    }
+
+    // Play previous song
+    fun playPrevious() {
+        if (currentPlaylist.isEmpty()) return
+
+        // Determine previous index
+        currentIndex = when {
+            _isShuffleOn.value -> Random.nextInt(currentPlaylist.size)
+            _repeatMode.value == RepeatMode.ALL && currentIndex == 0 -> currentPlaylist.size - 1
+            else -> (currentIndex - 1 + currentPlaylist.size) % currentPlaylist.size
+        }
+
+        context?.let { playSong(currentPlaylist[currentIndex], it) }
+    }
+
+    // Toggle repeat mode
+    fun toggleRepeatMode() {
+        _repeatMode.value = when (_repeatMode.value) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+    }
+
+    // Toggle shuffle
+    fun toggleShuffle() {
+        _isShuffleOn.value = !_isShuffleOn.value
+
+        // Update playlist based on shuffle state
+        songViewModel?.let { viewModel ->
+            currentPlaylist = if (_isShuffleOn.value) {
+                runBlocking {
+                    viewModel.allSongs.first().shuffled()
+                }
+            } else {
+                runBlocking {
+                    viewModel.allSongs.first()
+                }
+            }
+
+            // Ensure current song remains the same if possible
+            currentSong.value?.let { current ->
+                val index = currentPlaylist.indexOfFirst {
+                    it.title == current.title && it.artist == current.artist
+                }
+                if (index != -1) {
+                    currentIndex = index
+                }
+            }
+        }
+    }
+
+    // Handle song completion
+    private fun onSongCompletion() {
+        when (_repeatMode.value) {
+            RepeatMode.ONE -> {
+                // Replay the current song
+                mediaPlayer?.let {
+                    it.seekTo(0)
+                    it.start()
+                }
+            }
+            RepeatMode.ALL, RepeatMode.OFF -> {
+                // Play next song
+                playNext()
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
+        updateJob?.cancel()
     }
 }
