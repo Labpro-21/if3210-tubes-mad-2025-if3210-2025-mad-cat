@@ -1,4 +1,5 @@
 package com.example.purrytify.ui.viewmodel
+
 import android.app.Application
 import android.content.Context
 import android.media.MediaMetadataRetriever
@@ -8,7 +9,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
 import com.example.purrytify.data.local.db.entities.SongEntity
-import com.example.purrytify.data.local.db.entities.SongUploader
 import com.example.purrytify.ui.screens.Song
 import com.tubesmobile.purrytify.data.local.db.AppDatabase
 import kotlinx.coroutines.flow.Flow
@@ -48,7 +48,6 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         }
 
     // Keep this function but don't use it in our implementation
-    // This is to prevent breaking changes if other parts of your code call this function
     fun extractAndSaveArtwork(context: Context, uri: Uri): String? {
         Log.d("SongViewModel", "Artwork extraction is disabled, returning empty string")
         return ""
@@ -85,8 +84,6 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 val songId = songDao.getSongId(song.title, song.artist)
                 songDao.registerUserToSong(userEmail, songId)
             } else {
-                // IMPORTANT CHANGE: Use the coverUri from the song object directly
-                // Don't try to extract artwork from the audio file
                 Log.d("SongViewModel", "Using provided coverUri: ${song.coverUri}")
 
                 val entity = SongEntity(
@@ -94,7 +91,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                     artist = song.artist,
                     duration = song.duration,
                     uri = song.uri,
-                    coverUri = song.coverUri // Use the cover that was uploaded by the user
+                    coverUri = song.coverUri
                 )
                 val newId = songDao.insertSong(entity).toInt()
                 songDao.registerUserToSong(userEmail, newId)
@@ -129,11 +126,19 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Delete a song
-    fun deleteSong(song: Song, userEmail: String = defaultUserEmail, onComplete: () -> Unit = {}) {
+    fun deleteSong(
+        song: Song,
+        musicViewModel: MusicViewModel,
+        userEmail: String = defaultUserEmail,
+        onComplete: () -> Unit = {}
+    ) {
         viewModelScope.launch {
             try {
                 // Get the song ID first
                 val songId = songDao.getSongId(song.title, song.artist)
+
+                // Clear the current song in MusicViewModel
+                musicViewModel.stopAndClearCurrentSong()
 
                 // Delete song uploader relationship
                 songDao.deleteUserSong(userEmail, songId)

@@ -831,6 +831,7 @@ fun MusicPlayerScreen(
                             // Then delete the song
                             songViewModel.deleteSong(
                                 song = songToDelete,
+                                musicViewModel = musicViewModel,
                                 onComplete = {
                                     showDeleteConfirmation = false
                                     Toast.makeText(context, "Song deleted", Toast.LENGTH_SHORT).show()

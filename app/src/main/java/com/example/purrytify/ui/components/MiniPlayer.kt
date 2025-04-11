@@ -52,16 +52,29 @@ fun MiniPlayer(
     // Check if the current song is liked when it changes
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
-            // Get song ID for the current song
-            val songId = songViewModel.getSongId(song.title, song.artist)
+            // Safely get song ID for the current song
+            val songId = try {
+                songViewModel.getSongId(song.title, song.artist)
+            } catch (e: Exception) {
+                -1
+            }
             currentSongId.value = songId
 
             // Check if it's liked
-            isSongLiked = songViewModel.isSongLiked(userEmail, songId)
+            isSongLiked = if (songId != -1) {
+                songViewModel.isSongLiked(userEmail, songId)
+            } else {
+                false
+            }
+        } ?: run {
+            // Reset states when no song is playing
+            isSongLiked = false
+            currentSongId.value = -1
         }
     }
 
-    if (currentSong != null) {
+    // Only show MiniPlayer if a song is currently playing
+    currentSong?.let { song ->
         Column(
             modifier = modifier
                 .fillMaxWidth()
@@ -98,8 +111,8 @@ fun MiniPlayer(
                 ) {
                     // Cover image
                     AsyncImage(
-                        model = if (currentSong!!.coverUri.isNotEmpty())
-                            File(currentSong!!.coverUri)
+                        model = if (song.coverUri.isNotEmpty())
+                            File(song.coverUri)
                         else
                             "https://example.com/placeholder.jpg",
                         contentDescription = null,
@@ -116,7 +129,7 @@ fun MiniPlayer(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = currentSong!!.title,
+                            text = song.title,
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -125,7 +138,7 @@ fun MiniPlayer(
                         )
 
                         Text(
-                            text = currentSong!!.artist.split(",").firstOrNull() ?: "",
+                            text = song.artist.split(",").firstOrNull() ?: "",
                             color = Color.LightGray,
                             fontSize = 12.sp,
                             maxLines = 1,
@@ -137,16 +150,19 @@ fun MiniPlayer(
                     IconButton(
                         onClick = {
                             scope.launch {
-                                if (isSongLiked) {
-                                    // Unlike the song
-                                    songViewModel.unlikeSong(userEmail, currentSongId.value)
-                                    isSongLiked = false
-                                    Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    // Like the song
-                                    songViewModel.likeSong(userEmail, currentSongId.value)
-                                    isSongLiked = true
-                                    Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                                // Only allow like/unlike if we have a valid song ID
+                                if (currentSongId.value != -1) {
+                                    if (isSongLiked) {
+                                        // Unlike the song
+                                        songViewModel.unlikeSong(userEmail, currentSongId.value)
+                                        isSongLiked = false
+                                        Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        // Like the song
+                                        songViewModel.likeSong(userEmail, currentSongId.value)
+                                        isSongLiked = true
+                                        Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
                         },
