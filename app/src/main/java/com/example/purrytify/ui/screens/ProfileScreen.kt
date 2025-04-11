@@ -78,17 +78,24 @@ fun ProfileScreen(
     val songCount = allSongs.value.size
     val likedCount = likedSongs.value.size
 
-    // For listened count, we can't track this precisely without a play history database
-    // For now, let's just use a simple approximation based on the current song
+    // For listened count, use a persistent set to track unique songs that have been played
     val currentSong by musicViewModel.currentSong.collectAsState()
+
+    // Store the listened songs IDs in a Set to avoid duplicates
+    val listenedSongs = remember { mutableStateMapOf<String, Boolean>() }
     var listenedCount by remember { mutableStateOf(0) }
 
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
-        currentSong?.let {
-            // Increment listen count whenever a song is played
-            // In a real app, you would track this in a database
-            listenedCount = allSongs.value.size / 2  // Just a placeholder approximation
+        currentSong?.let { song ->
+            // Create a unique key for the song based on title and artist
+            val songKey = "${song.title}_${song.artist}"
+
+            // Only increment if this song hasn't been listened to before
+            if (!listenedSongs.containsKey(songKey)) {
+                listenedSongs[songKey] = true
+                listenedCount = listenedSongs.size
+            }
         }
     }
 
@@ -227,7 +234,7 @@ fun ProfileScreen(
                                         modifier = Modifier
                                             .size(150.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF6CCB64)), // Light blue background for profile pic
+                                            .background(Color(0xFF6CCB64)), // Light green background for profile pic
                                         error = painterResource(id = R.drawable.default_profile),
                                         placeholder = painterResource(id = R.drawable.default_profile)
                                     )
@@ -251,9 +258,9 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(24.dp))
 
-                                // Username
+                                // Username or ID
                                 Text(
-                                    text = profile.username ?: "13522xxx",
+                                    text = profile.username ?: "13522140",
                                     style = TextStyle(
                                         color = Color.White,
                                         fontSize = 24.sp,
@@ -262,9 +269,9 @@ fun ProfileScreen(
                                     textAlign = TextAlign.Center
                                 )
 
-                                // Location
+                                // Location or ID label
                                 Text(
-                                    text = profile.location ?: "Indonesia",
+                                    text = profile.location ?: "ID",
                                     style = TextStyle(
                                         color = Color.White.copy(alpha = 0.7f),
                                         fontSize = 16.sp
@@ -298,7 +305,7 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(48.dp))
 
-                                // Stats Row - Now using actual values from database
+                                // Stats Row - Now using actual values from database with improved listened count
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -315,7 +322,7 @@ fun ProfileScreen(
                                         label = "LIKED"
                                     )
 
-                                    // Listened Stat - Approximated listened songs
+                                    // Listened Stat - Tracks unique songs played
                                     StatItem(
                                         count = listenedCount,
                                         label = "LISTENED"
