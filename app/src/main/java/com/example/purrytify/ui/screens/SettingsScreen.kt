@@ -1,5 +1,8 @@
 package com.example.purrytify.ui.screens
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -7,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,15 +24,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.MainActivity
 import kotlinx.coroutines.launch
+
+// Extension function to find Activity from Context
+fun Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
     val context = LocalContext.current
+    val activity = context.findActivity() as? MainActivity
     val tokenManager = remember { TokenManager(context) }
     val coroutineScope = rememberCoroutineScope()
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showSuccessMessage by remember { mutableStateOf(false) }
 
     // Create a gradient background
     val gradientColors = listOf(
@@ -82,6 +99,22 @@ fun SettingsScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
+                // Extend Session option
+                SettingItem(
+                    title = "Extend Session (5 minutes)",
+                    iconVector = Icons.Default.Refresh,
+                    onClick = { 
+                        activity?.extendSession()
+                        showSuccessMessage = true
+                        coroutineScope.launch {
+                            kotlinx.coroutines.delay(2000)
+                            showSuccessMessage = false
+                        }
+                    }
+                )
+                
+                Divider(color = Color.DarkGray.copy(alpha = 0.5f), thickness = 1.dp)
+                
                 // Logout option
                 SettingItem(
                     title = "Logout",
@@ -102,6 +135,19 @@ fun SettingsScreen(navController: NavController) {
                     ),
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp)
                 )
+            }
+        }
+
+        // Success message
+        if (showSuccessMessage) {
+            Snackbar(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                containerColor = Color(0xFF1DB954),
+                contentColor = Color.White,
+            ) {
+                Text("Session extended successfully")
             }
         }
 

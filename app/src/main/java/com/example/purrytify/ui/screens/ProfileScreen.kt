@@ -113,7 +113,7 @@ fun ProfileScreen(
             errorMessage = ""
             coroutineScope.launch {
                 try {
-                    val response = RetrofitClient.apiService.getProfile("Bearer ${tokenManager.getToken()}")
+                    val response = RetrofitClient.apiService.getProfile()
                     profileData = response.body()
                 } catch (e: Exception) {
                     errorMessage = "Error: ${e.message}"
@@ -129,28 +129,20 @@ fun ProfileScreen(
     LaunchedEffect(key1 = true) {
         coroutineScope.launch {
             try {
-                val token = tokenManager.getToken()
-                if (token != null) {
-                    val response = RetrofitClient.apiService.getProfile("Bearer $token")
-                    if (response.isSuccessful) {
-                        profileData = response.body()
-                        isLoading = false
-                    } else {
-                        errorMessage = "Error: ${response.message()}"
-                        isLoading = false
-                    }
+                isLoading = true
+                val response = RetrofitClient.apiService.getProfile()
+                if (response.isSuccessful) {
+                    profileData = response.body()
                 } else {
-                    errorMessage = "Token not found. Please login again."
-                    isLoading = false
-                    // Navigate back to login if no token is found
-                    navController.navigate("login") {
-                        popUpTo("profile") { inclusive = true }
-                    }
+                    errorMessage = "Error: ${response.message()}"
+                    Log.e("ProfileScreen", "Error response: ${response.code()}")
+
                 }
             } catch (e: Exception) {
                 errorMessage = "Error: ${e.localizedMessage}"
-                isLoading = false
                 Log.e("ProfileScreen", "Error fetching profile", e)
+            } finally {
+                isLoading = false
             }
         }
     }

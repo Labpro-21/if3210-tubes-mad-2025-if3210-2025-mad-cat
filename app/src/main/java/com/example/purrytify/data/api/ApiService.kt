@@ -28,18 +28,19 @@ interface ApiService {
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
     @GET("api/profile")
-    suspend fun getProfile(@Header("Authorization") token: String): Response<ProfileResponse>
+    suspend fun getProfile(): Response<ProfileResponse>
 
     @POST("api/refresh-token")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<RefreshTokenResponse>
 
-    @POST("api/verify-token")
-    suspend fun verifyToken(@Header("Authorization") token: String): Response<Any>
+    // The verify-token endpoint doesn't exist in the API, so use profile endpoint as a token check
+    @GET("api/profile")
+    suspend fun verifyToken(): Response<Any>
 }
 
 data class RefreshTokenRequest(val refreshToken: String)
 
 data class RefreshTokenResponse(
-    val token: String,
+    val accessToken: String,
     val refreshToken: String
 )
