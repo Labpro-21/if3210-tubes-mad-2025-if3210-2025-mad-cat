@@ -48,6 +48,7 @@ class MusicViewModel : ViewModel() {
     private var context: Context? = null
 
     fun initializePlaybackControls(songViewModel: SongViewModel, context: Context) {
+        this.songViewModel = songViewModel
         this.context = context
         viewModelScope.launch {
             // Save the full playlist
@@ -200,8 +201,6 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // New methods for edit and delete functionality
-
     // Update the current song with new details (after editing)
     fun updateCurrentSong(updatedSong: Song) {
         val wasPlaying = _isPlaying.value
@@ -249,7 +248,6 @@ class MusicViewModel : ViewModel() {
             }
         }
     }
-
     // Stop playing and clear current song (for deletion)
     fun stopAndClearCurrentSong() {
         mediaPlayer?.apply {
@@ -264,28 +262,9 @@ class MusicViewModel : ViewModel() {
         _isPlaying.value = false
         _currentPosition.value = 0
         _duration.value = 0
-
-        // Try to play next song if available
-        viewModelScope.launch {
-            songViewModel?.let { viewModel ->
-                // Get fresh playlist (after deletion)
-                val refreshedPlaylist = viewModel.allSongs.first()
-
-                if (refreshedPlaylist.isNotEmpty()) {
-                    currentPlaylist = refreshedPlaylist
-                    if (currentIndex >= currentPlaylist.size) {
-                        currentIndex = 0
-                    }
-                    context?.let { ctx ->
-                        playSong(currentPlaylist[currentIndex], ctx)
-                    }
-                } else {
-                    // No songs left
-                    _currentSong.value = null
-                    currentPlaylist = emptyList()
-                }
-            }
-        }
+        _currentSong.value = null
+        currentPlaylist = emptyList()
+        currentIndex = 0
     }
 
     override fun onCleared() {

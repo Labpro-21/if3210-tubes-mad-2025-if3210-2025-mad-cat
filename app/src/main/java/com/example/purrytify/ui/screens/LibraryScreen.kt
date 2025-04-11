@@ -2,6 +2,7 @@ package com.example.purrytify.ui.screens
 
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -106,10 +108,19 @@ fun LibraryScreen(
     var isUploading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // Debug state to track saved image path
+    var debugInfo by remember { mutableStateOf("") }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         newSongImageUri = uri
+
+        // Log the URI for debugging
+        if (uri != null) {
+            Log.d("LibraryScreen", "Selected image URI: $uri")
+            debugInfo = "Selected image: $uri"
+        }
     }
 
     val audioPickerLauncher = rememberLauncherForActivityResult(
@@ -117,6 +128,7 @@ fun LibraryScreen(
     ) { uri: Uri? ->
         uri?.let {
             newSongAudioUri = it
+            Log.d("LibraryScreen", "Selected audio URI: $uri")
 
             val retriever = MediaMetadataRetriever()
             try {
@@ -160,8 +172,10 @@ fun LibraryScreen(
                 }
             }
 
+            Log.d("LibraryScreen", "Saved audio file to: ${file.absolutePath}")
             file.absolutePath
         } catch (e: Exception) {
+            Log.e("LibraryScreen", "Error saving audio file", e)
             e.printStackTrace()
             null
         }
@@ -170,18 +184,35 @@ fun LibraryScreen(
     fun saveImageFile(uri: Uri): String? {
         return try {
             val inputStream = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                Log.e("LibraryScreen", "Failed to open input stream for image URI: $uri")
+                return null
+            }
+
             val fileName = "cover_${System.currentTimeMillis()}.jpg"
             val file = File(context.filesDir, fileName)
             val outputStream = FileOutputStream(file)
 
-            inputStream?.use { input ->
+            inputStream.use { input ->
                 outputStream.use { output ->
                     input.copyTo(output)
                 }
             }
 
+            Log.d("LibraryScreen", "Saved image file to: ${file.absolutePath}")
+            debugInfo = "Saved image to: ${file.absolutePath}"
+
+            // Verify the file was created and has content
+            if (file.exists() && file.length() > 0) {
+                Log.d("LibraryScreen", "Image file exists and has size: ${file.length()}")
+            } else {
+                Log.e("LibraryScreen", "Image file doesn't exist or is empty: ${file.absolutePath}")
+            }
+
             file.absolutePath
         } catch (e: Exception) {
+            Log.e("LibraryScreen", "Error saving image file", e)
+            debugInfo = "Error saving image: ${e.message}"
             e.printStackTrace()
             null
         }
@@ -212,7 +243,10 @@ fun LibraryScreen(
                         fontWeight = FontWeight.Bold
                     )
                 )
-                IconButton(onClick = { showUploadDialog = true }) {
+                IconButton(onClick = {
+                    showUploadDialog = true
+                    debugInfo = "" // Clear debug info
+                }) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Add Song",
@@ -345,6 +379,7 @@ fun LibraryScreen(
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
+            songViewModel = songViewModel,
             currentRoute = "library",
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -361,6 +396,7 @@ fun LibraryScreen(
                         newSongAudioUri = null
                         audioDuration = ""
                         errorMessage = null
+                        debugInfo = ""
                     }
                 }
             ) {
@@ -402,7 +438,9 @@ fun LibraryScreen(
                                         .size(120.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(Color(0xFF2A2A2A))
-                                        .clickable { imagePickerLauncher.launch("image/*") }
+                                        .clickable {
+                                            imagePickerLauncher.launch("image/*")
+                                        }
                                         .border(
                                             width = 1.dp,
                                             color = Color.Gray,
@@ -427,7 +465,7 @@ fun LibraryScreen(
                                                 tint = Color.Gray
                                             )
                                             Text(
-                                                text = "Upload Photo",
+                                                text = "Upload Cover",
                                                 color = Color.Gray,
                                                 fontSize = 12.sp,
                                                 textAlign = TextAlign.Center
@@ -479,7 +517,19 @@ fun LibraryScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Show debug info when available
+                        if (debugInfo.isNotEmpty()) {
+                            Text(
+                                text = debugInfo,
+                                color = Color.Yellow,
+                                fontSize = 12.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
 
                         Text(
                             text = "Title",
@@ -556,6 +606,7 @@ fun LibraryScreen(
                                         newSongAudioUri = null
                                         audioDuration = ""
                                         errorMessage = null
+                                        debugInfo = ""
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(
@@ -589,6 +640,7 @@ fun LibraryScreen(
 
                                     errorMessage = null
                                     isUploading = true
+                                    debugInfo = "Starting upload..."
 
                                     scope.launch {
                                         try {
@@ -600,31 +652,25 @@ fun LibraryScreen(
                                                 return@launch
                                             }
 
+                                            // ONLY save the image if provided by user - no fallback to metadata
                                             var savedImagePath = ""
                                             if (newSongImageUri != null) {
-                                                savedImagePath = saveImageFile(newSongImageUri!!) ?: ""
-                                            } else {
-                                                val retriever = MediaMetadataRetriever()
-                                                try {
-                                                    retriever.setDataSource(context, newSongAudioUri!!)
-                                                    val embeddedArt = retriever.embeddedPicture
-                                                    if (embeddedArt != null) {
-                                                        val fileName = "artwork_${System.currentTimeMillis()}.jpg"
-                                                        val file = File(context.filesDir, fileName)
-                                                        file.writeBytes(embeddedArt)
-                                                        savedImagePath = file.absolutePath
-                                                    }
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                } finally {
-                                                    retriever.release()
+                                                debugInfo = "Processing image upload..."
+                                                val path = saveImageFile(newSongImageUri!!)
+                                                if (path != null && path.isNotEmpty()) {
+                                                    savedImagePath = path
+                                                    debugInfo = "Image saved successfully to: $savedImagePath"
+                                                } else {
+                                                    debugInfo = "Failed to save image"
                                                 }
+                                            } else {
+                                                debugInfo = "No cover image provided by user"
                                             }
 
                                             val newSong = Song(
                                                 title = newSongTitle,
                                                 artist = newSongArtist,
-                                                coverUri = savedImagePath,
+                                                coverUri = savedImagePath, // Will be empty if no image was uploaded
                                                 uri = savedAudioPath,
                                                 duration = audioDuration
                                             )
@@ -646,10 +692,13 @@ fun LibraryScreen(
                                             newSongImageUri = null
                                             newSongAudioUri = null
                                             audioDuration = ""
+                                            debugInfo = ""
 
                                             Toast.makeText(context, "Song added to library", Toast.LENGTH_SHORT).show()
                                         } catch (e: Exception) {
+                                            Log.e("LibraryScreen", "Error in upload process", e)
                                             errorMessage = "Error: ${e.message}"
+                                            debugInfo = "Upload error: ${e.message}"
                                             isUploading = false
                                         }
                                     }
@@ -688,20 +737,40 @@ fun LibrarySongItem(song: Song, onClick: () -> Unit) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val imageModel = if (song.coverUri.isNotEmpty() && File(song.coverUri).exists()) {
-            File(song.coverUri)
-        } else {
-            "https://example.com/placeholder.jpg"
-        }
+        // Check if the song has a valid cover image
+        val hasCover = song.coverUri.isNotEmpty() && File(song.coverUri).exists()
 
-        AsyncImage(
-            model = imageModel,
-            contentDescription = song.title,
-            modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(4.dp)),
-            contentScale = ContentScale.Crop
-        )
+        if (hasCover) {
+            // Display the actual cover image
+            AsyncImage(
+                model = File(song.coverUri),
+                contentDescription = song.title,
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                contentScale = ContentScale.Crop,
+                onError = {
+                    // Log when image loading fails
+                    Log.e("LibrarySongItem", "Failed to load image from ${song.coverUri}")
+                }
+            )
+        } else {
+            // Display a placeholder with music note icon
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF2A2A2A)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.width(16.dp))
 

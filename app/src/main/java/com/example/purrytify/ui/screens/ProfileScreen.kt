@@ -46,6 +46,11 @@ import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+// Global object to store listened songs across app sessions
+object ListenedSongsTracker {
+    val listenedSongs = mutableSetOf<String>()
+}
+
 @Composable
 fun ProfileScreen(
     navController: NavController,
@@ -78,24 +83,26 @@ fun ProfileScreen(
     val songCount = allSongs.value.size
     val likedCount = likedSongs.value.size
 
-    // For listened count, use a persistent set to track unique songs that have been played
-    val currentSong by musicViewModel.currentSong.collectAsState()
+    // State to display the listened count
+    var listenedCount by remember { mutableStateOf(ListenedSongsTracker.listenedSongs.size) }
 
-    // Store the listened songs IDs in a Set to avoid duplicates
-    val listenedSongs = remember { mutableStateMapOf<String, Boolean>() }
-    var listenedCount by remember { mutableStateOf(0) }
+    // Keep track of the current song
+    val currentSong by musicViewModel.currentSong.collectAsState()
+    var previousSong by remember { mutableStateOf<Song?>(null) }
 
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
-        currentSong?.let { song ->
-            // Create a unique key for the song based on title and artist
-            val songKey = "${song.title}_${song.artist}"
+        if (currentSong != null && currentSong != previousSong) {
+            // Only process when we have a new song
+            val songKey = "${currentSong!!.title}_${currentSong!!.artist}"
 
-            // Only increment if this song hasn't been listened to before
-            if (!listenedSongs.containsKey(songKey)) {
-                listenedSongs[songKey] = true
-                listenedCount = listenedSongs.size
+            // Add to our tracked set and update the count
+            if (ListenedSongsTracker.listenedSongs.add(songKey)) {
+                listenedCount = ListenedSongsTracker.listenedSongs.size
             }
+
+            // Update previous song reference
+            previousSong = currentSong
         }
     }
 
@@ -297,7 +304,7 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(48.dp))
 
-                                // Stats Row - Now using actual values from database with improved listened count
+                                // Stats Row - Now using actual values from database with fixed listened count
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -332,6 +339,7 @@ fun ProfileScreen(
             navController = navController,
             musicViewModel = musicViewModel,
             currentRoute = "profile",
+            songViewModel = songViewModel,
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
