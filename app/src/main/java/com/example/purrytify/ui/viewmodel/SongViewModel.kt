@@ -3,6 +3,7 @@ import android.app.Application
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
@@ -32,7 +33,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-    // New: Flow for liked songs
+    // Flow for liked songs
     val likedSongs: Flow<List<Song>> =
         songDao.getLikedSongsFlow(defaultUserEmail).map { entities ->
             entities.map { entity ->
@@ -46,22 +47,11 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+    // Keep this function but don't use it in our implementation
+    // This is to prevent breaking changes if other parts of your code call this function
     fun extractAndSaveArtwork(context: Context, uri: Uri): String? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(context, uri)
-            val art = retriever.embeddedPicture
-            if (art != null) {
-                val filename = "artwork_${System.currentTimeMillis()}.jpg"
-                val file = File(context.filesDir, filename)
-                file.writeBytes(art)
-                file.absolutePath
-            } else null
-        } catch (e: Exception) {
-            null
-        } finally {
-            retriever.release()
-        }
+        Log.d("SongViewModel", "Artwork extraction is disabled, returning empty string")
+        return ""
     }
 
     fun insertSong(song: Song, userEmail: String = defaultUserEmail){
@@ -95,14 +85,16 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 val songId = songDao.getSongId(song.title, song.artist)
                 songDao.registerUserToSong(userEmail, songId)
             } else {
-                val savedArtworkPath = extractAndSaveArtwork(context, Uri.parse(song.uri)) ?: ""
+                // IMPORTANT CHANGE: Use the coverUri from the song object directly
+                // Don't try to extract artwork from the audio file
+                Log.d("SongViewModel", "Using provided coverUri: ${song.coverUri}")
 
                 val entity = SongEntity(
                     title = song.title,
                     artist = song.artist,
                     duration = song.duration,
                     uri = song.uri,
-                    coverUri = savedArtworkPath
+                    coverUri = song.coverUri // Use the cover that was uploaded by the user
                 )
                 val newId = songDao.insertSong(entity).toInt()
                 songDao.registerUserToSong(userEmail, newId)
@@ -110,17 +102,17 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // NEW: Get song ID by title and artist
+    // Get song ID by title and artist
     suspend fun getSongId(title: String, artist: String): Int {
         return songDao.getSongId(title, artist)
     }
 
-    // NEW: Check if a song is liked
+    // Check if a song is liked
     suspend fun isSongLiked(userEmail: String = defaultUserEmail, songId: Int): Boolean {
         return songDao.isSongLiked(userEmail, songId)
     }
 
-    // NEW: Like a song
+    // Like a song
     fun likeSong(userEmail: String = defaultUserEmail, songId: Int) {
         viewModelScope.launch {
             val crossRef = LikedSongCrossRef(userEmail, songId)
@@ -128,7 +120,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // NEW: Unlike a song
+    // Unlike a song
     fun unlikeSong(userEmail: String = defaultUserEmail, songId: Int) {
         viewModelScope.launch {
             val crossRef = LikedSongCrossRef(userEmail, songId)
