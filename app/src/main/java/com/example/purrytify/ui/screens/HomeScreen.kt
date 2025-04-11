@@ -4,15 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -32,10 +30,9 @@ import androidx.compose.ui.draw.clip
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.*
 
 @Composable
 fun HomeScreen(
@@ -60,26 +57,31 @@ fun HomeScreen(
     var isLoading by remember { mutableStateOf(true) }
 
     // Get the recently played songs and new songs from database
-    LaunchedEffect(key1 = allSongs.value) {
+    LaunchedEffect(key1 = allSongs.value, key2 = currentSong) {
         try {
-            // For a real app, you would track play history in your database
-            // For now, let's just use the current song as the most recently played
-            // and add a few more songs from the library
-
             val songList = allSongs.value
-            val newList = mutableListOf<Song>()
 
-            // Add current song to recently played list if it exists
-            currentSong?.let { newList.add(it) }
+            // Create a simulated recently played list that includes the current song first
+            val playedList = mutableListOf<Song>()
 
-            // Add other songs from the library to fill out the list
-            val remainingSongs = songList.filter { song ->
-                song != currentSong
-            }.take(5)
+            // Add current song as the first item if it exists
+            currentSong?.let {
+                playedList.add(it)
 
-            newList.addAll(remainingSongs)
+                // Randomly select 4 other songs that are different from current song
+                // In a real app, you would track this in a database
+                val otherSongs = songList.filter { it != currentSong }
+                    .shuffled()
+                    .take(4)
 
-            recentlyPlayedSongs = newList
+                playedList.addAll(otherSongs)
+            } ?: run {
+                // If no current song, just take 5 random songs
+                val randomSongs = songList.shuffled().take(5)
+                playedList.addAll(randomSongs)
+            }
+
+            recentlyPlayedSongs = playedList
             isLoading = false
         } catch (e: Exception) {
             // Handle error
@@ -115,7 +117,7 @@ fun HomeScreen(
                     modifier = Modifier.padding(vertical = 16.dp)
                 )
 
-                // New Songs Section (showing most recently added songs)
+                // New Songs Section - using LazyRow for horizontal scrolling
                 Text(
                     text = "New Songs",
                     style = TextStyle(
@@ -130,7 +132,7 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp),
+                            .height(170.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -139,15 +141,14 @@ fun HomeScreen(
                         )
                     }
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(bottom = 16.dp),
+                    // Using LazyRow for horizontal scrolling with newest songs first
+                    val newSongs = allSongs.value.reversed() // Reverse to get newest first
+
+                    LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(0.5f)
+                        contentPadding = PaddingValues(end = 8.dp),
+                        modifier = Modifier.height(170.dp)
                     ) {
-                        // Show the most recent songs first (assuming they were added in order)
-                        val newSongs = allSongs.value.takeLast(4)
                         items(newSongs) { song ->
                             NewSongItem(
                                 song = song,
@@ -161,6 +162,8 @@ fun HomeScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Recently Played Section
                 Text(
@@ -189,7 +192,7 @@ fun HomeScreen(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(bottom = 80.dp), // Added padding for mini-player
-                        modifier = Modifier.weight(0.5f)
+                        modifier = Modifier.weight(1f)
                     ) {
                         items(recentlyPlayedSongs) { song ->
                             RecentlySongItem(
@@ -221,7 +224,7 @@ fun HomeScreen(
 fun NewSongItem(song: Song, onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(160.dp)
+            .width(140.dp)
             .clickable(onClick = onClick)
     ) {
         val imageModel = if (song.coverUri.isNotEmpty() && File(song.coverUri).exists()) {
@@ -234,15 +237,16 @@ fun NewSongItem(song: Song, onClick: () -> Unit) {
             model = imageModel,
             contentDescription = song.title,
             modifier = Modifier
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(8.dp)),
+                .size(140.dp)
+                .clip(RoundedCornerShape(4.dp)),
             contentScale = ContentScale.Crop
         )
         Text(
             text = song.title,
             style = TextStyle(
                 color = Color.White,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
             ),
             modifier = Modifier.padding(top = 4.dp),
             maxLines = 1,
@@ -266,7 +270,7 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val imageModel = if (song.coverUri.isNotEmpty() && File(song.coverUri).exists()) {
@@ -279,8 +283,8 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit) {
             model = imageModel,
             contentDescription = song.title,
             modifier = Modifier
-                .size(60.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .size(50.dp)
+                .clip(RoundedCornerShape(4.dp)),
             contentScale = ContentScale.Crop
         )
         Spacer(modifier = Modifier.width(16.dp))
@@ -289,7 +293,8 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit) {
                 text = song.title,
                 style = TextStyle(
                     color = Color.White,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
