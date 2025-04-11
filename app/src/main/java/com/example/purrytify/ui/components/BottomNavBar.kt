@@ -18,11 +18,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.purrytify.R
 import com.example.purrytify.ui.viewmodel.MusicViewModel
+import com.example.purrytify.ui.viewmodel.SongViewModel
 
 @Composable
 fun BottomNavBar(
     navController: NavController,
     musicViewModel: MusicViewModel,
+    songViewModel: SongViewModel,
     currentRoute: String = "home",
     onMiniPlayerClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -34,6 +36,7 @@ fun BottomNavBar(
     ) {
         MiniPlayer(
             musicViewModel = musicViewModel,
+            songViewModel = songViewModel,
             onPlayerClick = onMiniPlayerClick
         )
 

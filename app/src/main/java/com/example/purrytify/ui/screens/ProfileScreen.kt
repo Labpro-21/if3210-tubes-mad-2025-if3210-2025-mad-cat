@@ -347,6 +347,7 @@ fun ProfileScreen(
             navController = navController,
             musicViewModel = musicViewModel,
             currentRoute = "profile",
+            songViewModel = songViewModel,
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )

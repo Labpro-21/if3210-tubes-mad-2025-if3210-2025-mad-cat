@@ -379,6 +379,7 @@ fun LibraryScreen(
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
+            songViewModel = songViewModel,
             currentRoute = "library",
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)

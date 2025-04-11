@@ -248,6 +248,7 @@ fun HomeScreen(
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
+            songViewModel = songViewModel,
             currentRoute = "home",
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)

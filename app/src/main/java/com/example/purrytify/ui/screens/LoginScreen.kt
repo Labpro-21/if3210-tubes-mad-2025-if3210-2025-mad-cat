@@ -216,7 +216,8 @@ fun LoginScreen(navController: NavController) {
                                     }
 
                                     Log.d("LoginScreen", "Attempting login with email: $email")
-                                    val request = LoginRequest(email, password)
+                                    val request =
+                                        com.example.purrytify.data.api.LoginRequest(email, password)
 
                                     try {
                                         val response = RetrofitClient.apiService.login(request)
