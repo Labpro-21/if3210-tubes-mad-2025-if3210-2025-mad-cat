@@ -3,18 +3,20 @@ package com.example.purrytify.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -25,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.MainActivity
-import com.example.purrytify.data.preferences.PersistentTracker
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 
@@ -47,12 +48,12 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
     val tokenManager = remember { TokenManager(context) }
     val coroutineScope = rememberCoroutineScope()
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showSuccessMessage by remember { mutableStateOf(false) }
 
-    // Create a gradient background
+    // Create a modern gradient background
     val gradientColors = listOf(
-        Color(0xFF095256), // Dark teal top color
-        Color(0xFF121212)  // Dark bottom color
+        Color(0xFF075053), // Dark teal top color
+        Color(0xFF052728), // Medium teal
+        Color(0xFF121212)  // Dark bottom color (near black)
     )
 
     Box(
@@ -69,7 +70,7 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top App Bar
+            // Modern Top Bar
             TopAppBar(
                 title = {
                     Text(
@@ -77,16 +78,23 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                         style = TextStyle(
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp
+                            fontSize = 24.sp
                         )
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clip(CircleShape)
+                            .size(40.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 },
@@ -95,83 +103,61 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                 )
             )
 
-            // Settings content
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Settings items
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp)
             ) {
-                // Extend Session option
-                SettingItem(
-                    title = "Extend Session (5 minutes)",
-                    iconVector = Icons.Default.Refresh,
-                    onClick = { 
-                        activity?.extendSession()
-                        showSuccessMessage = true
-                        coroutineScope.launch {
-                            kotlinx.coroutines.delay(2000)
-                            showSuccessMessage = false
-                        }
-                    }
-                )
-                
-                Divider(color = Color.DarkGray.copy(alpha = 0.5f), thickness = 1.dp)
-                
                 // Logout option
-                SettingItem(
+                ModernSettingItem(
                     title = "Logout",
-                    iconVector = Icons.Default.ExitToApp,
+                    icon = Icons.Default.ExitToApp,
                     onClick = { showLogoutDialog = true }
                 )
 
-                // Add more settings items here as needed
-                Divider(color = Color.DarkGray.copy(alpha = 0.5f), thickness = 1.dp)
-
                 // Version information
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Text(
                     text = "App Version 1.0.0",
                     style = TextStyle(
                         color = Color.White.copy(alpha = 0.5f),
                         fontSize = 14.sp
                     ),
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp)
+                    modifier = Modifier
+                        .padding(vertical = 16.dp)
+                        .padding(start = 8.dp)
                 )
             }
         }
 
-        // Success message
-        if (showSuccessMessage) {
-            Snackbar(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .align(Alignment.BottomCenter),
-                containerColor = Color(0xFF1DB954),
-                contentColor = Color.White,
-            ) {
-                Text("Session extended successfully")
-            }
-        }
-
-        // Logout confirmation dialog
+        // Modern Logout dialog
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
-                title = { Text("Logout") },
-                text = { Text("Are you sure you want to logout?") },
+                title = {
+                    Text(
+                        "Logout",
+                        style = TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    )
+                },
+                text = {
+                    Text(
+                        "Are you sure you want to logout?",
+                        style = TextStyle(fontSize = 16.sp)
+                    )
+                },
                 confirmButton = {
                     Button(
                         onClick = {
                             coroutineScope.launch {
                                 // Stop music playback
-                                musicViewModel?.stopAndClearCurrentSong()
-
-                                // Clear tracking data
-                                val persistentTracker = PersistentTracker(context)
-                                persistentTracker.clearAllTracking()
-
-                                // Clear tokens
-                                tokenManager.clearTokens()
+                                musicViewModel.stopAndClearCurrentSong()
 
                                 // Navigate to login screen
                                 navController.navigate("login") {
@@ -182,9 +168,14 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1DB954)
-                        )
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)
                     ) {
-                        Text("Yes, Logout")
+                        Text(
+                            "Yes, Logout",
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
                     }
                 },
                 dismissButton = {
@@ -192,50 +183,77 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                         onClick = { showLogoutDialog = false },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.DarkGray
-                        )
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)
                     ) {
                         Text("Cancel")
                     }
                 },
                 containerColor = Color(0xFF2A2A2A),
                 titleContentColor = Color.White,
-                textContentColor = Color.White
+                textContentColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
             )
         }
     }
 }
 
 @Composable
-fun SettingItem(
+fun ModernSettingItem(
     title: String,
-    iconVector: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 16.dp, horizontal = 16.dp),
+            .padding(vertical = 16.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = iconVector,
-            contentDescription = title,
-            tint = Color.White
-        )
+        // Icon in a circular background
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(Color.White.copy(alpha = 0.1f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         Spacer(modifier = Modifier.width(16.dp))
+
         Text(
             text = title,
             style = TextStyle(
                 color = Color.White,
-                fontSize = 16.sp
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
             )
         )
+
         Spacer(modifier = Modifier.weight(1f))
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_menu_more),
-            contentDescription = "More",
-            tint = Color.White.copy(alpha = 0.5f)
-        )
+
+        // Circular chevron icon
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .background(Color.White.copy(alpha = 0.1f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "More",
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+        }
     }
 }

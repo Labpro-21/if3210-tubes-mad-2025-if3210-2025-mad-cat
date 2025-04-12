@@ -29,7 +29,7 @@ fun SplashScreen(navController: NavController) {
         Image(
             painter = painterResource(id = R.drawable.purrytify_logo),
             contentDescription = "Purrytify Logo",
-            modifier = Modifier.size(165.dp)
+            modifier = Modifier.size(180.dp)
         )
     }
 
