@@ -12,16 +12,34 @@ import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.ui.screens.Song
 import com.tubesmobile.purrytify.data.local.db.AppDatabase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
 
 class SongViewModel(application: Application) : AndroidViewModel(application) {
     private val songDao = AppDatabase.getDatabase(application).songDao()
-    private val defaultUserEmail = "13522126@std.stei.itb.ac.id"
+    
+    // Replace hardcoded email with a state flow to hold current user email
+    private val _currentUserEmail = MutableStateFlow("") // Empty default, will be set when user logs in
+    val currentUserEmail: Flow<String> = _currentUserEmail
+    
+    // Update the user email when we get it from the profile
+    fun updateUserEmail(email: String) {
+        if (email.isNotEmpty() && email != _currentUserEmail.value) {
+            _currentUserEmail.value = email
+            Log.d("SongViewModel", "User email updated to: $email")
+        }
+    }
 
-    val allSongs: Flow<List<Song>> =
-        songDao.getSongsByUser(defaultUserEmail).map { entities ->
+    // Use flatMapLatest to update data when user email changes
+    val allSongs: Flow<List<Song>> = _currentUserEmail.flatMapLatest { email ->
+        if (email.isEmpty()) {
+            Log.w("SongViewModel", "Trying to get songs with empty email")
+        }
+        
+        songDao.getSongsByUser(email).map { entities ->
             entities.map { entity ->
                 Song(
                     title = entity.title,
@@ -32,10 +50,15 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+    }
 
-    // Flow for liked songs
-    val likedSongs: Flow<List<Song>> =
-        songDao.getLikedSongsFlow(defaultUserEmail).map { entities ->
+    // Flow for liked songs - also updates when user email changes
+    val likedSongs: Flow<List<Song>> = _currentUserEmail.flatMapLatest { email ->
+        if (email.isEmpty()) {
+            Log.w("SongViewModel", "Trying to get liked songs with empty email")
+        }
+        
+        songDao.getLikedSongsFlow(email).map { entities ->
             entities.map { entity ->
                 Song(
                     title = entity.title,
@@ -46,6 +69,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+    }
 
     // Keep this function but don't use it in our implementation
     fun extractAndSaveArtwork(context: Context, uri: Uri): String? {
@@ -53,7 +77,12 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         return ""
     }
 
-    fun insertSong(song: Song, userEmail: String = defaultUserEmail){
+    fun insertSong(song: Song, userEmail: String){
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot insert song: user email is empty")
+            return
+        }
+        
         viewModelScope.launch {
             val entity = SongEntity(
                 title = song.title,
@@ -71,9 +100,14 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     fun checkAndInsertSong(
         context: Context,
         song: Song,
-        userEmail: String = defaultUserEmail,
+        userEmail: String,
         onExists: () -> Unit
     ) {
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot check/insert song: user email is empty")
+            return
+        }
+        
         viewModelScope.launch {
             val existsForUser = songDao.isSongExistsForUser(song.title, song.artist, userEmail)
             val exists = songDao.isSongExists(song.title, song.artist)
@@ -105,12 +139,20 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Check if a song is liked
-    suspend fun isSongLiked(userEmail: String = defaultUserEmail, songId: Int): Boolean {
+    suspend fun isSongLiked(userEmail: String, songId: Int): Boolean {
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot check liked status: user email is empty")
+            return false
+        }
         return songDao.isSongLiked(userEmail, songId)
     }
 
     // Like a song
-    fun likeSong(userEmail: String = defaultUserEmail, songId: Int) {
+    fun likeSong(userEmail: String, songId: Int) {
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot like song: user email is empty")
+            return
+        }
         viewModelScope.launch {
             val crossRef = LikedSongCrossRef(userEmail, songId)
             songDao.likeSong(crossRef)
@@ -118,7 +160,11 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Unlike a song
-    fun unlikeSong(userEmail: String = defaultUserEmail, songId: Int) {
+    fun unlikeSong(userEmail: String, songId: Int) {
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot unlike song: user email is empty")
+            return
+        }
         viewModelScope.launch {
             val crossRef = LikedSongCrossRef(userEmail, songId)
             songDao.unlikeSong(crossRef)
@@ -129,9 +175,14 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteSong(
         song: Song,
         musicViewModel: MusicViewModel,
-        userEmail: String = defaultUserEmail,
+        userEmail: String,
         onComplete: () -> Unit = {}
     ) {
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot delete song: user email is empty")
+            return
+        }
+        
         viewModelScope.launch {
             try {
                 // Get the song ID first
@@ -176,9 +227,14 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSong(
         oldSong: Song,
         newSong: Song,
-        userEmail: String = defaultUserEmail,
+        userEmail: String,
         onComplete: () -> Unit = {}
     ) {
+        if (userEmail.isEmpty()) {
+            Log.e("SongViewModel", "Cannot update song: user email is empty")
+            return
+        }
+        
         viewModelScope.launch {
             try {
                 val songId = songDao.getSongId(oldSong.title, oldSong.artist)

@@ -49,6 +49,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 // Global object to store listened songs across app sessions
 object ListenedSongsTracker {
     val listenedSongs = mutableSetOf<String>()
+    
+    // Clear history when logging out
+    fun clearHistory() {
+        listenedSongs.clear()
+    }
 }
 
 @Composable
@@ -106,7 +111,7 @@ fun ProfileScreen(
         }
     }
 
-    // Observe network status changes
+    // Observe network status changes and update user email when profile is fetched
     LaunchedEffect(isOnline) {
         if (isOnline && profileData == null) {
             isLoading = true
@@ -115,6 +120,14 @@ fun ProfileScreen(
                 try {
                     val response = RetrofitClient.apiService.getProfile()
                     profileData = response.body()
+                    
+                    // Update the user email in SongViewModel when profile data is received
+                    profileData?.email?.let { email ->
+                        if (email.isNotEmpty()) {
+                            songViewModel.updateUserEmail(email)
+                            Log.d("ProfileScreen", "Updated user email to: $email")
+                        }
+                    }
                 } catch (e: Exception) {
                     errorMessage = "Error: ${e.message}"
                     Log.e("ProfileScreen", "Fetch error", e)
@@ -133,6 +146,14 @@ fun ProfileScreen(
                 val response = RetrofitClient.apiService.getProfile()
                 if (response.isSuccessful) {
                     profileData = response.body()
+                    
+                    // Also update the user email here
+                    profileData?.email?.let { email ->
+                        if (email.isNotEmpty()) {
+                            songViewModel.updateUserEmail(email)
+                            Log.d("ProfileScreen", "Updated user email to: $email")
+                        }
+                    }
                 } else {
                     errorMessage = "Error: ${response.message()}"
                     Log.e("ProfileScreen", "Error response: ${response.code()}")
@@ -218,6 +239,19 @@ fun ProfileScreen(
                             )
                         } else {
                             profileData?.let { profile ->
+                                // Display user email for debugging (can be removed in production)
+                                if (profile.email != null) {
+                                    Text(
+                                        text = "Logged in as: ${profile.email}",
+                                        style = TextStyle(
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 12.sp
+                                        ),
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                }
+                                
                                 // Profile Photo with edit button
                                 Box(
                                     contentAlignment = Alignment.BottomEnd

@@ -2,6 +2,7 @@ package com.example.purrytify.ui.screens
 
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import coil.compose.AsyncImage
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.RepeatMode
 import com.example.purrytify.ui.viewmodel.SongViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -46,7 +48,24 @@ fun MusicPlayerScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userEmail = "13522126@std.stei.itb.ac.id" // This would typically come from your auth system
+    
+    // Use current user email from SongViewModel instead of hardcoded value
+    var userEmail by remember { mutableStateOf("") }
+    
+    // Get the current user email from the SongViewModel
+    LaunchedEffect(Unit) {
+        try {
+            val email = songViewModel.currentUserEmail.first()
+            if (email.isNotEmpty()) {
+                userEmail = email
+                Log.d("MusicPlayerScreen", "Using user email: $email")
+            } else {
+                Log.e("MusicPlayerScreen", "User email is empty, song operations will fail")
+            }
+        } catch (e: Exception) {
+            Log.e("MusicPlayerScreen", "Failed to get user email: ${e.message}")
+        }
+    }
 
     // Initialize playback controls when the screen is first composed
     LaunchedEffect(Unit) {
@@ -64,8 +83,13 @@ fun MusicPlayerScreen(
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
 
-    // Check if the current song is liked when it changes
-    LaunchedEffect(currentSong) {
+    // Check if the current song is liked when it changes or when user email changes
+    LaunchedEffect(currentSong, userEmail) {
+        if (userEmail.isEmpty()) {
+            // Can't check if song is liked without user email
+            return@LaunchedEffect
+        }
+        
         currentSong?.let { song ->
             // Get song ID for the current song
             val songId = songViewModel.getSongId(song.title, song.artist)
@@ -299,13 +323,18 @@ fun MusicPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Like button - NEW!
+            // Like button - Updated to use current user email
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(
                     onClick = {
+                        if (userEmail.isEmpty()) {
+                            Toast.makeText(context, "Cannot like/unlike: No user email available", Toast.LENGTH_SHORT).show()
+                            return@IconButton
+                        }
+                        
                         scope.launch {
                             if (isSongLiked) {
                                 // Unlike the song
@@ -702,6 +731,11 @@ fun MusicPlayerScreen(
 
                         Button(
                             onClick = {
+                                if (userEmail.isEmpty()) {
+                                    errorMessage = "User not authenticated"
+                                    return@Button
+                                }
+                                
                                 if (newSongTitle.isBlank()) {
                                     errorMessage = "Title cannot be empty"
                                     return@Button
@@ -748,10 +782,11 @@ fun MusicPlayerScreen(
                                             duration = if (newSongAudioUri != null) audioDuration else oldSong.duration
                                         )
 
-                                        // Update the song
+                                        // Update the song - using current user email
                                         songViewModel.updateSong(
                                             oldSong = oldSong,
                                             newSong = updatedSong,
+                                            userEmail = userEmail,
                                             onComplete = {
                                                 isUploading = false
                                                 showEditDialog = false
@@ -822,16 +857,22 @@ fun MusicPlayerScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        if (userEmail.isEmpty()) {
+                            Toast.makeText(context, "Cannot delete: No user email available", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        
                         scope.launch {
                             val songToDelete = currentSong!!
 
                             // First stop playing and move to next song if possible
                             musicViewModel.stopAndClearCurrentSong()
 
-                            // Then delete the song
+                            // Then delete the song - now using the correct user email
                             songViewModel.deleteSong(
                                 song = songToDelete,
                                 musicViewModel = musicViewModel,
+                                userEmail = userEmail,
                                 onComplete = {
                                     showDeleteConfirmation = false
                                     Toast.makeText(context, "Song deleted", Toast.LENGTH_SHORT).show()
