@@ -31,26 +31,30 @@ import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 
-// Object to store play history across recompositions
 object PlayHistoryTracker {
-    private val recentlyPlayedList = mutableListOf<Song>()
+    private val userHistories = mutableMapOf<String, MutableList<Song>>()
     private const val MAX_HISTORY_SIZE = 10
 
-    fun addSongToHistory(song: Song) {
-        // Remove the song if it's already in the list to avoid duplicates
-        recentlyPlayedList.removeAll { it.title == song.title && it.artist == song.artist }
+    fun addSongToHistory(email: String, song: Song) {
+        val history = userHistories.getOrPut(email) { mutableListOf() }
 
-        // Add the song at the beginning of the list (most recent)
-        recentlyPlayedList.add(0, song)
+        history.removeAll { it.title == song.title && it.artist == song.artist }
 
-        // Keep only the most recent MAX_HISTORY_SIZE songs
-        if (recentlyPlayedList.size > MAX_HISTORY_SIZE) {
-            recentlyPlayedList.removeAt(recentlyPlayedList.size - 1)
+        history.add(0, song)
+
+        if (history.size > MAX_HISTORY_SIZE) {
+            history.removeAt(history.size - 1)
         }
+
+        userHistories[email] = history
     }
 
-    fun getRecentlyPlayedSongs(): List<Song> {
-        return recentlyPlayedList.toList()
+    fun getRecentlyPlayedSongs(email: String): List<Song> {
+        return userHistories[email]?.toList() ?: emptyList()
+    }
+
+    fun clearHistory(email: String) {
+        userHistories[email]?.clear()
     }
 }
 
@@ -62,6 +66,9 @@ fun HomeScreen(
     onNavigateToPlayer: () -> Unit
 ) {
     val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+    val userEmail = tokenManager.getEmail() ?: ""
+
     val scope = rememberCoroutineScope()
 
     // Collect all songs from the SongViewModel
@@ -69,7 +76,7 @@ fun HomeScreen(
 
     // State to track recently played songs
     val currentSong by musicViewModel.currentSong.collectAsState()
-    var recentlyPlayedSongs by remember { mutableStateOf<List<Song>>(PlayHistoryTracker.getRecentlyPlayedSongs()) }
+    var recentlyPlayedSongs by remember { mutableStateOf<List<Song>>(PlayHistoryTracker.getRecentlyPlayedSongs(userEmail)) }
 
     // State for loading
     var isLoading by remember { mutableStateOf(true) }
@@ -77,25 +84,17 @@ fun HomeScreen(
     // Track the previous song to detect changes
     var previousSong by remember { mutableStateOf<Song?>(null) }
 
-    // Update recently played songs when current song changes
-    LaunchedEffect(currentSong) {
-        // Only update if there's a new song playing and it's different from the previous one
+    LaunchedEffect(currentSong, userEmail) {
         if (currentSong != null && currentSong != previousSong) {
-            // Add the song to the play history
-            PlayHistoryTracker.addSongToHistory(currentSong!!)
-
-            // Update the state to trigger recomposition
-            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs()
-
-            // Update previous song reference
+            PlayHistoryTracker.addSongToHistory(userEmail, currentSong!!)
+            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail)
             previousSong = currentSong
         }
 
-        // If we have no play history yet but have songs in the library, seed with some random songs
         if (recentlyPlayedSongs.isEmpty() && allSongs.value.isNotEmpty()) {
             val initialSongs = allSongs.value.shuffled().take(5)
-            initialSongs.forEach { PlayHistoryTracker.addSongToHistory(it) }
-            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs()
+            initialSongs.forEach { PlayHistoryTracker.addSongToHistory(userEmail, it) }
+            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail)
         }
 
         isLoading = false
