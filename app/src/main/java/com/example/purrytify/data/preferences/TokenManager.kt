@@ -52,26 +52,8 @@ class TokenManager(context: Context) {
         return sharedPrefs.getString("refreshToken", null)
     }
 
-    // New method to save user email
-    fun saveUserEmail(email: String) {
-        Log.d(TAG, "Saving user email: $email")
-        sharedPrefs.edit().putString("user_email", email).apply()
-    }
-
-    // New method to get user email with fallback
-    fun getUserEmail(): String {
-        val email = sharedPrefs.getString("user_email", null)
-        if (email != null) {
-            Log.d(TAG, "Retrieved user email: $email")
-            return email
-        } else {
-            Log.d(TAG, "No user email found, using default")
-            return "13522140@std.stei.itb.ac.id"  // Default fallback email
-        }
-    }
-
     fun clearTokens() {
-        Log.d(TAG, "Clearing all tokens and user data")
+        Log.d(TAG, "Clearing all tokens")
         sharedPrefs.edit().clear().apply()
     }
 

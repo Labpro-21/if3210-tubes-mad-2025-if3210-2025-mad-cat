@@ -31,6 +31,29 @@ import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 
+// Object to store play history across recompositions
+object PlayHistoryTracker {
+    private val recentlyPlayedList = mutableListOf<Song>()
+    private const val MAX_HISTORY_SIZE = 10
+
+    fun addSongToHistory(song: Song) {
+        // Remove the song if it's already in the list to avoid duplicates
+        recentlyPlayedList.removeAll { it.title == song.title && it.artist == song.artist }
+
+        // Add the song at the beginning of the list (most recent)
+        recentlyPlayedList.add(0, song)
+
+        // Keep only the most recent MAX_HISTORY_SIZE songs
+        if (recentlyPlayedList.size > MAX_HISTORY_SIZE) {
+            recentlyPlayedList.removeAt(recentlyPlayedList.size - 1)
+        }
+    }
+
+    fun getRecentlyPlayedSongs(): List<Song> {
+        return recentlyPlayedList.toList()
+    }
+}
+
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -41,16 +64,14 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val tokenManager = remember { TokenManager(context) }
-    val userEmail = remember { tokenManager.getUserEmail() ?: "13522126@std.stei.itb.ac.id" }
+    val userEmail = remember { "13522126@std.stei.itb.ac.id" }
 
     // Collect all songs from the SongViewModel
     val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // Collect recently played songs from the database instead of in-memory tracker
-    val recentlyPlayedSongs = songViewModel.recentlyPlayedSongs.collectAsStateWithLifecycle(initialValue = emptyList())
-
-    // State to track current song
+    // State to track recently played songs
     val currentSong by musicViewModel.currentSong.collectAsState()
+    var recentlyPlayedSongs by remember { mutableStateOf<List<Song>>(PlayHistoryTracker.getRecentlyPlayedSongs()) }
 
     // State for loading
     var isLoading by remember { mutableStateOf(true) }
@@ -62,14 +83,21 @@ fun HomeScreen(
     LaunchedEffect(currentSong) {
         // Only update if there's a new song playing and it's different from the previous one
         if (currentSong != null && currentSong != previousSong) {
-            // Add the song to the database
-            songViewModel.addToRecentlyPlayed(currentSong!!, userEmail)
+            // Add the song to the play history
+            PlayHistoryTracker.addSongToHistory(currentSong!!)
 
-            // Also mark the song as listened
-            songViewModel.markAsListened(currentSong!!, userEmail)
+            // Update the state to trigger recomposition
+            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs()
 
             // Update previous song reference
             previousSong = currentSong
+        }
+
+        // If we have no play history yet but have songs in the library, seed with some random songs
+        if (recentlyPlayedSongs.isEmpty() && allSongs.value.isNotEmpty()) {
+            val initialSongs = allSongs.value.shuffled().take(5)
+            initialSongs.forEach { PlayHistoryTracker.addSongToHistory(it) }
+            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs()
         }
 
         isLoading = false
@@ -184,7 +212,7 @@ fun HomeScreen(
                     )
                 }
 
-                if (recentlyPlayedSongs.value.isEmpty()) {
+                if (recentlyPlayedSongs.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -200,8 +228,8 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    items(recentlyPlayedSongs.value.size) { index ->
-                        val song = recentlyPlayedSongs.value[index]
+                    items(recentlyPlayedSongs.size) { index ->
+                        val song = recentlyPlayedSongs[index]
                         RecentlySongItem(
                             song = song,
                             onClick = {

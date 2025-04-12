@@ -6,23 +6,11 @@ import androidx.room.Room
 import android.content.Context
 import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
-import com.example.purrytify.data.local.db.entities.RecentlyPlayedSong
-import com.example.purrytify.data.local.db.entities.ListenedSong
 import com.example.purrytify.data.local.db.entities.SongUploader
 
-@Database(
-    entities = [
-        SongEntity::class,
-        LikedSongCrossRef::class,
-        SongUploader::class,
-        RecentlyPlayedSong::class,
-        ListenedSong::class
-    ],
-    version = 2
-)
+@Database(entities = [SongEntity::class, LikedSongCrossRef::class, SongUploader::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
-
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
@@ -32,7 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "purrytify_database"
-                )   .fallbackToDestructiveMigration() // This will wipe data on version change
+                )   .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

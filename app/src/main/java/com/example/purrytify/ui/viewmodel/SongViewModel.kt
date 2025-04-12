@@ -8,8 +8,6 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
-import com.example.purrytify.data.local.db.entities.RecentlyPlayedSong
-import com.example.purrytify.data.local.db.entities.ListenedSong
 import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.ui.screens.Song
 import com.tubesmobile.purrytify.data.local.db.AppDatabase
@@ -49,32 +47,13 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-    // Flow for recently played songs
-    val recentlyPlayedSongs: Flow<List<Song>> =
-        songDao.getRecentlyPlayedSongs(defaultUserEmail).map { entities ->
-            entities.map { entity ->
-                Song(
-                    title = entity.title,
-                    artist = entity.artist,
-                    duration = entity.duration,
-                    uri = entity.uri,
-                    coverUri = entity.coverUri ?: ""
-                )
-            }
-        }
-
-    // Function to get listened songs count for a user
-    fun listenedSongsCount(userEmail: String = defaultUserEmail): Flow<Int> {
-        return songDao.getListenedSongsCount(userEmail)
-    }
-
     // Keep this function but don't use it in our implementation
     fun extractAndSaveArtwork(context: Context, uri: Uri): String? {
         Log.d("SongViewModel", "Artwork extraction is disabled, returning empty string")
         return ""
     }
 
-    fun insertSong(song: Song, userEmail: String = defaultUserEmail) {
+    fun insertSong(song: Song, userEmail: String = defaultUserEmail){
         viewModelScope.launch {
             val entity = SongEntity(
                 title = song.title,
@@ -143,40 +122,6 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val crossRef = LikedSongCrossRef(userEmail, songId)
             songDao.unlikeSong(crossRef)
-        }
-    }
-
-    // Add a song to recently played
-    fun addToRecentlyPlayed(song: Song, userEmail: String = defaultUserEmail) {
-        viewModelScope.launch {
-            try {
-                val songId = songDao.getSongId(song.title, song.artist)
-                val recentlyPlayed = RecentlyPlayedSong(
-                    userEmail = userEmail,
-                    songId = songId,
-                    timestamp = System.currentTimeMillis()
-                )
-                songDao.insertRecentlyPlayedSong(recentlyPlayed)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    // Mark a song as listened
-    fun markAsListened(song: Song, userEmail: String = defaultUserEmail) {
-        viewModelScope.launch {
-            try {
-                val songId = songDao.getSongId(song.title, song.artist)
-                val listenedSong = ListenedSong(
-                    userEmail = userEmail,
-                    songId = songId,
-                    timestamp = System.currentTimeMillis()
-                )
-                songDao.insertListenedSong(listenedSong)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
     }
 
