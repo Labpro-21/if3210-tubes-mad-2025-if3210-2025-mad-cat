@@ -207,7 +207,7 @@ Password: {your-nim}
 ## Task Allocation
 
 | Task                         | Responsible        |
-| ---------------------------- | ------------------ |
+|------------------------------|--------------------|
 | Login/Authentication         | 13522140           |
 | Song Upload/Management       | 13522139, 13522140 |
 | Home Screen                  | 13522140           |
@@ -219,20 +219,21 @@ Password: {your-nim}
 | JWT Background Service       | 13522121           |
 | Network Sensing              | 13522139           |
 | Liked Song                   | 13522121, 13522140 |
-| Queue                        |                    |
-| Shuffle                      | 13522140           |
-| Repeat                       | 13522140           |
-| OWASP                        | 13522121           |
-| Search                       | 13522121, 13522139 |
+| User Management              | 13522139, 13522140 |
+| Queue (Bonus)                | 13522139           |
+| Shuffle (Bonus)              | 13522140           |
+| Repeat (Bonus)               | 13522140           |
+| OWASP (Bonus)                | 13522121           |
+| Search (Bonus)               | 13522121, 13522139 |
 | Accessibility Testing        |                    |
 
 ## Development Hours
 
 | Name                      | NIM      | Hours |
-| ------------------------- | -------- | ----- |
-| Jonathan Emmanuel Saragih | 13522121 | 30    |
-| Attara Majesta Ayub       | 13522139 | 40    |
-| Yasmin Farisah Salma      | 13522140 | 60    |
+| ------------------------- | -------- |-------|
+| Jonathan Emmanuel Saragih | 13522121 | 40    |
+| Attara Majesta Ayub       | 13522139 | 50    |
+| Yasmin Farisah Salma      | 13522140 | 90    |
 
 ## OWASP Security Analysis (Bonus 4)
 
