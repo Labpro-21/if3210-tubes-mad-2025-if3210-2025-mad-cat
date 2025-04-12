@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.ui.screens.Song
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
@@ -38,38 +39,49 @@ fun MiniPlayer(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userEmail = "13522126@std.stei.itb.ac.id" // This would typically come from your auth system
+    
+    // Get user email from TokenManager
+    val tokenManager = remember { TokenManager(context) }
+    val userEmail = remember { mutableStateOf("") }
+    
+    // Set up the user email on first composition
+    LaunchedEffect(Unit) {
+        val email = tokenManager.getEmail() ?: "13522126@std.stei.itb.ac.id" // Fallback email
+        userEmail.value = email
+    }
 
     val currentSong by musicViewModel.currentSong.collectAsState()
     val isPlaying by musicViewModel.isPlaying.collectAsState()
     val currentPosition by musicViewModel.currentPosition.collectAsState()
     val duration by musicViewModel.duration.collectAsState()
 
-    // New state for liked song
+    // State for liked song
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
 
     // Check if the current song is liked when it changes
-    LaunchedEffect(currentSong) {
-        currentSong?.let { song ->
-            // Safely get song ID for the current song
-            val songId = try {
-                songViewModel.getSongId(song.title, song.artist)
-            } catch (e: Exception) {
-                -1
-            }
-            currentSongId.value = songId
+    LaunchedEffect(currentSong, userEmail.value) {
+        if (userEmail.value.isNotEmpty()) {
+            currentSong?.let { song ->
+                // Safely get song ID for the current song
+                val songId = try {
+                    songViewModel.getSongId(song.title, song.artist)
+                } catch (e: Exception) {
+                    -1
+                }
+                currentSongId.value = songId
 
-            // Check if it's liked
-            isSongLiked = if (songId != -1) {
-                songViewModel.isSongLiked(userEmail, songId)
-            } else {
-                false
+                // Check if it's liked
+                isSongLiked = if (songId != -1) {
+                    songViewModel.isSongLiked(userEmail.value, songId)
+                } else {
+                    false
+                }
+            } ?: run {
+                // Reset states when no song is playing
+                isSongLiked = false
+                currentSongId.value = -1
             }
-        } ?: run {
-            // Reset states when no song is playing
-            isSongLiked = false
-            currentSongId.value = -1
         }
     }
 
@@ -150,16 +162,16 @@ fun MiniPlayer(
                     IconButton(
                         onClick = {
                             scope.launch {
-                                // Only allow like/unlike if we have a valid song ID
-                                if (currentSongId.value != -1) {
+                                // Only allow like/unlike if we have a valid song ID and user email
+                                if (currentSongId.value != -1 && userEmail.value.isNotEmpty()) {
                                     if (isSongLiked) {
                                         // Unlike the song
-                                        songViewModel.unlikeSong(userEmail, currentSongId.value)
+                                        songViewModel.unlikeSong(userEmail.value, currentSongId.value)
                                         isSongLiked = false
                                         Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
                                     } else {
                                         // Like the song
-                                        songViewModel.likeSong(userEmail, currentSongId.value)
+                                        songViewModel.likeSong(userEmail.value, currentSongId.value)
                                         isSongLiked = true
                                         Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
                                     }

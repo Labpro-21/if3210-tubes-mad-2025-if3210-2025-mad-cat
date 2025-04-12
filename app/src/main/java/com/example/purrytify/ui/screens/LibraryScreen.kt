@@ -80,9 +80,18 @@ fun LibraryScreen(
     onNavigateToPlayer: () -> Unit
 ) {
     val context = LocalContext.current
-    val tokenManager = remember { TokenManager(context) }
-    val userEmail = remember { "13522126@std.stei.itb.ac.id" } // This would typically come from your auth system
     val scope = rememberCoroutineScope()
+    
+    // Get user email from the proper source (token manager)
+    val tokenManager = remember { TokenManager(context) }
+    val userEmail = remember { mutableStateOf("") }
+    
+    // Set up the user email on first composition
+    LaunchedEffect(Unit) {
+        val email = tokenManager.getEmail() ?: "13522126@std.stei.itb.ac.id" // Fallback email
+        userEmail.value = email
+        songViewModel.updateUserEmail(email)
+    }
 
     var selectedLibraryMode by remember { mutableStateOf("All") }
 
@@ -644,6 +653,7 @@ fun LibraryScreen(
 
                                     scope.launch {
                                         try {
+                                            debugInfo = "Saving audio file..."
                                             val savedAudioPath = saveAudioFile(newSongAudioUri!!)
 
                                             if (savedAudioPath == null) {
@@ -660,11 +670,26 @@ fun LibraryScreen(
                                                 if (path != null && path.isNotEmpty()) {
                                                     savedImagePath = path
                                                     debugInfo = "Image saved successfully to: $savedImagePath"
+                                                    
+                                                    // Verify the file exists after saving
+                                                    val imageFile = File(savedImagePath)
+                                                    if (!imageFile.exists() || imageFile.length() == 0L) {
+                                                        Log.e("LibraryScreen", "Image file doesn't exist or is empty after saving")
+                                                        debugInfo += "\nWarning: Image file verification failed"
+                                                    }
                                                 } else {
                                                     debugInfo = "Failed to save image"
                                                 }
                                             } else {
                                                 debugInfo = "No cover image provided by user"
+                                            }
+                                            
+                                            // Make sure we have the current user email
+                                            val currentEmail = userEmail.value
+                                            if (currentEmail.isEmpty()) {
+                                                errorMessage = "User email not available. Please log in again."
+                                                isUploading = false
+                                                return@launch
                                             }
 
                                             val newSong = Song(
@@ -675,10 +700,13 @@ fun LibraryScreen(
                                                 duration = audioDuration
                                             )
 
+                                            Log.d("LibraryScreen", "Inserting song with email: $currentEmail")
+                                            debugInfo = "Inserting song into database..."
+
                                             songViewModel.checkAndInsertSong(
                                                 context,
                                                 newSong,
-                                                userEmail,
+                                                currentEmail,
                                                 onExists = {
                                                     errorMessage = "Song already exists in your library"
                                                     isUploading = false

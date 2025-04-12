@@ -61,6 +61,21 @@ class TokenManager(context: Context) {
         return !getToken().isNullOrEmpty()
     }
 
+    fun saveEmail(email: String?) {
+        if (email.isNullOrEmpty()) {
+            Log.w(TAG, "Attempted to save null or empty email")
+            return
+        }
+        Log.d(TAG, "Saving user email: $email")
+        sharedPrefs.edit().putString("user_email", email).apply()
+    }
+
+    fun getEmail(): String? {
+        val email = sharedPrefs.getString("user_email", null)
+        Log.d(TAG, "Retrieved user email: $email")
+        return email
+    }
+
     fun updateToken(newToken: String?, newRefreshToken: String?) {
         if (!newToken.isNullOrEmpty()) {
             saveToken(newToken)
