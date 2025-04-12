@@ -2,9 +2,9 @@
 
 > **Tugas Besar IF3210 - Pengembangan Aplikasi Piranti Bergerak**
 
-Purrytify is a music player application developed as the "Tugas Besar 1" for the Mobile Application Development course (IF3210) by Jonathan, Attara, and Yasmine. This Android application provides a comprehensive music player experience with features for music playback, library management, and user authentication.
+Purrytify is a music player application developed as the final project for the Mobile Application Development course (IF3210) at Institut Teknologi Bandung. This Android application provides a comprehensive music player experience with features for music playback, library management, and user authentication.
 
-<img src="screenshot/app_home.png" alt="Purrytify Home Screen" width="250"/>
+<img src="screenshot/home_screen.png" alt="Purrytify Home Screen" width="250"/>
 
 ## Table of Contents
 
@@ -13,13 +13,13 @@ Purrytify is a music player application developed as the "Tugas Besar 1" for the
 3. [Tech Stack](#tech-stack)
 4. [Setting Up](#setting-up)
 5. [Screenshots](#screenshots)
-6. [Task Allocation](#task-allocation)
+6. [Task Allocation](#task-allocation-)
 7. [OWASP Security Analysis](#owasp-security-analysis)
 8. [Acknowledgements](#acknowledgements)
 
 ## Overview
 
-The Purrytify project focuses on developing a music player Android application that allows users to listen to, manage, and share their music libraries. This application is not just a simple music player but a symbol of resistance against the anti-music tyranny of Dr. Asep Spakbor! With advanced features and a comprehensive song collection, this app becomes the main weapon in the battle to restore happiness through musical notes.
+The Purrytify project focuses on developing a music player Android application that allows users to listen to, manage, and share their music libraries. The application provides a comprehensive set of features including user authentication, music playback, library management, and profile handling.
 
 The main objectives of the Purrytify project include:
 
@@ -32,40 +32,102 @@ The main objectives of the Purrytify project include:
 
 ## Features
 
-### User Authentication
+### Header dan Navbar
 
-- Login system with JWT token management
-- Secure token storage
-- Automatic token refresh when expired
-- User profile display
+- Three navigation menus: Home, Library, and Profile
+- Visual indication for active menu
+- Dynamic header based on current menu
 
-### Music Management
+### Login
 
-- Audio file selection and metadata extraction
-- Artwork and metadata editing
-- Song deletion
-- Library organization
+- Authentication system with JWT token management
+- Secure token storage using EncryptedSharedPreferences
+- API integration with backend server
 
-### Music Playback
+### Home
 
-- Play/Pause functionality
-- Next/Previous track navigation
-- Progress tracking with seek capability
-- Mini-player for continuous playback while browsing
-- Full player view with song details
-
-### Library Organization
-
-- All Songs view
-- Recently played songs tracking
-- Liked Songs collection
+- Recently played songs display
 - New uploads section
+- Single-tap playback functionality
 
-### Additional Features
+### Library
 
-- Network connectivity detection
-- Background service for JWT validity checking
-- UserEmail-based song organization
+- All Songs view with complete song collection
+- RecyclerView implementation for efficient list handling
+- Song playback on selection
+
+### Pemutaran Lagu
+
+- Full player view with detailed song information
+- Play/pause, next/previous functionality
+- Duration tracking with seekable progress bar
+- Mini player for continuous playback while browsing
+
+### Penambahan Lagu
+
+- Song upload from external storage
+- Metadata extraction using MediaMetadataRetriever
+- Form for editing song details (title, artist, artwork)
+- Room Database storage for song metadata
+
+### Profile
+
+- User profile data display
+- Statistics for uploaded songs, liked songs, and listened songs
+- Settings and account management
+
+### Liked Songs
+
+- Like/unlike functionality for songs
+- Dedicated section for liked songs in Library
+- Synchronized status across the application
+
+### Background Service
+
+- JWT expiration checking
+- Automatic token refresh
+- Persistent music playback
+
+### Network Sensing
+
+- Internet connectivity detection
+- Offline mode support
+- User notifications for connection status
+
+## Spesifikasi Bonus
+
+### Queue
+
+- Add to queue functionality
+- Custom playback order
+- Queue management
+
+### Shuffle
+
+- Random song playback
+- Toggle functionality
+
+### Repeat
+
+- Multiple repeat modes (off, repeat all, repeat one)
+- Persistent repeat settings
+
+### OWASP
+
+- Security analysis and improvements
+- Implementation of best practices
+
+### Pencarian
+
+- Search functionality in Library
+- Filtering by song title and artist
+- Real-time results
+
+### Accessibility Testing
+
+- Accessibility Scanner implementation
+- UI improvements for better accessibility
+- Support for users with disabilities
 
 ## Tech Stack
 
@@ -144,33 +206,33 @@ Password: {your-nim}
 
 ## Task Allocation
 
-| Task                         | Responsible |
-| ---------------------------- | ----------- |
-| Login/Authentication         | 13522140    |
-| Song Upload/Management       | 13522140    |
-| Home Screen                  | 13522140    |
-| Library Screen               | 13522140    |
-| Music Player                 | 13522140    |
-| Mini Player                  | 13522140    |
-| Profile Screen               | 13522140    |
-| Room Database Implementation | 13522140    |
-| JWT Background Service       | 13522121    |
-| Network Sensing              | 13522139    |
-| Network Sensing              | 13522139    |
-| Queue                        |             |
-| Shuffle                      |             |
-| Repeat                       |             |
-| OWASP                        |             |
-| Search                       |             |
-| Accessibility Testing        |             |
+| Task                         | Responsible        |
+| ---------------------------- | ------------------ |
+| Login/Authentication         | 13522140           |
+| Song Upload/Management       | 13522139, 13522140 |
+| Home Screen                  | 13522140           |
+| Library Screen               | 13522140           |
+| Music Player                 | 13522140           |
+| Mini Player                  | 13522140           |
+| Profile Screen               | 13522140           |
+| Room Database Implementation | 13522140           |
+| JWT Background Service       | 13522121           |
+| Network Sensing              | 13522139           |
+| Liked Song                   | 13522121, 13522140 |
+| Queue                        |                    |
+| Shuffle                      | 13522140           |
+| Repeat                       | 13522140           |
+| OWASP                        | 13522121           |
+| Search                       | 13522121, 13522139 |
+| Accessibility Testing        |                    |
 
 ## Development Hours
 
-| Name                      | NIM      | Tasks | Hours |
-| ------------------------- | -------- | ----- | ----- |
-| Jonathan Emmanuel Saragih | 13522121 | 1     | 20    |
-| Attara Majesta Ayub       | 13522139 | 1     | 20    |
-| Yasmin Farisah Salma      | 13522140 | 8     | 40    |
+| Name                      | NIM      | Hours |
+| ------------------------- | -------- | ----- |
+| Jonathan Emmanuel Saragih | 13522121 | 30    |
+| Attara Majesta Ayub       | 13522139 | 40    |
+| Yasmin Farisah Salma      | 13522140 | 60    |
 
 ## OWASP Security Analysis (Bonus 4)
 
