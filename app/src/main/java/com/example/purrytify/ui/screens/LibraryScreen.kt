@@ -81,7 +81,7 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
-    val userEmail = remember { "13522126@std.stei.itb.ac.id" } // This would typically come from your auth system
+    val userEmail = remember { tokenManager.getUserEmail() }
     val scope = rememberCoroutineScope()
 
     var selectedLibraryMode by remember { mutableStateOf("All") }

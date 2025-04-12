@@ -46,11 +46,6 @@ import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-// Global object to store listened songs across app sessions
-object ListenedSongsTracker {
-    val listenedSongs = mutableSetOf<String>()
-}
-
 @Composable
 fun ProfileScreen(
     navController: NavController,
@@ -60,6 +55,7 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+    val userEmail = remember { tokenManager.getUserEmail() ?: "13522140@std.stei.itb.ac.id" }
     val coroutineScope = rememberCoroutineScope()
 
     val connectivityObserver = remember { NetworkConnectivityObserver(context) }
@@ -79,12 +75,8 @@ fun ProfileScreen(
     // Get liked songs from the SongViewModel
     val likedSongs = songViewModel.likedSongs.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // Calculate statistics based on actual data
-    val songCount = allSongs.value.size
-    val likedCount = likedSongs.value.size
-
-    // State to display the listened count
-    var listenedCount by remember { mutableStateOf(ListenedSongsTracker.listenedSongs.size) }
+    // Get listened count from the database instead of in-memory tracker
+    val listenedCount = songViewModel.listenedSongsCount(userEmail).collectAsStateWithLifecycle(initialValue = 0)
 
     // Keep track of the current song
     val currentSong by musicViewModel.currentSong.collectAsState()
@@ -93,13 +85,8 @@ fun ProfileScreen(
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
         if (currentSong != null && currentSong != previousSong) {
-            // Only process when we have a new song
-            val songKey = "${currentSong!!.title}_${currentSong!!.artist}"
-
-            // Add to our tracked set and update the count
-            if (ListenedSongsTracker.listenedSongs.add(songKey)) {
-                listenedCount = ListenedSongsTracker.listenedSongs.size
-            }
+            // Mark the song as listened in database
+            songViewModel.markAsListened(currentSong!!, userEmail)
 
             // Update previous song reference
             previousSong = currentSong
@@ -198,6 +185,7 @@ fun ProfileScreen(
                     .padding(bottom = 56.dp) // Add padding to account for mini player + navbar
             ) {
                 if (!isOnline) {
+                    // Use your existing ErrorScreen
                     ErrorScreen(pageName = "Profile")
                 } else {
                     Column(
@@ -304,26 +292,26 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(48.dp))
 
-                                // Stats Row - Now using actual values from database with fixed listened count
+                                // Stats Row - Using database values
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceEvenly
                                 ) {
                                     // Songs Stat - Number of songs in library
                                     StatItem(
-                                        count = songCount,
+                                        count = allSongs.value.size,
                                         label = "SONGS"
                                     )
 
                                     // Liked Stat - Number of liked songs
                                     StatItem(
-                                        count = likedCount,
+                                        count = likedSongs.value.size,
                                         label = "LIKED"
                                     )
 
-                                    // Listened Stat - Tracks unique songs played
+                                    // Listened Stat - Tracks unique songs played using database count
                                     StatItem(
-                                        count = listenedCount,
+                                        count = listenedCount.value,
                                         label = "LISTENED"
                                     )
                                 }
