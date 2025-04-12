@@ -204,6 +204,20 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
 
                     // Delete from database
                     songDao.deleteSong(songId)
+
+                    // Delete from recently played
+                    PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
+                        it.title == song.title && it.artist == song.artist
+                    }?.let {
+                        val updatedList = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).toMutableList()
+                        updatedList.remove(it)
+
+                        PlayHistoryTracker.clearHistory(email)
+
+                        for (s in updatedList) {
+                            PlayHistoryTracker.addSongToHistory(email, s, tokenManager)
+                        }
+                    }
                 }
 
                 onComplete()

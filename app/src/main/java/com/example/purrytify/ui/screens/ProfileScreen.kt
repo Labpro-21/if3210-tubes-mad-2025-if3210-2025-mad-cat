@@ -1,5 +1,6 @@
 package com.example.purrytify.ui.screens
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -49,15 +50,35 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
 
-    fun getListenedCount(email: String): Int {
+        fun getListenedCount(email: String): Int {
         return userListenedSongsMap[email]?.size ?: 0
     }
 
-    fun addSong(email: String, songKey: String): Boolean {
+    fun addSong(email: String, songKey: String, context: android.content.Context): Boolean {
         val userSet = userListenedSongsMap.getOrPut(email) { mutableSetOf() }
         val isNew = userSet.add(songKey)
-        userListenedSongsMap[email] = userSet
+        if (isNew) {
+            userListenedSongsMap[email] = userSet
+            saveListenedSongs(email, context)
+        }
         return isNew
+    }
+
+    fun loadListenedSongs(email: String, context: android.content.Context) {
+        val tokenManager = TokenManager(context)
+        val raw = tokenManager.getString("listened_songs_$email")
+        raw?.let { rawString ->
+            userListenedSongsMap[email] = rawString
+                .split("|")
+                .filter { it.isNotBlank() }
+                .toMutableSet()
+        }
+    }
+
+    private fun saveListenedSongs(email: String, context: android.content.Context) {
+        val tokenManager = TokenManager(context)
+        val joined = userListenedSongsMap[email]?.joinToString("|") ?: ""
+        tokenManager.saveString("listened_songs_$email", joined)
     }
 }
 
@@ -95,8 +116,7 @@ fun ProfileScreen(
 
     // State to display the listened count
     val userEmail = tokenManager.getEmail() ?: ""
-    var listenedCount by remember { mutableStateOf(ListenedSongsTracker.getListenedCount(userEmail)) }
-
+    var listenedCount by remember { mutableStateOf(0) }
 
     // Keep track of the current song
     val currentSong by musicViewModel.currentSong.collectAsState()
@@ -106,7 +126,7 @@ fun ProfileScreen(
     LaunchedEffect(currentSong) {
         if (currentSong != null && currentSong != previousSong) {
             val songKey = "${currentSong!!.title}_${currentSong!!.artist}"
-            if (ListenedSongsTracker.addSong(userEmail, songKey)) {
+            if (ListenedSongsTracker.addSong(userEmail, songKey, context)) {
                 listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
             }
             previousSong = currentSong
@@ -134,6 +154,9 @@ fun ProfileScreen(
 
     // Fetch profile data on first composition
     LaunchedEffect(key1 = true) {
+        ListenedSongsTracker.loadListenedSongs(userEmail, context)
+        listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+
         coroutineScope.launch {
             try {
                 isLoading = true
@@ -143,7 +166,6 @@ fun ProfileScreen(
                 } else {
                     errorMessage = "Error: ${response.message()}"
                     Log.e("ProfileScreen", "Error response: ${response.code()}")
-
                 }
             } catch (e: Exception) {
                 errorMessage = "Error: ${e.localizedMessage}"

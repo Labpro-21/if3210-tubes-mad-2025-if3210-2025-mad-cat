@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.MainActivity
-import com.example.purrytify.data.preferences.PersistentTracker
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 
@@ -159,13 +158,6 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                             coroutineScope.launch {
                                 // Stop music playback
                                 musicViewModel.stopAndClearCurrentSong()
-
-                                // Clear tracking data
-                                val persistentTracker = PersistentTracker(context)
-                                persistentTracker.clearAllTracking()
-
-                                // Clear tokens
-                                tokenManager.clearTokens()
 
                                 // Navigate to login screen
                                 navController.navigate("login") {
