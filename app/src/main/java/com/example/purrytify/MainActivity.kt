@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable("settings") {
-                                SettingsScreen(navController = navController)
+                                SettingsScreen(navController = navController, musicViewModel = musicViewModel)
                             }
                             composable("player") {
                                 MusicPlayerScreen(

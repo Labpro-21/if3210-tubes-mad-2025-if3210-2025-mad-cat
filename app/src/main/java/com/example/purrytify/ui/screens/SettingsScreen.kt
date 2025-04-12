@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.MainActivity
+import com.example.purrytify.data.preferences.PersistentTracker
+import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 
 // Extension function to find Activity from Context
@@ -39,7 +41,7 @@ fun Context.findActivity(): Activity? {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavController) {
+fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel) {
     val context = LocalContext.current
     val activity = context.findActivity() as? MainActivity
     val tokenManager = remember { TokenManager(context) }
@@ -161,6 +163,13 @@ fun SettingsScreen(navController: NavController) {
                     Button(
                         onClick = {
                             coroutineScope.launch {
+                                // Stop music playback
+                                musicViewModel?.stopAndClearCurrentSong()
+
+                                // Clear tracking data
+                                val persistentTracker = PersistentTracker(context)
+                                persistentTracker.clearAllTracking()
+
                                 // Clear tokens
                                 tokenManager.clearTokens()
 
