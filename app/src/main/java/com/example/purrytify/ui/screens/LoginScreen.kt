@@ -67,11 +67,10 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
     val status by networkViewModel.status.collectAsState()
     val isOnline = status == ConnectivityObserver.Status.Available
 
-    // Show error popup when there's an error message
     LaunchedEffect(errorMessage) {
         if (errorMessage.isNotBlank()) {
             showErrorPopup = true
-            delay(4000) // Show error for 4 seconds
+            delay(4000)
             showErrorPopup = false
         }
     }
@@ -94,18 +93,15 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                 contentScale = ContentScale.Crop
             )
 
-            // Main content column (not scrollable)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center // Center vertically
+                verticalArrangement = Arrangement.Center
             ) {
-                // Spacer to push content down
                 Spacer(modifier = Modifier.weight(1f, fill = true))
 
-                // Logo - positioned lower now
                 Image(
                     painter = painterResource(id = R.drawable.purrytify_logo),
                     contentDescription = "Purrytify Logo",
@@ -114,7 +110,6 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                         .padding(bottom = 4.dp)
                 )
 
-                // Taglines
                 Text(
                     text = "Millions of Songs.",
                     style = TextStyle(
@@ -164,7 +159,7 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                         unfocusedContainerColor = Color(0xFF1E1E1E),
                         disabledContainerColor = Color(0xFF1E1E1E),
                         unfocusedBorderColor = Color.Gray,
-                        focusedBorderColor = Color(0xFF1DB954) // Use app green color for focus
+                        focusedBorderColor = Color(0xFF1DB954)
                     ),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
@@ -210,7 +205,7 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                         unfocusedContainerColor = Color(0xFF1E1E1E),
                         disabledContainerColor = Color(0xFF1E1E1E),
                         unfocusedBorderColor = Color.Gray,
-                        focusedBorderColor = Color(0xFF1DB954) // Use app green color for focus
+                        focusedBorderColor = Color(0xFF1DB954)
                     ),
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp)
@@ -355,7 +350,7 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                 }
 
                 // Bottom spacer
-                Spacer(modifier = Modifier.height(50.dp)) // Fixed bottom space
+                Spacer(modifier = Modifier.height(50.dp))
 
                 // Bottom handle
                 Box(

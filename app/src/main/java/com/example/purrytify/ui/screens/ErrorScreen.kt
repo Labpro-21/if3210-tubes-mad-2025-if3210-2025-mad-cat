@@ -21,15 +21,6 @@ fun ErrorScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-//        Icon(
-//            painter = painterResource(id = R.drawable.ic_offline),
-//            contentDescription = "Offline Icon",
-//            tint = Color.Gray,
-//            modifier = Modifier.size(80.dp)
-//        )
-
-//        Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = "You're offline",
             style = MaterialTheme.typography.headlineSmall,

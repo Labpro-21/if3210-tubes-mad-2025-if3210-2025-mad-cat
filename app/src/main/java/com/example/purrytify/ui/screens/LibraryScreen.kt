@@ -129,7 +129,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
         var isUploading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
 
-        // Debug state to track saved image path
         var debugInfo by remember { mutableStateOf("") }
 
         val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -137,7 +136,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
         ) { uri: Uri? ->
             newSongImageUri = uri
 
-            // Log the URI for debugging
             if (uri != null) {
                 Log.d("LibraryScreen", "Selected image URI: $uri")
                 debugInfo = "Selected image: $uri"
@@ -223,7 +221,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                 Log.d("LibraryScreen", "Saved image file to: ${file.absolutePath}")
                 debugInfo = "Saved image to: ${file.absolutePath}"
 
-                // Verify the file was created and has content
                 if (file.exists() && file.length() > 0) {
                     Log.d("LibraryScreen", "Image file exists and has size: ${file.length()}")
                 } else {
@@ -493,12 +490,10 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
 
-                    // Cover and Audio Selection Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Cover Art Selection
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.weight(1f)
@@ -551,7 +546,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                             )
                         }
 
-                        // Audio File Selection
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.weight(1f)
@@ -606,7 +600,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Title Input
                     Text(
                         text = "Title",
                         color = Color(0xFFCCCCCC),
@@ -634,7 +627,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Artist Input
                     Text(
                         text = "Artist",
                         color = Color(0xFFCCCCCC),
@@ -726,7 +718,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                                             return@launch
                                         }
 
-                                        // Only save the image if provided by user
                                         var savedImagePath = ""
                                         if (newSongImageUri != null) {
                                             debugInfo = "Processing image upload..."
@@ -811,11 +802,9 @@ fun LibrarySongItem(song: Song, onClick: () -> Unit) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Check if the song has a valid cover image
         val hasCover = song.coverUri.isNotEmpty() && File(song.coverUri).exists()
 
         if (hasCover) {
-            // Display the actual cover image
             AsyncImage(
                 model = File(song.coverUri),
                 contentDescription = song.title,
@@ -824,12 +813,10 @@ fun LibrarySongItem(song: Song, onClick: () -> Unit) {
                     .clip(RoundedCornerShape(4.dp)),
                 contentScale = ContentScale.Crop,
                 onError = {
-                    // Log when image loading fails
                     Log.e("LibrarySongItem", "Failed to load image from ${song.coverUri}")
                 }
             )
         } else {
-            // Display a placeholder with music note icon
             Box(
                 modifier = Modifier
                     .size(50.dp)

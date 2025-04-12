@@ -312,7 +312,7 @@ fun ProfileScreen(
 
                                 // Edit Profile Button
                                 Button(
-                                    onClick = { /* Add edit profile functionality */ },
+                                    onClick = {},
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color.DarkGray
                                     ),
@@ -333,18 +333,15 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(48.dp))
 
-                                // Stats Row - Now using actual values from database with fixed listened count
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceEvenly
                                 ) {
-                                    // Songs Stat - Number of songs in library
                                     StatItem(
                                         count = songCount,
                                         label = "SONGS"
                                     )
 
-                                    // Liked Stat - Number of liked songs
                                     StatItem(
                                         count = likedCount,
                                         label = "LIKED"

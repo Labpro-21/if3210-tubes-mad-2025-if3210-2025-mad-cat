@@ -610,7 +610,6 @@ fun MusicPlayerScreen(
             }
         }
     }
-    // Replace the Dialog sections with these BottomSheet implementations
 
     if (showEditDialog && currentSong != null) {
         ModalBottomSheet(
@@ -661,12 +660,10 @@ fun MusicPlayerScreen(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                // Cover and Audio Selection Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Cover Art Selection
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -726,7 +723,6 @@ fun MusicPlayerScreen(
                         )
                     }
 
-                    // Audio File Selection
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f)
@@ -779,7 +775,6 @@ fun MusicPlayerScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Title Input
                 Text(
                     text = "Title",
                     color = Color(0xFFCCCCCC),
@@ -807,7 +802,6 @@ fun MusicPlayerScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Artist Input
                 Text(
                     text = "Artist",
                     color = Color(0xFFCCCCCC),
@@ -845,7 +839,6 @@ fun MusicPlayerScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End

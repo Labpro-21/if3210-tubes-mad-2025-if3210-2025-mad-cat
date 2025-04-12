@@ -71,19 +71,15 @@ fun HomeScreen(
 
     val scope = rememberCoroutineScope()
 
-    // Collect all songs from the SongViewModel
     val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    // State to track recently played songs
     val currentSong by musicViewModel.currentSong.collectAsState()
     var recentlyPlayedSongs by remember {
         mutableStateOf<List<Song>>(PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager))
     }
 
-    // State for loading
     var isLoading by remember { mutableStateOf(true) }
 
-    // Track the previous song to detect changes
     var previousSong by remember { mutableStateOf<Song?>(null) }
 
     LaunchedEffect(userEmail) {
@@ -110,13 +106,11 @@ fun HomeScreen(
         isLoading = false
     }
 
-    // Initial data loading
     LaunchedEffect(allSongs.value) {
         if (allSongs.value.isNotEmpty()) {
             isLoading = false
         }
 
-        // Log the database contents after songs are fetched
         songViewModel.logDatabaseContents()
     }
 
@@ -133,15 +127,13 @@ fun HomeScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp) // Bottom padding for player
+                contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                // Add some space at the top
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
                 item {
-                    // Header
                     Text(
                         text = "Home",
                         style = TextStyle(
@@ -153,7 +145,6 @@ fun HomeScreen(
                     )
                 }
 
-                // New Songs Section
                 item {
                     Text(
                         text = "New songs",
@@ -181,8 +172,7 @@ fun HomeScreen(
                             )
                         }
                     } else {
-                        // Using LazyRow for horizontal scrolling with newest songs first
-                        val newSongs = allSongs.value.reversed() // Reverse to get newest first
+                        val newSongs = allSongs.value.reversed()
 
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -204,12 +194,10 @@ fun HomeScreen(
                     }
                 }
 
-                // Spacer between sections
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
-                // Recently Played Section
                 item {
                     Text(
                         text = "Recently played",
@@ -254,7 +242,6 @@ fun HomeScreen(
             }
         }
 
-        // Bottom Navigation Bar with mini player
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
