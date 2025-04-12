@@ -109,20 +109,18 @@ class MainActivity : ComponentActivity() {
 
     // Worker dipanggil secara terjadwal
     private fun startTokenAutoRefreshWorker() {
-        // Run worker every 3 minutes to refresh before 5 min token expiry
         val workRequest = PeriodicWorkRequestBuilder<TokenAutoRefreshWorker>(
             4, TimeUnit.MINUTES
-        ).setInitialDelay(30, TimeUnit.SECONDS) // Start after a short delay
+        ).setInitialDelay(30, TimeUnit.SECONDS)
          .build()
 
         WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
             "token_auto_refresh_worker",
-            ExistingPeriodicWorkPolicy.UPDATE, // Use UPDATE to replace any existing worker
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }
 
-    // Method to manually extend session
     fun extendSession() {
         val oneTimeRequest = OneTimeWorkRequestBuilder<TokenAutoRefreshWorker>()
             .build()
@@ -134,7 +132,6 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    // Method to run one immediate token refresh
     private fun runOneTimeTokenRefresh() {
         val oneTimeRequest = OneTimeWorkRequestBuilder<TokenAutoRefreshWorker>()
             .build()

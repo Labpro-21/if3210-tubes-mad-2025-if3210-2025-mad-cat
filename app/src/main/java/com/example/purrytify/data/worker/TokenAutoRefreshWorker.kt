@@ -46,8 +46,7 @@ class TokenAutoRefreshWorker(
                     // Get the new tokens from the response
                     val newToken = refreshResponse.accessToken
                     val newRefreshToken = refreshResponse.refreshToken
-                    
-                    // Update tokens in TokenManager
+
                     tokenManager.updateToken(newToken, newRefreshToken)
                     Log.d("TokenWorker", "Token refreshed successfully")
                     return@withContext Result.success()
@@ -60,7 +59,6 @@ class TokenAutoRefreshWorker(
                 Log.e("TokenWorker", "Token refresh failed: ${response.code()}, Error: $errorBody")
                 
                 if (response.code() == 401) {
-                    // If unauthorized, clear tokens and logout
                     tokenManager.clearTokens()
                     return@withContext Result.success()
                 }
