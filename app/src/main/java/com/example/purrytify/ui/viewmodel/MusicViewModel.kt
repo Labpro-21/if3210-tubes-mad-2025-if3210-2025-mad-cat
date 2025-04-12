@@ -47,6 +47,28 @@ class MusicViewModel : ViewModel() {
     private var songViewModel: SongViewModel? = null
     private var context: Context? = null
 
+    private val _songQueue = MutableStateFlow<List<Song>>(emptyList())
+    val songQueue: StateFlow<List<Song>> = _songQueue
+
+    private var currentQueueIndex = -1
+
+    fun getSongQueue(): List<Song> {
+        return _songQueue.value
+    }
+
+    fun addToQueue(song: Song) {
+        _songQueue.value = _songQueue.value + song
+        if (currentQueueIndex == -1) {
+            currentQueueIndex = 0
+        }
+    }
+
+    fun clearQueue() {
+        _songQueue.value = emptyList()
+        currentQueueIndex = -1
+    }
+
+
     fun initializePlaybackControls(songViewModel: SongViewModel, context: Context) {
         this.songViewModel = songViewModel
         this.context = context
@@ -117,37 +139,34 @@ class MusicViewModel : ViewModel() {
         _currentPosition.value = position
     }
 
-    // Play next song
     fun playNext() {
-        if (currentPlaylist.isEmpty()) return
-
-        // Determine next index based on repeat and shuffle modes
-        currentIndex = when {
-            _isShuffleOn.value -> Random.nextInt(currentPlaylist.size)
-            _repeatMode.value == RepeatMode.ALL && currentIndex == currentPlaylist.size - 1 -> 0
-            else -> (currentIndex + 1) % currentPlaylist.size
+        if (songQueue.value.isNotEmpty() && currentQueueIndex + 1 < songQueue.value.size) {
+        currentQueueIndex++
+            playSong(songQueue.value[currentQueueIndex], context ?: return)
+        } else if (currentPlaylist.isNotEmpty()) {
+            currentIndex = when {
+                _isShuffleOn.value -> Random.nextInt(currentPlaylist.size)
+                _repeatMode.value == RepeatMode.ALL && currentIndex == currentPlaylist.size - 1 -> 0
+                else -> (currentIndex + 1) % currentPlaylist.size
+            }
+            playSong(currentPlaylist[currentIndex], context ?: return)
         }
-
-        // Play the next song
-        playSong(currentPlaylist[currentIndex], context ?: return)
     }
 
-    // Play previous song
     fun playPrevious() {
-        if (currentPlaylist.isEmpty()) return
-
-        // Determine previous index
-        currentIndex = when {
-            _isShuffleOn.value -> Random.nextInt(currentPlaylist.size)
-            _repeatMode.value == RepeatMode.ALL && currentIndex == 0 -> currentPlaylist.size - 1
-            else -> (currentIndex - 1 + currentPlaylist.size) % currentPlaylist.size
+        if (songQueue.value.isNotEmpty() && currentQueueIndex - 1 >= 0) {
+            currentQueueIndex--
+            playSong(songQueue.value[currentQueueIndex], context ?: return)
+        } else if (currentPlaylist.isNotEmpty()) {
+            currentIndex = when {
+                _isShuffleOn.value -> Random.nextInt(currentPlaylist.size)
+                _repeatMode.value == RepeatMode.ALL && currentIndex == 0 -> currentPlaylist.size - 1
+                else -> (currentIndex - 1 + currentPlaylist.size) % currentPlaylist.size
+            }
+            playSong(currentPlaylist[currentIndex], context ?: return)
         }
-
-        // Play the previous song
-        playSong(currentPlaylist[currentIndex], context ?: return)
     }
 
-    // Toggle repeat mode
     fun toggleRepeatMode() {
         _repeatMode.value = when (_repeatMode.value) {
             RepeatMode.OFF -> RepeatMode.ALL
@@ -156,11 +175,9 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Toggle shuffle
     fun toggleShuffle() {
         _isShuffleOn.value = !_isShuffleOn.value
 
-        // Update playlist based on shuffle state
         songViewModel?.let { viewModel ->
             currentPlaylist = if (_isShuffleOn.value) {
                 runBlocking {
@@ -172,7 +189,6 @@ class MusicViewModel : ViewModel() {
                 }
             }
 
-            // Ensure current song remains the same if possible
             currentSong.value?.let { current ->
                 val index = currentPlaylist.indexOfFirst {
                     it.title == current.title && it.artist == current.artist
@@ -184,38 +200,30 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Handle song completion
     private fun onSongCompletion() {
         when (_repeatMode.value) {
             RepeatMode.ONE -> {
-                // Replay the current song
                 mediaPlayer?.let {
                     it.seekTo(0)
                     it.start()
                 }
             }
             RepeatMode.ALL, RepeatMode.OFF -> {
-                // Play next song
                 playNext()
             }
         }
     }
 
-    // Update the current song with new details (after editing)
     fun updateCurrentSong(updatedSong: Song) {
         val wasPlaying = _isPlaying.value
         val currentPosition = _currentPosition.value
 
-        // Update the current song reference
         _currentSong.value = updatedSong
 
-        // Update the playlist
         viewModelScope.launch {
             songViewModel?.let { viewModel ->
-                // Get fresh playlist
                 currentPlaylist = viewModel.allSongs.first()
 
-                // Find updated song in playlist
                 val updatedIndex = currentPlaylist.indexOfFirst {
                     it.uri == updatedSong.uri
                 }
@@ -224,14 +232,12 @@ class MusicViewModel : ViewModel() {
                     currentIndex = updatedIndex
                 }
 
-                // If the song was playing, restart it with the updated details
                 if (wasPlaying) {
                     context?.let { ctx ->
                         mediaPlayer?.release()
                         mediaPlayer = MediaPlayer().apply {
                             setDataSource(ctx, Uri.parse(updatedSong.uri))
                             prepare()
-                            // Restore position if possible
                             if (currentPosition > 0 && currentPosition < duration) {
                                 seekTo(currentPosition)
                             }
@@ -248,7 +254,7 @@ class MusicViewModel : ViewModel() {
             }
         }
     }
-    // Stop playing and clear current song (for deletion)
+
     fun stopAndClearCurrentSong() {
         mediaPlayer?.apply {
             if (isPlaying) {
@@ -265,6 +271,8 @@ class MusicViewModel : ViewModel() {
         _currentSong.value = null
         currentPlaylist = emptyList()
         currentIndex = 0
+        clearQueue()
+        currentQueueIndex = -1
     }
 
     override fun onCleared() {

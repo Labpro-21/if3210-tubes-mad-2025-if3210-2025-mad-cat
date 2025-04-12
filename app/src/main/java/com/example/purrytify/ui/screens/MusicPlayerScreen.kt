@@ -1,5 +1,7 @@
 package com.example.purrytify.ui.screens
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.widget.Toast
@@ -8,12 +10,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,11 +42,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import com.example.purrytify.ui.components.ShowQueueDialog
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.RepeatMode
 import com.example.purrytify.ui.viewmodel.SongViewModel
@@ -51,6 +59,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.floor
 
+@SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicPlayerScreen(
@@ -96,6 +105,9 @@ fun MusicPlayerScreen(
     val scrollState = rememberScrollState()
     val songTitleWidth = remember { mutableStateOf(0) }
     val containerWidth = remember { mutableStateOf(0) }
+
+    var showQueueDialog by remember { mutableStateOf(false) }
+    val songQueue = musicViewModel.getSongQueue()
 
     LaunchedEffect(currentSong, songTitleWidth.value, containerWidth.value) {
         if (songTitleWidth.value > containerWidth.value && containerWidth.value > 0) {
@@ -376,7 +388,7 @@ fun MusicPlayerScreen(
                                 }
                             )
                             if (songTitleWidth.value > containerWidth.value) {
-                                Spacer(modifier = Modifier.width(32.dp))
+                                Spacer(modifier = Modifier.width(26.dp))
                             }
                         }
                     }
@@ -397,12 +409,28 @@ fun MusicPlayerScreen(
                         },
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isSongLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = if (isSongLiked) "Unlike" else "Like",
-                            tint = if (isSongLiked) Color(0xFFE91E63) else Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSongLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = if (isSongLiked) "Unlike" else "Like",
+                                tint = if (isSongLiked) Color(0xFFE91E63) else Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+
+                            IconButton(onClick = { showQueueDialog = true }) {
+                                Icon(Icons.Default.QueueMusic, contentDescription = "Queue", tint = Color.White)
+                            }
+
+                            ShowQueueDialog(
+                                showQueueDialog = showQueueDialog,
+                                onDismiss = { showQueueDialog = false },
+                                musicViewModel = musicViewModel,
+                                context = context
+                            )
+                        }
                     }
                 }
 
@@ -527,6 +555,7 @@ fun MusicPlayerScreen(
             }
         }
     }
+
     if (showMenu) {
         Box(
             modifier = Modifier
@@ -1054,6 +1083,12 @@ fun MusicPlayerScreen(
         }
     }
 }
+
+fun items(queue: List<Song>, any: Any) {
+
+}
+
+
 
 private fun formatDuration(milliseconds: Int): String {
     val totalSeconds = floor(milliseconds / 1000f).toInt()

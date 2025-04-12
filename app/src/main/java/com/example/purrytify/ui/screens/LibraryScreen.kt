@@ -129,7 +129,6 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
         var isUploading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
 
-        // Debug state to track saved image path
         var debugInfo by remember { mutableStateOf("") }
 
         val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -284,11 +283,23 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                             setTextColor(android.graphics.Color.BLACK)
                             setPadding(32, 32, 32, 32)
                             textSize = 14f
-                            background = AppCompatResources.getDrawable(context, R.drawable.bg_search)
+                            background =
+                                AppCompatResources.getDrawable(context, R.drawable.bg_search)
 
-                            val searchDrawable = AppCompatResources.getDrawable(context, R.drawable.ic_search)
-                            searchDrawable?.setBounds(0, 0, searchDrawable.intrinsicWidth, searchDrawable.intrinsicHeight)
-                            setCompoundDrawablesWithIntrinsicBounds(searchDrawable, null, null, null)
+                            val searchDrawable =
+                                AppCompatResources.getDrawable(context, R.drawable.ic_search)
+                            searchDrawable?.setBounds(
+                                0,
+                                0,
+                                searchDrawable.intrinsicWidth,
+                                searchDrawable.intrinsicHeight
+                            )
+                            setCompoundDrawablesWithIntrinsicBounds(
+                                searchDrawable,
+                                null,
+                                null,
+                                null
+                            )
                             compoundDrawablePadding = 16
 
                             filters = arrayOf(
@@ -412,8 +423,7 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                             }
                         }
                     }
-                }
-                else {
+                } else {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -421,13 +431,18 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                         contentPadding = PaddingValues(bottom = 56.dp)
                     ) {
                         items(filteredSongs) { song ->
+                            var showIcons by remember { mutableStateOf(true) } // <- State untuk kontrol visibilitas
+
                             LibrarySongItem(
                                 song = song,
                                 onClick = {
                                     scope.launch {
                                         musicViewModel.playSong(song, context)
                                     }
-                                }
+                                },
+                                onAddToQueue = {
+                                    musicViewModel.addToQueue(song)
+                                },
                             )
                         }
                     }
@@ -803,70 +818,29 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
 }
 
 @Composable
-fun LibrarySongItem(song: Song, onClick: () -> Unit) {
+fun LibrarySongItem(
+    song: Song,
+    onClick: () -> Unit,
+    onAddToQueue: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Check if the song has a valid cover image
-        val hasCover = song.coverUri.isNotEmpty() && File(song.coverUri).exists()
-
-        if (hasCover) {
-            // Display the actual cover image
-            AsyncImage(
-                model = File(song.coverUri),
-                contentDescription = song.title,
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                contentScale = ContentScale.Crop,
-                onError = {
-                    // Log when image loading fails
-                    Log.e("LibrarySongItem", "Failed to load image from ${song.coverUri}")
-                }
-            )
-        } else {
-            // Display a placeholder with music note icon
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF2A2A2A)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = song.artist,
-                style = TextStyle(
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Text(text = song.title, color = Color.White)
+            Text(text = song.artist, color = Color.Gray, fontSize = 12.sp)
+        }
+
+        IconButton(onClick = { onAddToQueue() }) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add to queue",
+                tint = Color.White
             )
         }
     }
