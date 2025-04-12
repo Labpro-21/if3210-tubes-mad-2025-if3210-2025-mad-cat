@@ -1,3 +1,4 @@
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
@@ -49,11 +50,11 @@ object PlayHistoryTracker {
     }
 
     fun getRecentlyPlayedSongs(email: String, tokenManager: TokenManager): List<Song> {
-        return userHistories[email] ?: tokenManager.getRecentlyPlayed(email)
+        return tokenManager.getRecentlyPlayed(email)
     }
 
-    fun clearHistory(email: String) {
-        userHistories[email]?.clear()
+    fun clearHistory(email: String, tokenManager: TokenManager) {
+        tokenManager.saveRecentlyPlayed(email, emptyList())
     }
 }
 
@@ -84,6 +85,12 @@ fun HomeScreen(
 
     // Track the previous song to detect changes
     var previousSong by remember { mutableStateOf<Song?>(null) }
+
+    LaunchedEffect(userEmail) {
+        Log.d("HomeScreen", "Fetching recently played songs for: $userEmail")
+        recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager)
+        Log.d("HomeScreen", "Recently played songs loaded: ${recentlyPlayedSongs.map { it.title }}")
+    }
 
     LaunchedEffect(currentSong, userEmail) {
         if (currentSong != null && currentSong != previousSong) {

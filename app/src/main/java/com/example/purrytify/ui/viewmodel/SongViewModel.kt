@@ -176,53 +176,59 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val email = currentUserEmail.value
+                Log.d("SongViewModel", "Deleting song for email: $email")
+
                 val songId = songDao.getSongId(song.title, song.artist)
+                Log.d("SongViewModel", "Song ID: $songId")
 
-                // Clear the current song in MusicViewModel
                 musicViewModel.stopAndClearCurrentSong()
+                Log.d("SongViewModel", "Stopped and cleared current song")
 
-                // Delete song uploader relationship
                 songDao.deleteUserSong(email, songId)
+                Log.d("SongViewModel", "Deleted user-song relationship")
 
-                // Check if the song is still used by other users
                 val isUsedByOthers = songDao.isSongUsedByOthers(songId)
+                Log.d("SongViewModel", "Song used by others: $isUsedByOthers")
 
-                // If not used by others, delete the actual song and its files
                 if (!isUsedByOthers) {
-                    // Delete physical files
                     if (song.coverUri.isNotEmpty()) {
                         val coverFile = File(song.coverUri)
                         if (coverFile.exists()) {
                             coverFile.delete()
+                            Log.d("SongViewModel", "Deleted cover file: ${song.coverUri}")
                         }
                     }
 
                     val audioFile = File(song.uri)
                     if (audioFile.exists()) {
                         audioFile.delete()
+                        Log.d("SongViewModel", "Deleted audio file: ${song.uri}")
                     }
 
-                    // Delete from database
                     songDao.deleteSong(songId)
+                    Log.d("SongViewModel", "Deleted song from database")
 
-                    // Delete from recently played
-                    PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
+                    val songInHistory = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
                         it.title == song.title && it.artist == song.artist
-                    }?.let {
+                    }
+
+                    if (songInHistory != null) {
                         val updatedList = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).toMutableList()
-                        updatedList.remove(it)
-
-                        PlayHistoryTracker.clearHistory(email)
-
-                        for (s in updatedList) {
-                            PlayHistoryTracker.addSongToHistory(email, s, tokenManager)
+                        updatedList.remove(songInHistory)
+                        PlayHistoryTracker.clearHistory(email, tokenManager)
+                        updatedList.forEach {
+                            PlayHistoryTracker.addSongToHistory(email, it, tokenManager)
+                            Log.d("SongViewModel", "Re-added song to history: ${it.title} by ${it.artist}")
                         }
+                    } else {
+                        Log.d("SongViewModel", "Song not found in history")
                     }
                 }
 
+                Log.d("SongViewModel", "Song deletion completed: ${song.title} by ${song.artist}")
                 onComplete()
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("SongViewModel", "Error during song deletion", e)
             }
         }
     }
