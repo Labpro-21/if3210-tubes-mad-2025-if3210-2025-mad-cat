@@ -30,6 +30,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -38,6 +42,8 @@ import coil.compose.AsyncImage
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.ui.components.BottomNavBar
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.AudioFile
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import com.example.purrytify.ui.viewmodel.MusicViewModel
@@ -72,6 +78,7 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     navController: NavController,
@@ -386,7 +393,7 @@ fun LibraryScreen(
         )
 
         if (showUploadDialog) {
-            Dialog(
+            ModalBottomSheet(
                 onDismissRequest = {
                     if (!isUploading) {
                         showUploadDialog = false
@@ -398,329 +405,346 @@ fun LibraryScreen(
                         errorMessage = null
                         debugInfo = ""
                     }
-                }
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF121212)
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
+                },
+                sheetState = rememberModalBottomSheetState(),
+                containerColor = Color(0xFF1E1E1E),
+                dragHandle = {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Upload Song",
-                            style = TextStyle(
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFF555555))
                         )
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .navigationBarsPadding()
+                        .imePadding()
+                ) {
+                    Text(
+                        text = "Upload Song",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                    // Cover and Audio Selection Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Cover Art Selection
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Column(
-                                horizontalAlignment = CenterHorizontally
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF2A2A2A))
+                                    .clickable { imagePickerLauncher.launch("image/*") }
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color(0xFF444444),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(120.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF2A2A2A))
-                                        .clickable {
-                                            imagePickerLauncher.launch("image/*")
-                                        }
-                                        .border(
-                                            width = 1.dp,
-                                            color = Color.Gray,
-                                            shape = RoundedCornerShape(8.dp)
-                                        ),
-                                    contentAlignment = Center
-                                ) {
-                                    if (newSongImageUri != null) {
-                                        AsyncImage(
-                                            model = newSongImageUri,
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Column(
-                                            horizontalAlignment = CenterHorizontally
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Add,
-                                                contentDescription = null,
-                                                tint = Color.Gray
-                                            )
-                                            Text(
-                                                text = "Upload Cover",
-                                                color = Color.Gray,
-                                                fontSize = 12.sp,
-                                                textAlign = TextAlign.Center
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Column(
-                                horizontalAlignment = CenterHorizontally
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(120.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF2A2A2A))
-                                        .clickable { audioPickerLauncher.launch("audio/*") }
-                                        .border(
-                                            width = 1.dp,
-                                            color = Color.Gray,
-                                            shape = RoundedCornerShape(8.dp)
-                                        ),
-                                    contentAlignment = Center
-                                ) {
+                                if (newSongImageUri != null) {
+                                    AsyncImage(
+                                        model = newSongImageUri,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
                                     Column(
-                                        horizontalAlignment = CenterHorizontally
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Add,
+                                            imageVector = Icons.Rounded.Image,
                                             contentDescription = null,
-                                            tint = if (newSongAudioUri != null) Color(0xFF1DB954) else Color.Gray
+                                            tint = Color(0xFF888888),
+                                            modifier = Modifier.size(28.dp)
                                         )
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = "Upload File",
-                                            color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color.Gray,
+                                            text = "Add Cover",
+                                            color = Color(0xFF888888),
                                             fontSize = 12.sp,
                                             textAlign = TextAlign.Center
                                         )
-                                        if (audioDuration.isNotEmpty()) {
-                                            Text(
-                                                text = audioDuration,
-                                                color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color.Gray,
-                                                fontSize = 12.sp
-                                            )
-                                        }
                                     }
                                 }
                             }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Show debug info when available
-                        if (debugInfo.isNotEmpty()) {
-                            Text(
-                                text = debugInfo,
-                                color = Color.Yellow,
-                                fontSize = 12.sp,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-
-                        Text(
-                            text = "Title",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        OutlinedTextField(
-                            value = newSongTitle,
-                            onValueChange = { newSongTitle = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Title", color = Color.Gray) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Gray,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text(
-                            text = "Artist",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        OutlinedTextField(
-                            value = newSongArtist,
-                            onValueChange = { newSongArtist = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Artist", color = Color.Gray) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Gray,
-                                unfocusedBorderColor = Color.DarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-
-                        if (errorMessage != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = errorMessage!!,
-                                color = Color.Red,
-                                fontSize = 14.sp
+                                text = "Cover Art",
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 12.sp
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        // Audio File Selection
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Button(
-                                onClick = {
-                                    if (!isUploading) {
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF2A2A2A))
+                                    .clickable { audioPickerLauncher.launch("audio/*") }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF444444),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AudioFile,
+                                        contentDescription = null,
+                                        tint = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF888888),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (newSongAudioUri != null) "File Selected" else "Add Audio",
+                                        color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF888888),
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    if (audioDuration.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = audioDuration,
+                                            color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF888888),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Audio File",
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Title Input
+                    Text(
+                        text = "Title",
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = newSongTitle,
+                        onValueChange = { newSongTitle = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter song title", color = Color(0xFF666666)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1DB954),
+                            unfocusedBorderColor = Color(0xFF444444),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFF1DB954)
+                        ),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = TextStyle(fontSize = 16.sp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Artist Input
+                    Text(
+                        text = "Artist",
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = newSongArtist,
+                        onValueChange = { newSongArtist = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter artist name", color = Color(0xFF666666)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1DB954),
+                            unfocusedBorderColor = Color(0xFF444444),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFF1DB954)
+                        ),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = TextStyle(fontSize = 16.sp)
+                    )
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = errorMessage!!,
+                            color = Color(0xFFFF5252),
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Action Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                if (!isUploading) {
+                                    showUploadDialog = false
+                                    newSongTitle = ""
+                                    newSongArtist = ""
+                                    newSongImageUri = null
+                                    newSongAudioUri = null
+                                    audioDuration = ""
+                                    errorMessage = null
+                                    debugInfo = ""
+                                }
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text("Cancel", color = Color(0xFFCCCCCC))
+                        }
+
+                        Button(
+                            onClick = {
+                                if (newSongTitle.isBlank()) {
+                                    errorMessage = "Title cannot be empty"
+                                    return@Button
+                                }
+
+                                if (newSongArtist.isBlank()) {
+                                    errorMessage = "Artist cannot be empty"
+                                    return@Button
+                                }
+
+                                if (newSongAudioUri == null) {
+                                    errorMessage = "Please select an audio file"
+                                    return@Button
+                                }
+
+                                errorMessage = null
+                                isUploading = true
+                                debugInfo = "Starting upload..."
+
+                                scope.launch {
+                                    try {
+                                        val savedAudioPath = saveAudioFile(newSongAudioUri!!)
+
+                                        if (savedAudioPath == null) {
+                                            errorMessage = "Failed to save audio file"
+                                            isUploading = false
+                                            return@launch
+                                        }
+
+                                        // Only save the image if provided by user
+                                        var savedImagePath = ""
+                                        if (newSongImageUri != null) {
+                                            debugInfo = "Processing image upload..."
+                                            val path = saveImageFile(newSongImageUri!!)
+                                            if (path != null && path.isNotEmpty()) {
+                                                savedImagePath = path
+                                                debugInfo = "Image saved successfully"
+                                            } else {
+                                                debugInfo = "Failed to save image"
+                                            }
+                                        } else {
+                                            debugInfo = "No cover image provided"
+                                        }
+
+                                        val newSong = Song(
+                                            title = newSongTitle,
+                                            artist = newSongArtist,
+                                            coverUri = savedImagePath,
+                                            uri = savedAudioPath,
+                                            duration = audioDuration
+                                        )
+
+                                        songViewModel.checkAndInsertSong(
+                                            context,
+                                            newSong,
+                                            onExists = {
+                                                errorMessage = "Song already exists in your library"
+                                                isUploading = false
+                                            }
+                                        )
+
+                                        isUploading = false
                                         showUploadDialog = false
                                         newSongTitle = ""
                                         newSongArtist = ""
                                         newSongImageUri = null
                                         newSongAudioUri = null
                                         audioDuration = ""
-                                        errorMessage = null
                                         debugInfo = ""
+
+                                        Toast.makeText(context, "Song added to library", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        errorMessage = "Error: ${e.message}"
+                                        debugInfo = "Upload error: ${e.message}"
+                                        isUploading = false
                                     }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF2A2A2A)
-                                ),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(24.dp),
-                                enabled = !isUploading
-                            ) {
-                                Text("Cancel", color = Color.White)
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Button(
-                                onClick = {
-                                    if (newSongTitle.isBlank()) {
-                                        errorMessage = "Title cannot be empty"
-                                        return@Button
-                                    }
-
-                                    if (newSongArtist.isBlank()) {
-                                        errorMessage = "Artist cannot be empty"
-                                        return@Button
-                                    }
-
-                                    if (newSongAudioUri == null) {
-                                        errorMessage = "Please select an audio file"
-                                        return@Button
-                                    }
-
-                                    errorMessage = null
-                                    isUploading = true
-                                    debugInfo = "Starting upload..."
-
-                                    scope.launch {
-                                        try {
-                                            val savedAudioPath = saveAudioFile(newSongAudioUri!!)
-
-                                            if (savedAudioPath == null) {
-                                                errorMessage = "Failed to save audio file"
-                                                isUploading = false
-                                                return@launch
-                                            }
-
-                                            // ONLY save the image if provided by user - no fallback to metadata
-                                            var savedImagePath = ""
-                                            if (newSongImageUri != null) {
-                                                debugInfo = "Processing image upload..."
-                                                val path = saveImageFile(newSongImageUri!!)
-                                                if (path != null && path.isNotEmpty()) {
-                                                    savedImagePath = path
-                                                    debugInfo = "Image saved successfully to: $savedImagePath"
-                                                } else {
-                                                    debugInfo = "Failed to save image"
-                                                }
-                                            } else {
-                                                debugInfo = "No cover image provided by user"
-                                            }
-
-                                            val newSong = Song(
-                                                title = newSongTitle,
-                                                artist = newSongArtist,
-                                                coverUri = savedImagePath, // Will be empty if no image was uploaded
-                                                uri = savedAudioPath,
-                                                duration = audioDuration
-                                            )
-
-                                            songViewModel.checkAndInsertSong(
-                                                context,
-                                                newSong,
-                                                onExists = {
-                                                    errorMessage = "Song already exists in your library"
-                                                    isUploading = false
-                                                }
-                                            )
-
-                                            isUploading = false
-                                            showUploadDialog = false
-                                            newSongTitle = ""
-                                            newSongArtist = ""
-                                            newSongImageUri = null
-                                            newSongAudioUri = null
-                                            audioDuration = ""
-                                            debugInfo = ""
-
-                                            Toast.makeText(context, "Song added to library", Toast.LENGTH_SHORT).show()
-                                        } catch (e: Exception) {
-                                            Log.e("LibraryScreen", "Error in upload process", e)
-                                            errorMessage = "Error: ${e.message}"
-                                            debugInfo = "Upload error: ${e.message}"
-                                            isUploading = false
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1DB954)
-                                ),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(24.dp),
-                                enabled = !isUploading && newSongTitle.isNotBlank() && newSongArtist.isNotBlank() && newSongAudioUri != null
-                            ) {
-                                if (isUploading) {
-                                    CircularProgressIndicator(
-                                        color = Color.Black,
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Text("Save", color = Color.Black)
                                 }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1DB954),
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isUploading && newSongTitle.isNotBlank() && newSongArtist.isNotBlank() && newSongAudioUri != null,
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            if (isUploading) {
+                                CircularProgressIndicator(
+                                    color = Color.Black,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Upload Song", fontWeight = FontWeight.Medium)
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
