@@ -35,22 +35,21 @@ object PlayHistoryTracker {
     private val userHistories = mutableMapOf<String, MutableList<Song>>()
     private const val MAX_HISTORY_SIZE = 10
 
-    fun addSongToHistory(email: String, song: Song) {
-        val history = userHistories.getOrPut(email) { mutableListOf() }
+    fun addSongToHistory(email: String, song: Song, tokenManager: TokenManager) {
+        val history = tokenManager.getRecentlyPlayed(email).toMutableList()
 
         history.removeAll { it.title == song.title && it.artist == song.artist }
-
         history.add(0, song)
 
         if (history.size > MAX_HISTORY_SIZE) {
             history.removeAt(history.size - 1)
         }
 
-        userHistories[email] = history
+        tokenManager.saveRecentlyPlayed(email, history)
     }
 
-    fun getRecentlyPlayedSongs(email: String): List<Song> {
-        return userHistories[email]?.toList() ?: emptyList()
+    fun getRecentlyPlayedSongs(email: String, tokenManager: TokenManager): List<Song> {
+        return userHistories[email] ?: tokenManager.getRecentlyPlayed(email)
     }
 
     fun clearHistory(email: String) {
@@ -76,7 +75,9 @@ fun HomeScreen(
 
     // State to track recently played songs
     val currentSong by musicViewModel.currentSong.collectAsState()
-    var recentlyPlayedSongs by remember { mutableStateOf<List<Song>>(PlayHistoryTracker.getRecentlyPlayedSongs(userEmail)) }
+    var recentlyPlayedSongs by remember {
+        mutableStateOf<List<Song>>(PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager))
+    }
 
     // State for loading
     var isLoading by remember { mutableStateOf(true) }
@@ -86,15 +87,17 @@ fun HomeScreen(
 
     LaunchedEffect(currentSong, userEmail) {
         if (currentSong != null && currentSong != previousSong) {
-            PlayHistoryTracker.addSongToHistory(userEmail, currentSong!!)
-            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail)
+            PlayHistoryTracker.addSongToHistory(userEmail, currentSong!!, tokenManager)
+            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager)
             previousSong = currentSong
         }
 
         if (recentlyPlayedSongs.isEmpty() && allSongs.value.isNotEmpty()) {
             val initialSongs = allSongs.value.shuffled().take(5)
-            initialSongs.forEach { PlayHistoryTracker.addSongToHistory(userEmail, it) }
-            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail)
+            initialSongs.forEach {
+                PlayHistoryTracker.addSongToHistory(userEmail, it, tokenManager)
+            }
+            recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager)
         }
 
         isLoading = false
