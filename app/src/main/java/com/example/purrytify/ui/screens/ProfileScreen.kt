@@ -46,9 +46,19 @@ import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-// Global object to store listened songs across app sessions
 object ListenedSongsTracker {
-    val listenedSongs = mutableSetOf<String>()
+    private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
+
+    fun getListenedCount(email: String): Int {
+        return userListenedSongsMap[email]?.size ?: 0
+    }
+
+    fun addSong(email: String, songKey: String): Boolean {
+        val userSet = userListenedSongsMap.getOrPut(email) { mutableSetOf() }
+        val isNew = userSet.add(songKey)
+        userListenedSongsMap[email] = userSet
+        return isNew
+    }
 }
 
 @Composable
@@ -84,7 +94,9 @@ fun ProfileScreen(
     val likedCount = likedSongs.value.size
 
     // State to display the listened count
-    var listenedCount by remember { mutableStateOf(ListenedSongsTracker.listenedSongs.size) }
+    val userEmail = tokenManager.getEmail() ?: ""
+    var listenedCount by remember { mutableStateOf(ListenedSongsTracker.getListenedCount(userEmail)) }
+
 
     // Keep track of the current song
     val currentSong by musicViewModel.currentSong.collectAsState()
@@ -93,15 +105,10 @@ fun ProfileScreen(
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
         if (currentSong != null && currentSong != previousSong) {
-            // Only process when we have a new song
             val songKey = "${currentSong!!.title}_${currentSong!!.artist}"
-
-            // Add to our tracked set and update the count
-            if (ListenedSongsTracker.listenedSongs.add(songKey)) {
-                listenedCount = ListenedSongsTracker.listenedSongs.size
+            if (ListenedSongsTracker.addSong(userEmail, songKey)) {
+                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
             }
-
-            // Update previous song reference
             previousSong = currentSong
         }
     }
