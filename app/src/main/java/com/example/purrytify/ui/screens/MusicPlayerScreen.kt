@@ -72,7 +72,7 @@ fun MusicPlayerScreen(
             currentSongId.value = songId
 
             // Check if it's liked
-            isSongLiked = songViewModel.isSongLiked(userEmail, songId)
+            isSongLiked = songViewModel.isSongLiked(songId)
         }
     }
 
@@ -309,12 +309,12 @@ fun MusicPlayerScreen(
                         scope.launch {
                             if (isSongLiked) {
                                 // Unlike the song
-                                songViewModel.unlikeSong(userEmail, currentSongId.value)
+                                songViewModel.unlikeSong(currentSongId.value)
                                 isSongLiked = false
                                 Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
                             } else {
                                 // Like the song
-                                songViewModel.likeSong(userEmail, currentSongId.value)
+                                songViewModel.likeSong(currentSongId.value)
                                 isSongLiked = true
                                 Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
                             }

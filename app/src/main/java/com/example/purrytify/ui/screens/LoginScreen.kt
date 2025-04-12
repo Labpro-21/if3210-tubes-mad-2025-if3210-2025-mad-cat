@@ -45,11 +45,12 @@ import com.example.purrytify.data.network.NetworkConnectivityObserver
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
+import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
-fun LoginScreen(navController: NavController) {
+fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val tokenManager = remember { TokenManager(context) }
 
@@ -257,6 +258,9 @@ fun LoginScreen(navController: NavController) {
                                                     )
                                                     tokenManager.saveRefreshToken(it)
                                                 }
+
+                                                tokenManager.saveEmail(email)
+                                                songViewModel.updateUserEmail(email)
 
                                                 navController.navigate("home") {
                                                     popUpTo("login") { inclusive = true }

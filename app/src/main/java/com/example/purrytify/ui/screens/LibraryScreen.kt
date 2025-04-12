@@ -678,7 +678,6 @@ fun LibraryScreen(
                                             songViewModel.checkAndInsertSong(
                                                 context,
                                                 newSong,
-                                                userEmail,
                                                 onExists = {
                                                     errorMessage = "Song already exists in your library"
                                                     isUploading = false

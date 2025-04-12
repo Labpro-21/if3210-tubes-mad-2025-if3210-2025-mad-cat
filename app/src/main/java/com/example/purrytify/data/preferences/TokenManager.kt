@@ -70,4 +70,15 @@ class TokenManager(context: Context) {
             saveRefreshToken(newRefreshToken)
         }
     }
+
+    fun saveEmail(email: String) {
+        Log.d("TokenManager", "Saving email: $email")
+        sharedPrefs.edit().putString("user_email", email).apply()
+    }
+
+    fun getEmail(): String? {
+        val email = sharedPrefs.getString("user_email", null)
+        Log.d("TokenManager", "getEmail() called. Retrieved email: $email")
+        return email
+    }
 }

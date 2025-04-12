@@ -63,8 +63,6 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val tokenManager = remember { TokenManager(context) }
-    val userEmail = remember { "13522126@std.stei.itb.ac.id" }
 
     // Collect all songs from the SongViewModel
     val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -108,6 +106,9 @@ fun HomeScreen(
         if (allSongs.value.isNotEmpty()) {
             isLoading = false
         }
+
+        // Log the database contents after songs are fetched
+        songViewModel.logDatabaseContents()
     }
 
     Box(

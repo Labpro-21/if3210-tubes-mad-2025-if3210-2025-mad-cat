@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
                             startDestination = "splash"
                         ) {
                             composable("splash") { SplashScreen(navController = navController) }
-                            composable("login") { LoginScreen(navController = navController) }
+                            composable("login") { LoginScreen(navController = navController, songViewModel = songViewModel) }
                             composable("home") {
                                 HomeScreen(
                                     navController = navController,
@@ -126,7 +126,7 @@ class MainActivity : ComponentActivity() {
     fun extendSession() {
         val oneTimeRequest = OneTimeWorkRequestBuilder<TokenAutoRefreshWorker>()
             .build()
-        
+
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
             "extend_session_worker",
             ExistingWorkPolicy.REPLACE,
@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
     private fun runOneTimeTokenRefresh() {
         val oneTimeRequest = OneTimeWorkRequestBuilder<TokenAutoRefreshWorker>()
             .build()
-        
+
         WorkManager.getInstance(applicationContext).enqueue(oneTimeRequest)
     }
 }
