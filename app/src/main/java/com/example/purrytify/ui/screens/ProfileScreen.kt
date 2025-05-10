@@ -269,7 +269,13 @@ fun ProfileScreen(
 
                                     // Edit button
                                     IconButton(
-                                        onClick = { /* Add edit profile functionality */ },
+                                        onClick = { 
+                                        navController.currentBackStackEntry?.savedStateHandle?.set(
+                                            "profileData",
+                                            profile
+                                        )
+                                        navController.navigate("edit_profile")
+                                    },
                                         modifier = Modifier
                                             .size(40.dp)
                                             .clip(CircleShape)
@@ -312,7 +318,13 @@ fun ProfileScreen(
 
                                 // Edit Profile Button
                                 Button(
-                                    onClick = {},
+                                    onClick = { 
+                                        navController.currentBackStackEntry?.savedStateHandle?.set(
+                                            "profileData",
+                                            profile
+                                        )
+                                        navController.navigate("edit_profile")
+                                    },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color.DarkGray
                                     ),

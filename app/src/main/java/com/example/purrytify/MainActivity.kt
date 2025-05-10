@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.work.*
 import com.example.purrytify.data.api.RetrofitClient
+import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.network.ConnectivityObserver
 import com.example.purrytify.data.network.NetworkConnectivityObserver
 import com.example.purrytify.ui.components.NetworkPopup
@@ -92,6 +93,13 @@ class MainActivity : ComponentActivity() {
                                 MusicPlayerScreen(
                                     musicViewModel = musicViewModel,
                                     onBackClick = { navController.popBackStack() }
+                                )
+                            }
+                            composable("edit_profile") {
+                                val profileData = navController.previousBackStackEntry?.savedStateHandle?.get<ProfileResponse>("profileData")
+                                EditProfileScreen(
+                                    navController = navController,
+                                    profileData = profileData
                                 )
                             }
                         }
