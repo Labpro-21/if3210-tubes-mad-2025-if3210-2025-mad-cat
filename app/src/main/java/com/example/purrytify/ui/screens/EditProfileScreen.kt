@@ -17,6 +17,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -72,6 +74,7 @@ fun EditProfileScreen(
     var location by remember { mutableStateOf(profileData?.location ?: "") }
     var isUploading by remember { mutableStateOf(false) }
     var showPhotoOptions by remember { mutableStateOf(false) }
+    var showCountryDialog by remember { mutableStateOf(false) }
     
     // State for image URI
     var imageUri by remember { mutableStateOf<Uri?>(null) }
@@ -93,6 +96,17 @@ fun EditProfileScreen(
         if (success) {
             cameraImageUri?.let {
                 imageUri = it
+            }
+        }
+    }
+    
+    // Activity result launcher for Maps selection
+    val mapsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.getStringExtra("selected_country_code")?.let { countryCode ->
+                location = countryCode
             }
         }
     }
@@ -323,13 +337,8 @@ fun EditProfileScreen(
             // Open Maps button
             Button(
                 onClick = {
-                    // Open Google Maps intent
-                    val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q="))
-                    if (mapIntent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(mapIntent)
-                    } else {
-                        Toast.makeText(context, "No map application found", Toast.LENGTH_SHORT).show()
-                    }
+                    // Show country selection dialog directly
+                    showCountryDialog = true
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF095256)
@@ -340,7 +349,7 @@ fun EditProfileScreen(
                     .height(56.dp)
             ) {
                 Text(
-                    text = "Select Location from Maps",
+                    text = "Select Country Manually",
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
@@ -477,6 +486,63 @@ fun EditProfileScreen(
                 }
             )
         }
+        
+        // Country selection dialog as fallback
+        if (showCountryDialog) {
+            val countries = listOf(
+                "ID" to "Indonesia",
+                "US" to "United States",
+                "GB" to "United Kingdom",
+                "SG" to "Singapore",
+                "MY" to "Malaysia",
+                "AU" to "Australia",
+                "JP" to "Japan",
+                "CN" to "China"
+            )
+            
+            AlertDialog(
+                onDismissRequest = { showCountryDialog = false },
+                title = { Text("Select Country", color = Color.White) },
+                text = {
+                    LazyColumn(modifier = Modifier.height(300.dp)) {
+                        items(countries) { (code, name) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        location = code
+                                        showCountryDialog = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = name,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                if (code == location) {
+                                    Text(
+                                        text = "✓",
+                                        color = Color(0xFF6CCB64),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                containerColor = Color(0xFF1E1E1E),
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showCountryDialog = false }) {
+                        Text("Cancel", color = Color(0xFF6CCB64))
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -513,31 +579,7 @@ private fun getCurrentLocation(
                 cancellationTokenSource.token
             ).addOnSuccessListener { location: Location? ->
                 location?.let {
-                    val geocoder = Geocoder(context, Locale.getDefault())
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            geocoder.getFromLocation(it.latitude, it.longitude, 1) { addresses ->
-                                if (addresses.isNotEmpty()) {
-                                    val countryCode = addresses[0].countryCode ?: "ID"
-                                    onLocationDetected(countryCode)
-                                } else {
-                                    onLocationDetected("ID") // Default to Indonesia
-                                }
-                            }
-                        } else {
-                            @Suppress("DEPRECATION")
-                            val addresses = geocoder.getFromLocation(it.latitude, it.longitude, 1)
-                            if (addresses != null && addresses.isNotEmpty()) {
-                                val countryCode = addresses[0].countryCode ?: "ID"
-                                onLocationDetected(countryCode)
-                            } else {
-                                onLocationDetected("ID") // Default to Indonesia
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e("EditProfileScreen", "Geocoder error", e)
-                        onLocationDetected("ID") // Default to Indonesia
-                    }
+                    getCountryCodeFromCoordinates(context, it.latitude, it.longitude, onLocationDetected)
                 }
             }.addOnFailureListener { exception ->
                 Log.e("EditProfileScreen", "Location error", exception)
@@ -547,6 +589,42 @@ private fun getCurrentLocation(
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Location permission error", e)
         onLocationDetected("ID") // Default to Indonesia
+    }
+}
+
+/**
+ * Gets country code from coordinates using Geocoder
+ */
+private fun getCountryCodeFromCoordinates(
+    context: Context,
+    latitude: Double,
+    longitude: Double,
+    onCountryCodeReceived: (String) -> Unit
+) {
+    val geocoder = Geocoder(context, Locale.getDefault())
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
+                if (addresses.isNotEmpty()) {
+                    val countryCode = addresses[0].countryCode ?: "ID"
+                    onCountryCodeReceived(countryCode)
+                } else {
+                    onCountryCodeReceived("ID") // Default to Indonesia
+                }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+            if (addresses != null && addresses.isNotEmpty()) {
+                val countryCode = addresses[0].countryCode ?: "ID"
+                onCountryCodeReceived(countryCode)
+            } else {
+                onCountryCodeReceived("ID") // Default to Indonesia
+            }
+        }
+    } catch (e: Exception) {
+        Log.e("EditProfileScreen", "Geocoder error", e)
+        onCountryCodeReceived("ID") // Default to Indonesia
     }
 }
 
