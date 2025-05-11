@@ -10,6 +10,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Part
@@ -38,12 +39,11 @@ interface ApiService {
     @POST("api/refresh-token")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<RefreshTokenResponse>
 
-    // The verify-token endpoint doesn't exist in the API, so use profile endpoint as a token check
     @GET("api/profile")
     suspend fun verifyToken(): Response<Any>
     
     @Multipart
-    @PUT("api/profile")
+    @PATCH("api/profile")
     suspend fun updateProfile(
         @Part("location") location: RequestBody,
         @Part profilePhoto: MultipartBody.Part?

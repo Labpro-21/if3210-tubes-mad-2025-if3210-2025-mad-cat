@@ -13,6 +13,11 @@
         android:theme="@style/Theme.Purrytify"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyB5XirXSXDzqTXHs1RNJdTX6rZdxCaB8XU" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,6 +29,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <activity
+            android:name=".ui.screens.CountrySelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Purrytify" />
+        
+        <activity
+            android:name=".ui.screens.MapLocationPickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Purrytify" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
