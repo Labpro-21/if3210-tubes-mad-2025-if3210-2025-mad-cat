@@ -66,21 +66,13 @@ fun EditProfileScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    
-    // Location client
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    
-    // State for profile information
     var location by remember { mutableStateOf(profileData?.location ?: "") }
     var isUploading by remember { mutableStateOf(false) }
     var showPhotoOptions by remember { mutableStateOf(false) }
     var showCountryDialog by remember { mutableStateOf(false) }
-    
-    // State for image URI
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
-    
-    // Activity result launcher for gallery selection
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -89,7 +81,6 @@ fun EditProfileScreen(
         }
     }
     
-    // Activity result launcher for camera
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -100,7 +91,6 @@ fun EditProfileScreen(
         }
     }
     
-    // Activity result launcher for Maps selection
     val mapsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -111,7 +101,6 @@ fun EditProfileScreen(
         }
     }
     
-    // Permission states
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -142,10 +131,9 @@ fun EditProfileScreen(
         }
     }
     
-    // Gradient background
     val gradientColors = listOf(
-        Color(0xFF095256), // Dark teal top color
-        Color(0xFF121212)  // Dark bottom color
+        Color(0xFF095256),
+        Color(0xFF121212)
     )
     
     Box(
@@ -164,7 +152,6 @@ fun EditProfileScreen(
                 .fillMaxSize()
                 .padding(24.dp)
         ) {
-            // Top Bar with back button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -192,14 +179,12 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Profile Image Section
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .padding(bottom = 24.dp),
                 contentAlignment = Alignment.BottomEnd
             ) {
-                // Profile Image
                 Box(
                     modifier = Modifier
                         .size(150.dp)
@@ -237,7 +222,6 @@ fun EditProfileScreen(
                     }
                 }
                 
-                // Camera icon button
                 IconButton(
                     onClick = { showPhotoOptions = true },
                     modifier = Modifier
@@ -256,7 +240,6 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Location section
             Text(
                 text = "Location",
                 style = TextStyle(
@@ -273,7 +256,6 @@ fun EditProfileScreen(
                     .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Location display
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -292,7 +274,6 @@ fun EditProfileScreen(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // Get current location button
                 IconButton(
                     onClick = {
                         if (ContextCompat.checkSelfPermission(
@@ -334,32 +315,58 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Open Maps button
-            Button(
-                onClick = {
-                    // Show country selection dialog directly
-                    showCountryDialog = true
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF095256)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Text(
-                    text = "Select Country Manually",
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        val intent = Intent(context, MapLocationPickerActivity::class.java)
+                        mapsLauncher.launch(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF095256)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                ) {
+                    Text(
+                        text = "Use Google Maps",
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     )
-                )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Button(
+                    onClick = {
+                        val intent = Intent(context, CountrySelectionActivity::class.java).apply {
+                            putExtra("current_country_code", location)
+                        }
+                        mapsLauncher.launch(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF095256)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                ) {
+                    Text(
+                        text = "Select From List",
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // Save button
             Button(
                 onClick = {
                     coroutineScope.launch {
@@ -384,7 +391,7 @@ fun EditProfileScreen(
                 },
                 enabled = !isUploading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6CCB64) // Green color
+                    containerColor = Color(0xFF6CCB64)
                 ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
@@ -408,7 +415,6 @@ fun EditProfileScreen(
             }
         }
         
-        // Photo options dialog
         if (showPhotoOptions) {
             AlertDialog(
                 containerColor = Color(0xFF1E1E1E),
@@ -487,7 +493,6 @@ fun EditProfileScreen(
             )
         }
         
-        // Country selection dialog as fallback
         if (showCountryDialog) {
             val countries = listOf(
                 "ID" to "Indonesia",
@@ -546,9 +551,6 @@ fun EditProfileScreen(
     }
 }
 
-/**
- * Creates image URI for camera intent
- */
 private fun createImageUri(context: Context): Uri? {
     val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val contentValues = ContentValues().apply {
@@ -558,9 +560,6 @@ private fun createImageUri(context: Context): Uri? {
     return context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
 }
 
-/**
- * Gets current location and determines the country code
- */
 private fun getCurrentLocation(
     context: Context,
     fusedLocationClient: FusedLocationProviderClient,
@@ -583,18 +582,15 @@ private fun getCurrentLocation(
                 }
             }.addOnFailureListener { exception ->
                 Log.e("EditProfileScreen", "Location error", exception)
-                onLocationDetected("ID") // Default to Indonesia
+                onLocationDetected("ID")
             }
         }
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Location permission error", e)
-        onLocationDetected("ID") // Default to Indonesia
+        onLocationDetected("ID")
     }
 }
 
-/**
- * Gets country code from coordinates using Geocoder
- */
 private fun getCountryCodeFromCoordinates(
     context: Context,
     latitude: Double,
@@ -609,7 +605,7 @@ private fun getCountryCodeFromCoordinates(
                     val countryCode = addresses[0].countryCode ?: "ID"
                     onCountryCodeReceived(countryCode)
                 } else {
-                    onCountryCodeReceived("ID") // Default to Indonesia
+                    onCountryCodeReceived("ID")
                 }
             }
         } else {
@@ -619,18 +615,15 @@ private fun getCountryCodeFromCoordinates(
                 val countryCode = addresses[0].countryCode ?: "ID"
                 onCountryCodeReceived(countryCode)
             } else {
-                onCountryCodeReceived("ID") // Default to Indonesia
+                onCountryCodeReceived("ID")
             }
         }
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Geocoder error", e)
-        onCountryCodeReceived("ID") // Default to Indonesia
+        onCountryCodeReceived("ID")
     }
 }
 
-/**
- * Gets country name from ISO 3166-1 alpha-2 code
- */
 private fun getCountryNameFromCode(context: Context, countryCode: String): String? {
     return try {
         val locale = Locale("", countryCode)
@@ -640,9 +633,6 @@ private fun getCountryNameFromCode(context: Context, countryCode: String): Strin
     }
 }
 
-/**
- * Uploads profile data to server
- */
 private suspend fun updateProfile(
     context: Context,
     location: String,
@@ -651,10 +641,7 @@ private suspend fun updateProfile(
     onError: (String) -> Unit
 ) {
     try {
-        // Create location part
         val locationPart = location.toRequestBody("text/plain".toMediaTypeOrNull())
-        
-        // Create image part if available
         val imagePart = imageUri?.let { uri ->
             val inputStream = context.contentResolver.openInputStream(uri)
             val file = File(context.cacheDir, "profile_image.jpg")
@@ -668,7 +655,6 @@ private suspend fun updateProfile(
             MultipartBody.Part.createFormData("profilePhoto", file.name, requestFile)
         }
         
-        // Make API call
         val response = RetrofitClient.apiService.updateProfile(
             location = locationPart,
             profilePhoto = imagePart
