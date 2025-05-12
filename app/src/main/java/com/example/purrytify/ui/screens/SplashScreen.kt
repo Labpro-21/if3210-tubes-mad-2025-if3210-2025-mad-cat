@@ -19,7 +19,10 @@ import kotlinx.coroutines.delay
 
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
-fun SplashScreen(navController: NavController) {
+fun SplashScreen(
+    navController: NavController,
+    onNavigationComplete: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -38,5 +41,7 @@ fun SplashScreen(navController: NavController) {
         navController.navigate("login") {
             popUpTo("splash") { inclusive = true }
         }
+        // Signal that navigation is complete
+        onNavigationComplete()
     }
 }

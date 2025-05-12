@@ -38,21 +38,17 @@ fun MiniPlayer(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userEmail = "13522126@std.stei.itb.ac.id" // This would typically come from your auth system
+    val userEmail = "13522126@std.stei.itb.ac.id"
 
     val currentSong by musicViewModel.currentSong.collectAsState()
     val isPlaying by musicViewModel.isPlaying.collectAsState()
     val currentPosition by musicViewModel.currentPosition.collectAsState()
     val duration by musicViewModel.duration.collectAsState()
-
-    // New state for liked song
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
 
-    // Check if the current song is liked when it changes
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
-            // Safely get song ID for the current song
             val songId = try {
                 songViewModel.getSongId(song.title, song.artist)
             } catch (e: Exception) {
@@ -60,32 +56,31 @@ fun MiniPlayer(
             }
             currentSongId.value = songId
 
-            // Check if it's liked
             isSongLiked = if (songId != -1) {
                 songViewModel.isSongLiked(songId)
             } else {
                 false
             }
         } ?: run {
-            // Reset states when no song is playing
             isSongLiked = false
             currentSongId.value = -1
         }
     }
 
-    // Only show MiniPlayer if a song is currently playing
     currentSong?.let { song ->
         Column(
             modifier = modifier
                 .fillMaxWidth()
                 .background(Color(0xFF3D1D29))
         ) {
-            // Progress bar
+            val progress = remember(currentPosition, duration) {
+                if (duration > 0) {
+                    (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                } else 0f
+            }
+            
             LinearProgressIndicator(
-                progress = {
-                    if (duration > 0) currentPosition.toFloat() / duration.toFloat()
-                    else 0f
-                },
+                progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp),
@@ -109,7 +104,6 @@ fun MiniPlayer(
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Cover image
                     AsyncImage(
                         model = if (song.coverUri.isNotEmpty())
                             File(song.coverUri)
@@ -124,7 +118,6 @@ fun MiniPlayer(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Song info
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
@@ -146,19 +139,15 @@ fun MiniPlayer(
                         )
                     }
 
-                    // Like button
                     IconButton(
                         onClick = {
                             scope.launch {
-                                // Only allow like/unlike if we have a valid song ID
                                 if (currentSongId.value != -1) {
                                     if (isSongLiked) {
-                                        // Unlike the song
                                         songViewModel.unlikeSong(currentSongId.value)
                                         isSongLiked = false
                                         Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        // Like the song
                                         songViewModel.likeSong(currentSongId.value)
                                         isSongLiked = true
                                         Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
@@ -176,7 +165,6 @@ fun MiniPlayer(
                         )
                     }
 
-                    // Play/Pause button
                     IconButton(
                         onClick = { musicViewModel.togglePlayPause() }
                     ) {

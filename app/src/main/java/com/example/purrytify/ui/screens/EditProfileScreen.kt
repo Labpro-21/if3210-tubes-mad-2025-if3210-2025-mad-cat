@@ -179,6 +179,7 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
+            // Profile Image Section
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -318,6 +319,7 @@ fun EditProfileScreen(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Button(
                     onClick = {
+                        // Launch the Google Maps activity for location selection
                         val intent = Intent(context, MapLocationPickerActivity::class.java)
                         mapsLauncher.launch(intent)
                     },
@@ -391,7 +393,7 @@ fun EditProfileScreen(
                 },
                 enabled = !isUploading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6CCB64)
+                    containerColor = Color(0xFF6CCB64) // Green color
                 ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
@@ -551,6 +553,9 @@ fun EditProfileScreen(
     }
 }
 
+/**
+ * Creates image URI for camera intent
+ */
 private fun createImageUri(context: Context): Uri? {
     val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val contentValues = ContentValues().apply {
@@ -560,6 +565,9 @@ private fun createImageUri(context: Context): Uri? {
     return context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
 }
 
+/**
+ * Gets current location and determines the country code
+ */
 private fun getCurrentLocation(
     context: Context,
     fusedLocationClient: FusedLocationProviderClient,
@@ -582,15 +590,18 @@ private fun getCurrentLocation(
                 }
             }.addOnFailureListener { exception ->
                 Log.e("EditProfileScreen", "Location error", exception)
-                onLocationDetected("ID")
+                onLocationDetected("ID") // Default to Indonesia
             }
         }
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Location permission error", e)
-        onLocationDetected("ID")
+        onLocationDetected("ID") // Default to Indonesia
     }
 }
 
+/**
+ * Gets country code from coordinates using Geocoder
+ */
 private fun getCountryCodeFromCoordinates(
     context: Context,
     latitude: Double,
@@ -605,7 +616,7 @@ private fun getCountryCodeFromCoordinates(
                     val countryCode = addresses[0].countryCode ?: "ID"
                     onCountryCodeReceived(countryCode)
                 } else {
-                    onCountryCodeReceived("ID")
+                    onCountryCodeReceived("ID") // Default to Indonesia
                 }
             }
         } else {
@@ -615,15 +626,18 @@ private fun getCountryCodeFromCoordinates(
                 val countryCode = addresses[0].countryCode ?: "ID"
                 onCountryCodeReceived(countryCode)
             } else {
-                onCountryCodeReceived("ID")
+                onCountryCodeReceived("ID") // Default to Indonesia
             }
         }
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Geocoder error", e)
-        onCountryCodeReceived("ID")
+        onCountryCodeReceived("ID") // Default to Indonesia
     }
 }
 
+/**
+ * Gets country name from ISO 3166-1 alpha-2 code
+ */
 private fun getCountryNameFromCode(context: Context, countryCode: String): String? {
     return try {
         val locale = Locale("", countryCode)
@@ -633,6 +647,9 @@ private fun getCountryNameFromCode(context: Context, countryCode: String): Strin
     }
 }
 
+/**
+ * Uploads profile data to server
+ */
 private suspend fun updateProfile(
     context: Context,
     location: String,
@@ -641,7 +658,10 @@ private suspend fun updateProfile(
     onError: (String) -> Unit
 ) {
     try {
+        // Create location part
         val locationPart = location.toRequestBody("text/plain".toMediaTypeOrNull())
+        
+        // Create image part if available
         val imagePart = imageUri?.let { uri ->
             val inputStream = context.contentResolver.openInputStream(uri)
             val file = File(context.cacheDir, "profile_image.jpg")
@@ -655,6 +675,7 @@ private suspend fun updateProfile(
             MultipartBody.Part.createFormData("profilePhoto", file.name, requestFile)
         }
         
+        // Make API call
         val response = RetrofitClient.apiService.updateProfile(
             location = locationPart,
             profilePhoto = imagePart

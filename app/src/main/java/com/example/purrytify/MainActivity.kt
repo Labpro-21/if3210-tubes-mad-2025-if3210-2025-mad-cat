@@ -1,16 +1,28 @@
 package com.example.purrytify
 
 import HomeScreen
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,6 +32,7 @@ import com.example.purrytify.data.api.RetrofitClient
 import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.network.ConnectivityObserver
 import com.example.purrytify.data.network.NetworkConnectivityObserver
+import com.example.purrytify.service.MediaPlaybackService
 import com.example.purrytify.ui.components.NetworkPopup
 import com.example.purrytify.ui.screens.*
 import com.example.purrytify.ui.theme.PurrytifyTheme
@@ -31,9 +44,25 @@ import com.example.purrytify.data.worker.TokenAutoRefreshWorker
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+    private val TAG = "MainActivity"
+    private val musicViewModel by viewModels<MusicViewModel>()
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate called")
 
+        // Request post notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) 
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    100
+                )
+            }
+        }
+        
         // Initialize RetrofitClient with AuthInterceptor
         RetrofitClient.initialize(applicationContext)
 
@@ -45,24 +74,45 @@ class MainActivity : ComponentActivity() {
 
         val connectivityObserver = NetworkConnectivityObserver(applicationContext)
         enableEdgeToEdge()
+        
+        // Check if we're being launched from a notification
+        val shouldNavigateToPlayer = intent?.action == "OPEN_PLAYER_SCREEN"
+        Log.d(TAG, "Should navigate to player: $shouldNavigateToPlayer")
+        
         setContent {
             PurrytifyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    val musicViewModel: MusicViewModel = viewModel()
                     val songViewModel: SongViewModel = viewModel()
 
                     val networkViewModel: NetworkViewModel = viewModel(
                         factory = NetworkViewModelFactory(connectivityObserver)
                     )
                     val status = networkViewModel.status.collectAsState().value
-
+                    
+                    // Provide a way to navigate to player when needed
+                    var startDestination by remember { mutableStateOf("splash") }
+                    
+                    // If coming from notification, go straight to player after splash
+                    var goToPlayerAfterSplash by remember { mutableStateOf(shouldNavigateToPlayer) }
+                    
                     Box(modifier = Modifier.fillMaxSize()) {
                         NavHost(
                             navController = navController,
-                            startDestination = "splash"
+                            startDestination = startDestination
                         ) {
-                            composable("splash") { SplashScreen(navController = navController) }
+                            composable("splash") { 
+                                SplashScreen(
+                                    navController = navController,
+                                    onNavigationComplete = {
+                                        if (goToPlayerAfterSplash) {
+                                            Log.d(TAG, "Navigating to player after splash")
+                                            navController.navigate("player")
+                                            goToPlayerAfterSplash = false
+                                        }
+                                    }
+                                ) 
+                            }
                             composable("login") { LoginScreen(navController = navController, songViewModel = songViewModel) }
                             composable("home") {
                                 HomeScreen(
@@ -112,6 +162,29 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+        
+        try {
+            // Initialize music playback controller with more error handling
+            val songViewModel: SongViewModel = SongViewModel(application)
+            musicViewModel.initializePlaybackControls(songViewModel, this)
+            Log.d(TAG, "Initialized music controller")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing music controller", e)
+        }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy called")
+        
+        // Stop the music service when app is closed
+        try {
+            val intent = Intent(this, MediaPlaybackService::class.java)
+            stopService(intent)
+            Log.d(TAG, "Music service stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping music service", e)
         }
     }
 

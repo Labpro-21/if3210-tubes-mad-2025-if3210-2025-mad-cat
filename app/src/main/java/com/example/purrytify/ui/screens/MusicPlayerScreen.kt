@@ -2,6 +2,7 @@ package com.example.purrytify.ui.screens
 
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -419,10 +420,25 @@ fun MusicPlayerScreen(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Log values for debugging
+                LaunchedEffect(currentPosition, duration) {
+                    if (duration > 0) {
+                        Log.d("MusicPlayerScreen", "Position: $currentPosition, Duration: $duration, Progress: ${currentPosition.toFloat() / duration}")
+                    }
+                }
+                
+                // Add some debugging for when the song changes
+                LaunchedEffect(currentSong) {
+                    Log.d("MusicPlayerScreen", "Song changed: ${currentSong?.title}, Duration: $duration")
+                }
+
+                // Ensure duration is at least 1 to avoid division by zero
+                val safeDuration = duration.coerceAtLeast(1)
+                
                 Slider(
-                    value = currentPosition.toFloat(),
+                    value = currentPosition.toFloat().coerceIn(0f, safeDuration.toFloat()),
                     onValueChange = { musicViewModel.seekTo(it.toInt()) },
-                    valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+                    valueRange = 0f..safeDuration.toFloat(),
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = Color.White,
@@ -440,7 +456,7 @@ fun MusicPlayerScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        text = formatDuration(duration),
+                        text = formatDuration(safeDuration),
                         color = Color(0xFFCCCCCC),
                         fontSize = 12.sp
                     )
