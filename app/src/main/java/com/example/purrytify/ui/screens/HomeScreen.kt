@@ -284,10 +284,19 @@ fun NewSongItem(song: Song, onClick: () -> Unit) {
             .width(130.dp)
             .clickable(onClick = onClick)
     ) {
-        val imageModel = if (song.coverUri.isNotEmpty() && File(song.coverUri).exists()) {
-            File(song.coverUri)
-        } else {
-            "https://example.com/placeholder.jpg"
+        val imageModel = when {
+            song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
+                // For online songs with URLs
+                song.coverUri
+            }
+            song.coverUri.isNotEmpty() && File(song.coverUri).exists() -> {
+                // For local songs with file paths
+                File(song.coverUri)
+            }
+            else -> {
+                // Fallback placeholder
+                "https://example.com/placeholder.jpg"
+            }
         }
 
         Box(
@@ -338,10 +347,19 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val imageModel = if (song.coverUri.isNotEmpty() && File(song.coverUri).exists()) {
-            File(song.coverUri)
-        } else {
-            "https://example.com/placeholder.jpg"
+        val imageModel = when {
+            song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
+                // For online songs with URLs
+                song.coverUri
+            }
+            song.coverUri.isNotEmpty() && File(song.coverUri).exists() -> {
+                // For local songs with file paths
+                File(song.coverUri)
+            }
+            else -> {
+                // Fallback placeholder
+                "https://example.com/placeholder.jpg"
+            }
         }
 
         Box(
