@@ -28,6 +28,7 @@ import java.io.File
 import android.os.Environment
 import androidx.lifecycle.lifecycleScope
 import com.example.purrytify.ui.screens.Song as LocalSong
+import android.widget.Toast
 
 enum class RepeatMode {
     OFF,    // No repeat - play through playlist once
@@ -938,6 +939,128 @@ class MusicViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("MusicViewModel", "Error downloading song", e)
                 onError(e.message ?: "Unknown error")
+            }
+        }
+    }
+    
+    // Share song function
+    fun shareSong(song: Song, context: Context): Boolean {
+        // Only share online songs (check if URI is a URL)
+        if (!song.uri.startsWith("http://") && !song.uri.startsWith("https://")) {
+            Toast.makeText(context, "Only online songs can be shared", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        
+        // Extract song ID from URL or create a unique identifier
+        val songId = createSongId(song)
+        
+        // Create deep link URL
+        val deepLink = "purrytify://song/$songId"
+        val webLink = "https://purrytify.com/song/$songId"
+        
+        // Create share text with song info and links
+        val shareText = "${song.title} - ${song.artist}\n\nListen on Purrytify:\n$deepLink\n\nOr open in browser:\n$webLink"
+        
+        // Create share intent
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareText)
+            putExtra(Intent.EXTRA_TITLE, "Share ${song.title}")
+        }
+        
+        // Create chooser and start activity
+        val chooser = Intent.createChooser(shareIntent, "Share song via")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        
+        context.startActivity(chooser)
+        return true
+    }
+    
+    // Create a unique ID for the song based on title and artist
+    private fun createSongId(song: Song): String {
+        // Create a simple hash or use base64 encoding
+        val combined = "${song.title}_${song.artist}"
+        return android.util.Base64.encodeToString(
+            combined.toByteArray(),
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+        )
+    }
+    
+    // Handle incoming deep links
+    fun handleDeepLink(intent: Intent?, context: Context): Boolean {
+        if (intent?.action == Intent.ACTION_VIEW) {
+            val data = intent.data
+            if (data != null) {
+                val scheme = data.scheme
+                val host = data.host
+                
+                // Handle purrytify://song/songId
+                if (scheme == "purrytify" && host == "song") {
+                    val songId = data.pathSegments.firstOrNull()
+                    if (songId != null) {
+                        // Find and play the song
+                        findAndPlaySongById(songId, context)
+                        return true
+                    }
+                }
+                
+                // Handle https://purrytify.com/song/songId
+                if ((scheme == "https" || scheme == "http") && host == "purrytify.com") {
+                    val path = data.path
+                    if (path?.startsWith("/song/") == true) {
+                        val songId = path.removePrefix("/song/")
+                        findAndPlaySongById(songId, context)
+                        return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+    
+    // Find and play song by ID
+    private fun findAndPlaySongById(songId: String, context: Context) {
+        viewModelScope.launch {
+            try {
+                // Decode the song ID to get title and artist
+                val decoded = String(android.util.Base64.decode(songId, android.util.Base64.URL_SAFE))
+                val parts = decoded.split("_")
+                
+                if (parts.size >= 2) {
+                    val title = parts[0]
+                    val artist = parts[1]
+                    
+                    // Search in online playlist
+                    val onlineSong = onlinePlaylist.find {
+                        it.title == title && it.artist == artist
+                    }
+                    
+                    if (onlineSong != null) {
+                        _playlistContext.value = PlaylistContext.ONLINE
+                        playSong(onlineSong, context, fromOnlinePlaylist = true)
+                        return@launch
+                    }
+                    
+                    // If not found online, check local library
+                    songViewModel?.let { viewModel ->
+                        val localSongs = viewModel.allSongs.first()
+                        val localSong = localSongs.find {
+                            it.title == title && it.artist == artist
+                        }
+                        
+                        if (localSong != null) {
+                            _playlistContext.value = PlaylistContext.LIBRARY
+                            playSong(localSong, context, fromOnlinePlaylist = false)
+                            return@launch
+                        }
+                    }
+                    
+                    Toast.makeText(context, "Song not found", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Error finding song by ID", e)
+                Toast.makeText(context, "Error loading song", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -33,6 +33,19 @@
                 <action android:name="OPEN_PLAYER_SCREEN" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Deep link intent filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                
+                <!-- Deep link scheme -->
+                <data android:scheme="purrytify" android:host="song" />
+                
+                <!-- HTTP/HTTPS URLs for web fallback -->
+                <data android:scheme="https" android:host="purrytify.com" android:pathPrefix="/song/" />
+                <data android:scheme="http" android:host="purrytify.com" android:pathPrefix="/song/" />
+            </intent-filter>
         </activity>
         
         <activity
