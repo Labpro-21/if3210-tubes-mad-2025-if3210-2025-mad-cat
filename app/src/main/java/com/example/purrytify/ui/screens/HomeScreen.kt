@@ -29,8 +29,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.purrytify.ui.screens.Song
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
+import com.example.purrytify.ui.viewmodel.HomeViewModel
+import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
+import com.example.purrytify.ui.components.ChartsSection
 import kotlinx.coroutines.launch
 import java.io.File
+import com.example.purrytify.data.preferences.UserProfileManager
 
 object PlayHistoryTracker {
     private val userHistories = mutableMapOf<String, MutableList<Song>>()
@@ -66,8 +70,13 @@ fun HomeScreen(
     onNavigateToPlayer: () -> Unit
 ) {
     val context = LocalContext.current
+    val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(context))
     val tokenManager = remember { TokenManager(context) }
+    val userProfileManager = remember { UserProfileManager(context) }
     val userEmail = tokenManager.getEmail() ?: ""
+    val userProfile = userProfileManager.getUserProfile(userEmail)
+    val userCountryCode = userProfile?.country ?: "ID"
+    val userCountryName = homeViewModel.getSupportedCountries()[userCountryCode] ?: "Indonesia"
 
     val scope = rememberCoroutineScope()
 
@@ -142,6 +151,21 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                    )
+                }
+                
+                // Charts section
+                item {
+                    ChartsSection(
+                        onGlobalClick = {
+                            navController.navigate("top_charts/global")
+                        },
+                        onCountryClick = {
+                            navController.navigate("top_charts/$userCountryCode/$userCountryName")
+                        },
+                        countryName = userCountryName,
+                        countryCode = userCountryCode,
+                        isCountrySupported = homeViewModel.isCountrySupported(userCountryCode)
                     )
                 }
 

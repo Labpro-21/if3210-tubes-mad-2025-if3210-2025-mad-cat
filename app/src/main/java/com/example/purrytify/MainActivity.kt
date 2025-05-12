@@ -34,6 +34,7 @@ import com.example.purrytify.data.network.ConnectivityObserver
 import com.example.purrytify.data.network.NetworkConnectivityObserver
 import com.example.purrytify.service.MediaPlaybackService
 import com.example.purrytify.ui.components.NetworkPopup
+import com.example.purrytify.navigation.addTopChartsNavigation
 import com.example.purrytify.ui.screens.*
 import com.example.purrytify.ui.theme.PurrytifyTheme
 import com.example.purrytify.ui.viewmodel.MusicViewModel
@@ -152,6 +153,14 @@ class MainActivity : ComponentActivity() {
                                     profileData = profileData
                                 )
                             }
+                            
+                            // Add top charts navigation routes
+                            addTopChartsNavigation(
+                                navController = navController,
+                                musicViewModel = musicViewModel,
+                                songViewModel = songViewModel,
+                                onNavigateToPlayer = { navController.navigate("player") }
+                            )
                         }
 
                         if (status != ConnectivityObserver.Status.Available) {

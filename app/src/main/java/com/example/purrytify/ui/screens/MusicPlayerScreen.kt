@@ -77,10 +77,16 @@ fun MusicPlayerScreen(
 
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
-            val songId = songViewModel.getSongId(song.title, song.artist)
+            // For online songs that don't have local IDs, use a special ID
+            val songId = if (song.uri.startsWith("http")) {
+                -1 // Special ID for online songs
+            } else {
+                songViewModel.getSongId(song.title, song.artist)
+            }
             currentSongId.value = songId
 
-            isSongLiked = songViewModel.isSongLiked(songId)
+            // Don't check liked status for online songs
+            isSongLiked = if (songId == -1) false else songViewModel.isSongLiked(songId)
         }
     }
 
@@ -334,11 +340,14 @@ fun MusicPlayerScreen(
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.DarkGray)
             ) {
+                val imageModel = when {
+                    currentSong!!.coverUri.startsWith("http") -> currentSong!!.coverUri // Online song URL
+                    currentSong!!.coverUri.isNotEmpty() -> File(currentSong!!.coverUri) // Local file
+                    else -> "https://example.com/placeholder.jpg" // Placeholder
+                }
+                
                 AsyncImage(
-                    model = if (currentSong!!.coverUri.isNotEmpty())
-                        File(currentSong!!.coverUri)
-                    else
-                        "https://example.com/placeholder.jpg",
+                    model = imageModel,
                     contentDescription = "Album Cover",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -385,6 +394,12 @@ fun MusicPlayerScreen(
                     IconButton(
                         onClick = {
                             scope.launch {
+                                // Don't allow liking online songs (they're not in the local database)
+                                if (currentSongId.value == -1) {
+                                    Toast.makeText(context, "Cannot like online songs", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                                
                                 if (isSongLiked) {
                                     songViewModel.unlikeSong(currentSongId.value)
                                     isSongLiked = false
@@ -544,6 +559,8 @@ fun MusicPlayerScreen(
         }
     }
     if (showMenu) {
+        val isOnlineSong = currentSong?.uri?.startsWith("http") == true
+        
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -573,9 +590,13 @@ fun MusicPlayerScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                currentSong?.let { handleEditSong(it) }
-                                showMenu = false
+                            .clickable(enabled = !isOnlineSong) {
+                                if (!isOnlineSong) {
+                                    currentSong?.let { handleEditSong(it) }
+                                    showMenu = false
+                                } else {
+                                    Toast.makeText(context, "Cannot edit online songs", Toast.LENGTH_SHORT).show()
+                                }
                             }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -583,13 +604,13 @@ fun MusicPlayerScreen(
                         Icon(
                             imageVector = Icons.Rounded.Edit,
                             contentDescription = "Edit",
-                            tint = Color.White,
+                            tint = if (isOnlineSong) Color(0xFF555555) else Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             "Edit Song",
-                            color = Color.White,
+                            color = if (isOnlineSong) Color(0xFF555555) else Color.White,
                             fontSize = 16.sp
                         )
                     }
@@ -602,9 +623,13 @@ fun MusicPlayerScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                currentSong?.let { handleDeleteSong(it) }
-                                showMenu = false
+                            .clickable(enabled = !isOnlineSong) {
+                                if (!isOnlineSong) {
+                                    currentSong?.let { handleDeleteSong(it) }
+                                    showMenu = false
+                                } else {
+                                    Toast.makeText(context, "Cannot delete online songs", Toast.LENGTH_SHORT).show()
+                                }
                             }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -612,13 +637,13 @@ fun MusicPlayerScreen(
                         Icon(
                             imageVector = Icons.Rounded.Delete,
                             contentDescription = "Delete",
-                            tint = Color(0xFFFF5252),
+                            tint = if (isOnlineSong) Color(0xFF555555) else Color(0xFFFF5252),
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             "Delete Song",
-                            color = Color(0xFFFF5252),
+                            color = if (isOnlineSong) Color(0xFF555555) else Color(0xFFFF5252),
                             fontSize = 16.sp
                         )
                     }
@@ -1061,6 +1086,22 @@ fun MusicPlayerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+}
+
+// Convert duration string (mm:ss) to milliseconds
+fun parseDurationToMillis(duration: String): Long {
+    return try {
+        val parts = duration.split(":")
+        if (parts.size == 2) {
+            val minutes = parts[0].toLongOrNull() ?: 0
+            val seconds = parts[1].toLongOrNull() ?: 0
+            (minutes * 60 + seconds) * 1000
+        } else {
+            0L
+        }
+    } catch (e: Exception) {
+        0L
     }
 }
 
