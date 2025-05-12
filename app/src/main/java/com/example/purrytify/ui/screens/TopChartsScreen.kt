@@ -69,6 +69,22 @@ fun TopChartsScreen(
         }
     }
     
+    // Convert online songs to local Song format and set the playlist
+    LaunchedEffect(songs.value) {
+        if (songs.value.isNotEmpty()) {
+            val mappedSongs = songs.value.map { onlineSong ->
+                Song(
+                    title = onlineSong.title,
+                    artist = onlineSong.artist,
+                    coverUri = onlineSong.artworkUrl,
+                    uri = onlineSong.audioUrl,
+                    duration = onlineSong.duration
+                )
+            }
+            musicViewModel.setOnlinePlaylist(mappedSongs, chartType)
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -162,7 +178,12 @@ fun TopChartsScreen(
                                             uri = song.audioUrl,
                                             duration = song.duration // Keep the original mm:ss format
                                         )
-                                        musicViewModel.playSong(mappedSong, context)
+                                        musicViewModel.playSong(
+                                            mappedSong, 
+                                            context,
+                                            fromOnlinePlaylist = true,
+                                            onlineType = chartType
+                                        )
                                         onNavigateToPlayer()
                                     }
                                 }

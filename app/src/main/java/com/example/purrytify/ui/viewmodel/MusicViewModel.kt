@@ -30,6 +30,11 @@ enum class RepeatMode {
     ONE     // Repeat current song only
 }
 
+enum class PlaylistContext {
+    LIBRARY,    // Playing from local library
+    ONLINE      // Playing from online charts (global/country)
+}
+
 class MusicViewModel : ViewModel() {
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong
@@ -48,6 +53,14 @@ class MusicViewModel : ViewModel() {
 
     private val _isShuffleOn = MutableStateFlow(false)
     val isShuffleOn: StateFlow<Boolean> = _isShuffleOn
+    
+    // Playlist context - to track where the song is being played from
+    private val _playlistContext = MutableStateFlow(PlaylistContext.LIBRARY)
+    val playlistContext: StateFlow<PlaylistContext> = _playlistContext
+    
+    // Online playlist storage
+    private var onlinePlaylist: List<Song> = listOf()
+    private var onlinePlaylistType: String = "" // "global" or country code
 
     private var mediaPlayer: MediaPlayer? = null
     private var updateJob: Job? = null
@@ -228,9 +241,35 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    fun playSong(song: Song, context: Context) {
+    // Set online playlist for charts playback
+    fun setOnlinePlaylist(songs: List<Song>, type: String) {
+        onlinePlaylist = songs
+        onlinePlaylistType = type
+        Log.d("MusicViewModel", "Set online playlist with ${songs.size} songs, type: $type")
+    }
+    
+    fun playSong(song: Song, context: Context, fromOnlinePlaylist: Boolean = false, onlineType: String = "") {
         Log.d("MusicViewModel", "Playing song: ${song.title} by ${song.artist}")
+        Log.d("MusicViewModel", "From online: $fromOnlinePlaylist, type: $onlineType")
         Log.d("MusicViewModel", "Current repeat mode: ${_repeatMode.value}, shuffle: ${_isShuffleOn.value}")
+        
+        // Set playlist context
+        if (fromOnlinePlaylist) {
+            _playlistContext.value = PlaylistContext.ONLINE
+            onlinePlaylistType = onlineType
+            // Use the current online playlist
+            currentPlaylist = onlinePlaylist
+            Log.d("MusicViewModel", "Using online playlist with ${currentPlaylist.size} songs")
+        } else {
+            _playlistContext.value = PlaylistContext.LIBRARY
+            // Use the local library playlist
+            songViewModel?.let { viewModel ->
+                currentPlaylist = runBlocking {
+                    viewModel.allSongs.first()
+                }
+                Log.d("MusicViewModel", "Using library playlist with ${currentPlaylist.size} songs")
+            }
+        }
         
         // Find the index of the song in the playlist
         currentIndex = currentPlaylist.indexOfFirst {
@@ -426,7 +465,10 @@ class MusicViewModel : ViewModel() {
                 Log.d("MusicViewModel", "Repeat ONE mode - replaying current song")
                 currentSong.value?.let { song ->
                     context?.let { ctx ->
-                        playSong(song, ctx)
+                        playSong(song, ctx, 
+                            fromOnlinePlaylist = (_playlistContext.value == PlaylistContext.ONLINE),
+                            onlineType = onlinePlaylistType
+                        )
                     }
                 }
                 return
@@ -465,7 +507,10 @@ class MusicViewModel : ViewModel() {
             
             // Play the next song
             context?.let {
-                playSong(currentPlaylist[currentIndex], it)
+                playSong(currentPlaylist[currentIndex], it,
+                    fromOnlinePlaylist = (_playlistContext.value == PlaylistContext.ONLINE),
+                    onlineType = onlinePlaylistType
+                )
             }
         } catch (e: Exception) {
             Log.e("MusicViewModel", "Error in playNext", e)
@@ -514,14 +559,20 @@ class MusicViewModel : ViewModel() {
             
             // Play the previous song
             context?.let {
-                playSong(currentPlaylist[currentIndex], it)
+                playSong(currentPlaylist[currentIndex], it,
+                    fromOnlinePlaylist = (_playlistContext.value == PlaylistContext.ONLINE),
+                    onlineType = onlinePlaylistType
+                )
             }
         } else {
             // Restart current song
             Log.d("MusicViewModel", "Position >= 3s, restarting current song")
             currentSong.value?.let { song ->
                 context?.let { ctx ->
-                    playSong(song, ctx)
+                    playSong(song, ctx,
+                        fromOnlinePlaylist = (_playlistContext.value == PlaylistContext.ONLINE),
+                        onlineType = onlinePlaylistType
+                    )
                 }
             }
         }
@@ -554,26 +605,32 @@ class MusicViewModel : ViewModel() {
     fun toggleShuffle() {
         _isShuffleOn.value = !_isShuffleOn.value
 
-        // Update playlist based on shuffle state
-        songViewModel?.let { viewModel ->
-            currentPlaylist = if (_isShuffleOn.value) {
-                runBlocking {
-                    viewModel.allSongs.first().shuffled()
-                }
-            } else {
-                runBlocking {
-                    viewModel.allSongs.first()
+        // Update playlist based on shuffle state and context
+        currentPlaylist = when (_playlistContext.value) {
+            PlaylistContext.ONLINE -> {
+                if (_isShuffleOn.value) {
+                    onlinePlaylist.shuffled()
+                } else {
+                    onlinePlaylist
                 }
             }
-
-            // Ensure current song remains the same if possible
-            currentSong.value?.let { current ->
-                val index = currentPlaylist.indexOfFirst {
-                    it.title == current.title && it.artist == current.artist
-                }
-                if (index != -1) {
-                    currentIndex = index
-                }
+            PlaylistContext.LIBRARY -> {
+                songViewModel?.let { viewModel ->
+                    runBlocking {
+                        val songs = viewModel.allSongs.first()
+                        if (_isShuffleOn.value) songs.shuffled() else songs
+                    }
+                } ?: emptyList()
+            }
+        }
+        
+        // Ensure current song remains the same if possible
+        currentSong.value?.let { current ->
+            val index = currentPlaylist.indexOfFirst {
+                it.title == current.title && it.artist == current.artist
+            }
+            if (index != -1) {
+                currentIndex = index
             }
         }
         
@@ -604,7 +661,10 @@ class MusicViewModel : ViewModel() {
                             // For Repeat One, we need to properly restart the song
                             Log.d("MusicViewModel", "Restarting song: ${song.title}")
                             // Call playSong to restart from beginning
-                            playSong(song, ctx)
+                            playSong(song, ctx,
+                                fromOnlinePlaylist = (_playlistContext.value == PlaylistContext.ONLINE),
+                                onlineType = onlinePlaylistType
+                            )
                         }
                     }
                 }
@@ -632,47 +692,50 @@ class MusicViewModel : ViewModel() {
         // Update the current song reference
         _currentSong.value = updatedSong
 
-        // Update the playlist
-        viewModelScope.launch {
-            songViewModel?.let { viewModel ->
-                // Get fresh playlist
-                currentPlaylist = viewModel.allSongs.first()
+        // Don't update online playlists - they're managed by the server
+        if (_playlistContext.value == PlaylistContext.LIBRARY) {
+            // Update the playlist
+            viewModelScope.launch {
+                songViewModel?.let { viewModel ->
+                    // Get fresh playlist
+                    currentPlaylist = viewModel.allSongs.first()
 
-                // Find updated song in playlist
-                val updatedIndex = currentPlaylist.indexOfFirst {
-                    it.uri == updatedSong.uri
-                }
+                    // Find updated song in playlist
+                    val updatedIndex = currentPlaylist.indexOfFirst {
+                        it.uri == updatedSong.uri
+                    }
 
-                if (updatedIndex != -1) {
-                    currentIndex = updatedIndex
-                }
+                    if (updatedIndex != -1) {
+                        currentIndex = updatedIndex
+                    }
 
-                // If the song was playing, restart it with the updated details
-                if (wasPlaying) {
-                    context?.let { ctx ->
-                        if (isServiceBound && mediaService != null) {
-                            mediaService?.playSong(updatedSong)
-                            mediaService?.seekTo(currentPosition)
-                        } else {
-                            mediaPlayer?.release()
-                            mediaPlayer = MediaPlayer().apply {
-                                setDataSource(ctx, Uri.parse(updatedSong.uri))
-                                prepare()
-                                // Restore position if possible
-                                if (currentPosition > 0 && currentPosition < duration) {
-                                    seekTo(currentPosition)
+                    // If the song was playing, restart it with the updated details
+                    if (wasPlaying) {
+                        context?.let { ctx ->
+                            if (isServiceBound && mediaService != null) {
+                                mediaService?.playSong(updatedSong)
+                                mediaService?.seekTo(currentPosition)
+                            } else {
+                                mediaPlayer?.release()
+                                mediaPlayer = MediaPlayer().apply {
+                                    setDataSource(ctx, Uri.parse(updatedSong.uri))
+                                    prepare()
+                                    // Restore position if possible
+                                    if (currentPosition > 0 && currentPosition < duration) {
+                                        seekTo(currentPosition)
+                                    }
+                                    if (wasPlaying) {
+                                        start()
+                                        _isPlaying.value = true
+                                    }
+                                    _duration.value = duration
+                                    setOnCompletionListener { 
+                                        Log.d("MusicViewModel", "MediaPlayer song completed during restoration")
+                                        onSongCompletion() 
+                                    }
                                 }
-                                if (wasPlaying) {
-                                    start()
-                                    _isPlaying.value = true
-                                }
-                                _duration.value = duration
-                                setOnCompletionListener { 
-                                    Log.d("MusicViewModel", "MediaPlayer song completed during restoration")
-                                    onSongCompletion() 
-                                }
+                                startUpdatingProgress()
                             }
-                            startUpdatingProgress()
                         }
                     }
                 }
