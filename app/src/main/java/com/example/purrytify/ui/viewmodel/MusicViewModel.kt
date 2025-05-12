@@ -1,5 +1,6 @@
 package com.example.purrytify.ui.viewmodel
 
+import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -23,6 +24,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
+import java.io.File
+import android.os.Environment
+import androidx.lifecycle.lifecycleScope
+import com.example.purrytify.ui.screens.Song as LocalSong
 
 enum class RepeatMode {
     OFF,    // No repeat - play through playlist once
@@ -823,6 +828,130 @@ class MusicViewModel : ViewModel() {
         currentIndex = 0
     }
 
+    // Download song from online to local storage
+    fun downloadSong(
+        song: Song,
+        context: Context,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                // Create app's music directory if it doesn't exist
+                val musicDir = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Purrytify")
+                if (!musicDir.exists()) {
+                    musicDir.mkdirs()
+                }
+                
+                // Clean filename for safe file storage
+                val safeTitle = song.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                val safeArtist = song.artist.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                
+                // Prepare file names
+                val audioFileName = "${safeArtist}_${safeTitle}.mp3"
+                val imageFileName = "${safeArtist}_${safeTitle}_cover.jpg"
+                
+                val audioFile = File(musicDir, audioFileName)
+                val imageFile = File(musicDir, imageFileName)
+                
+                // Skip if already downloaded
+                if (audioFile.exists()) {
+                    onError("Song already downloaded")
+                    return@launch
+                }
+                
+                // Use DownloadManager for downloading files
+                val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                
+                // Download audio file
+                val audioRequest = DownloadManager.Request(Uri.parse(song.uri))
+                    .setTitle("Downloading ${song.title}")
+                    .setDescription("Downloading audio...")
+                    .setDestinationUri(Uri.fromFile(audioFile))
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(true)
+                
+                val audioDownloadId = downloadManager.enqueue(audioRequest)
+                
+                // Download cover image
+                val imageRequest = DownloadManager.Request(Uri.parse(song.coverUri))
+                    .setTitle("Downloading ${song.title} Cover")
+                    .setDescription("Downloading cover image...")
+                    .setDestinationUri(Uri.fromFile(imageFile))
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(true)
+                
+                val imageDownloadId = downloadManager.enqueue(imageRequest)
+                
+                // Monitor download completion
+                val query = DownloadManager.Query()
+                query.setFilterById(audioDownloadId, imageDownloadId)
+                
+                // Check download status periodically
+                viewModelScope.launch {
+                    var audioCompleted = false
+                    var imageCompleted = false
+                    
+                    while (!audioCompleted || !imageCompleted) {
+                        val cursor = downloadManager.query(query)
+                        
+                        while (cursor.moveToNext()) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID))
+                            val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                            
+                            when (status) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    if (id == audioDownloadId) audioCompleted = true
+                                    if (id == imageDownloadId) imageCompleted = true
+                                }
+                                DownloadManager.STATUS_FAILED -> {
+                                    cursor.close()
+                                    onError("Download failed")
+                                    return@launch
+                                }
+                            }
+                        }
+                        cursor.close()
+                        
+                        if (!audioCompleted || !imageCompleted) {
+                            delay(1000) // Check every second
+                        }
+                    }
+                    
+                    // Both downloads completed, add to local library
+                    val localSong = LocalSong(
+                        title = song.title,
+                        artist = song.artist,
+                        duration = song.duration,
+                        uri = audioFile.absolutePath,
+                        coverUri = imageFile.absolutePath
+                    )
+                    
+                    // Add to local library
+                    songViewModel?.insertSong(localSong)
+                    
+                    Log.d("MusicViewModel", "Song downloaded successfully: ${song.title}")
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Error downloading song", e)
+                onError(e.message ?: "Unknown error")
+            }
+        }
+    }
+    
+    // Check if a song is already downloaded
+    fun isSongDownloaded(song: Song, context: Context): Boolean {
+        val musicDir = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Purrytify")
+        val safeTitle = song.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+        val safeArtist = song.artist.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+        val audioFileName = "${safeArtist}_${safeTitle}.mp3"
+        val audioFile = File(musicDir, audioFileName)
+        return audioFile.exists()
+    }
+    
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()

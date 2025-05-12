@@ -3,11 +3,14 @@ package com.example.purrytify.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +35,7 @@ import com.example.purrytify.ui.components.BottomNavBar
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import com.example.purrytify.ui.screens.Song
 import kotlinx.coroutines.launch
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,6 +172,8 @@ fun TopChartsScreen(
                             TrendingSongItem(
                                 song = song,
                                 rank = index + 1,
+                                musicViewModel = musicViewModel,
+                                context = context,
                                 onClick = {
                                     scope.launch {
                                         // Convert OnlineSong to Song for playback
@@ -209,23 +215,63 @@ fun TopChartsScreen(
 fun TrendingSongItem(
     song: OnlineSong,
     rank: Int,
+    musicViewModel: MusicViewModel,
+    context: android.content.Context,
     onClick: () -> Unit
 ) {
+    // Check if the song is already downloaded
+    var isDownloaded by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    
+    // Convert OnlineSong to Song for checking download status
+    val localSong = remember(song) {
+        Song(
+            title = song.title,
+            artist = song.artist,
+            coverUri = song.artworkUrl,
+            uri = song.audioUrl,
+            duration = song.duration
+        )
+    }
+    
+    LaunchedEffect(song) {
+        isDownloaded = musicViewModel.isSongDownloaded(localSong, context)
+    }
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(
+                if (isDownloaded) Color(0xFF1DB954).copy(alpha = 0.1f) else Color.Transparent,
+                RoundedCornerShape(8.dp)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Rank number
-        Text(
-            text = rank.toString(),
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+        // Rank number with download indicator
+        Box(
             modifier = Modifier.width(30.dp)
-        )
+        ) {
+            Text(
+                text = rank.toString(),
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center)
+            )
+            if (isDownloaded) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Downloaded",
+                    tint = Color(0xFF1DB954),
+                    modifier = Modifier
+                        .size(12.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 4.dp, y = (-4).dp)
+                )
+            }
+        }
         
         Spacer(modifier = Modifier.width(16.dp))
         
@@ -273,5 +319,52 @@ fun TrendingSongItem(
             color = Color.Gray,
             fontSize = 14.sp
         )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Download button
+        IconButton(
+            onClick = {
+                if (!isDownloaded && !isDownloading) {
+                    isDownloading = true
+                    musicViewModel.downloadSong(
+                        song = localSong,
+                        context = context,
+                        onSuccess = {
+                            isDownloaded = true
+                            isDownloading = false
+                            Toast.makeText(context, "Download completed: ${song.title}", Toast.LENGTH_SHORT).show()
+                        },
+                        onError = { error ->
+                            isDownloading = false
+                            if (error == "Song already downloaded") {
+                                Toast.makeText(context, "Song already downloaded", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Download failed: $error", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
+            },
+            enabled = !isDownloaded && !isDownloading
+        ) {
+            when {
+                isDownloaded -> Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Downloaded",
+                    tint = Color(0xFF1DB954)
+                )
+                isDownloading -> CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color(0xFF1DB954),
+                    strokeWidth = 2.dp
+                )
+                else -> Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download",
+                    tint = Color.White
+                )
+            }
+        }
     }
 }
