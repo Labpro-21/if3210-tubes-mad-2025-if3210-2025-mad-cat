@@ -258,16 +258,33 @@ class MusicViewModel : ViewModel() {
             _playlistContext.value = PlaylistContext.ONLINE
             onlinePlaylistType = onlineType
             // Use the current online playlist
-            currentPlaylist = onlinePlaylist
+            if (onlinePlaylist.isEmpty()) {
+                Log.e("MusicViewModel", "Online playlist is empty when trying to play online song!")
+                return
+            }
+            currentPlaylist = if (_isShuffleOn.value) {
+                onlinePlaylist.shuffled()
+            } else {
+                onlinePlaylist
+            }
             Log.d("MusicViewModel", "Using online playlist with ${currentPlaylist.size} songs")
         } else {
             _playlistContext.value = PlaylistContext.LIBRARY
             // Use the local library playlist
             songViewModel?.let { viewModel ->
                 currentPlaylist = runBlocking {
-                    viewModel.allSongs.first()
+                    try {
+                        val songs = viewModel.allSongs.first()
+                        if (_isShuffleOn.value) songs.shuffled() else songs
+                    } catch (e: Exception) {
+                        Log.e("MusicViewModel", "Error getting library songs", e)
+                        emptyList()
+                    }
                 }
                 Log.d("MusicViewModel", "Using library playlist with ${currentPlaylist.size} songs")
+            } ?: run {
+                Log.e("MusicViewModel", "SongViewModel is null when trying to play library song!")
+                currentPlaylist = emptyList()
             }
         }
         
@@ -447,6 +464,12 @@ class MusicViewModel : ViewModel() {
     // Play next song
     fun playNext() {
         try {
+            // Verify we're using the correct playlist
+            if (_playlistContext.value == PlaylistContext.ONLINE && currentPlaylist != onlinePlaylist && !_isShuffleOn.value) {
+                Log.w("MusicViewModel", "Playlist mismatch detected, resetting to online playlist")
+                currentPlaylist = onlinePlaylist
+            }
+            
             if (currentPlaylist.isEmpty()) {
                 Log.e("MusicViewModel", "Playlist is empty")
                 return
@@ -519,6 +542,12 @@ class MusicViewModel : ViewModel() {
 
     // Play previous song
     fun playPrevious() {
+        // Verify we're using the correct playlist
+        if (_playlistContext.value == PlaylistContext.ONLINE && currentPlaylist != onlinePlaylist && !_isShuffleOn.value) {
+            Log.w("MusicViewModel", "Playlist mismatch detected, resetting to online playlist")
+            currentPlaylist = onlinePlaylist
+        }
+        
         if (currentPlaylist.isEmpty()) return
         
         // If repeat one is active and user presses previous, disable repeat one
@@ -604,35 +633,58 @@ class MusicViewModel : ViewModel() {
     // Toggle shuffle
     fun toggleShuffle() {
         _isShuffleOn.value = !_isShuffleOn.value
-
+        
+        // Save current song to maintain position
+        val currentSongRef = currentSong.value
+        
         // Update playlist based on shuffle state and context
         currentPlaylist = when (_playlistContext.value) {
             PlaylistContext.ONLINE -> {
-                if (_isShuffleOn.value) {
-                    onlinePlaylist.shuffled()
+                // Make sure we're using the online playlist
+                if (onlinePlaylist.isEmpty()) {
+                    Log.e("MusicViewModel", "Online playlist is empty!")
+                    emptyList()
                 } else {
-                    onlinePlaylist
+                    if (_isShuffleOn.value) {
+                        onlinePlaylist.shuffled()
+                    } else {
+                        onlinePlaylist
+                    }
                 }
             }
             PlaylistContext.LIBRARY -> {
+                // Only get library songs if we're actually in library context
                 songViewModel?.let { viewModel ->
                     runBlocking {
-                        val songs = viewModel.allSongs.first()
-                        if (_isShuffleOn.value) songs.shuffled() else songs
+                        try {
+                            val songs = viewModel.allSongs.first()
+                            if (_isShuffleOn.value) songs.shuffled() else songs
+                        } catch (e: Exception) {
+                            Log.e("MusicViewModel", "Error getting library songs", e)
+                            emptyList()
+                        }
                     }
                 } ?: emptyList()
             }
         }
         
         // Ensure current song remains the same if possible
-        currentSong.value?.let { current ->
+        currentSongRef?.let { current ->
             val index = currentPlaylist.indexOfFirst {
                 it.title == current.title && it.artist == current.artist
             }
             if (index != -1) {
                 currentIndex = index
+            } else {
+                // If current song not found, reset to 0
+                currentIndex = 0
+                Log.w("MusicViewModel", "Current song not found in shuffled playlist")
             }
         }
+        
+        // Log for debugging
+        Log.d("MusicViewModel", "Shuffle toggled. Context: ${_playlistContext.value}, " +
+                "Playlist size: ${currentPlaylist.size}, Online playlist size: ${onlinePlaylist.size}")
         
         // Update service with new shuffle state
         if (isServiceBound && mediaService != null) {
