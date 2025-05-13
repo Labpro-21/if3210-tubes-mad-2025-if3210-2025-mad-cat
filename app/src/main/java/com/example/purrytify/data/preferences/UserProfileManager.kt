@@ -10,7 +10,7 @@ data class UserProfile(
     val name: String,
     val age: Int,
     val gender: String,
-    val country: String, // ISO 3166-1 alpha-2 country code
+    val country: String,
     val profileImageUrl: String? = null
 )
 

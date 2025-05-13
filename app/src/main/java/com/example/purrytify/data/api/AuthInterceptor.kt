@@ -12,7 +12,6 @@ import java.io.IOException
 class AuthInterceptor(private val context: Context) : Interceptor {
     private val tokenManager = TokenManager(context)
     
-    // Use a global lock to prevent multiple refresh attempts simultaneously
     companion object {
         private val lock = Any()
         private var isRefreshing = false
@@ -25,8 +24,7 @@ class AuthInterceptor(private val context: Context) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         
-        // Skip auth for login and refresh token requests
-        if (originalRequest.url.encodedPath.contains("login") || 
+        if (originalRequest.url.encodedPath.contains("login") ||
             originalRequest.url.encodedPath.contains("refresh-token")) {
             return chain.proceed(originalRequest)
         }
@@ -53,12 +51,11 @@ class AuthInterceptor(private val context: Context) : Interceptor {
                     isRefreshing = true
 
                     val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastRefreshAttempt > 10000) { // 10 seconds between attempts
+                    if (currentTime - lastRefreshAttempt > 10000) {
                         lastRefreshAttempt = currentTime
                         
                         val refreshSuccess = refreshToken()
                         if (refreshSuccess) {
-                            // Retry request with new token
                             response.close()
                             val newRequestWithAuth = addAuthHeader(originalRequest)
                             val newResponse = chain.proceed(newRequestWithAuth)
@@ -66,7 +63,6 @@ class AuthInterceptor(private val context: Context) : Interceptor {
                             isRefreshing = false
                             return newResponse
                         } else {
-                            // If refresh failed, mark session as inactive
                             isSessionActive = false
                             Log.d("AuthInterceptor", "Token refresh failed, marking session as inactive")
                         }

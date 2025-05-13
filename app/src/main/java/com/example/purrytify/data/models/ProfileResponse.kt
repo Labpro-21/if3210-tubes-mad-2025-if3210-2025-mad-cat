@@ -11,7 +11,7 @@ data class ProfileResponse(
     val email: String?,
     @SerializedName("profilePhoto")
     val profilePhoto: String?,
-    val location: String?, // country code
+    val location: String?,
     val createdAt: String?,
     val updatedAt: String?
 ) : Parcelable

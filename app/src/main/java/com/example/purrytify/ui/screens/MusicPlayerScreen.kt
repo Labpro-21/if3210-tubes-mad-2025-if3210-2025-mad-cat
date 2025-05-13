@@ -74,6 +74,7 @@ fun MusicPlayerScreen(
     val duration by musicViewModel.duration.collectAsState()
     val repeatMode by musicViewModel.repeatMode.collectAsState()
     val isShuffleOn by musicViewModel.isShuffleOn.collectAsState()
+    val currentOnlineSongId by musicViewModel.currentOnlineSongId.collectAsState()
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
 
@@ -1129,10 +1130,10 @@ fun MusicPlayerScreen(
     if (showShareDialog && currentSong != null) {
         val isOnlineSong = currentSong!!.uri.startsWith("http")
         ShareSongDialog(
-            songId = if (!isOnlineSong) currentSongId.value else null,
+            songId = if (isOnlineSong) currentOnlineSongId else currentSongId.value,
             songTitle = currentSong!!.title,
             songArtist = currentSong!!.artist,
-            songUrl = if (isOnlineSong) currentSong!!.uri else null,
+            songUrl = null, // We always use deep links, not direct URLs
             onDismiss = { showShareDialog = false }
         )
     }

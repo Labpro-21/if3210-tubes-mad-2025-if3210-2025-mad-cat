@@ -52,13 +52,12 @@ fun ShareSongDialog(
     val scope = rememberCoroutineScope()
     var qrCodeBitmap by remember { mutableStateOf<Bitmap?>(null) }
     
-    // For local songs use songId, for online songs use URL
-    val deepLink = if (songUrl != null && songUrl.startsWith("http")) {
-        // Create a share link for online songs
-        songUrl
-    } else {
-        "purrytify://song/${songId ?: 0}"
-    }
+    // Create deep link format for the app
+    val deepLink = "purrytify://song/${songId ?: 0}"
+    
+    // For sharing via URL, create an HTTP URL that the backend should handle
+    // This URL should redirect to the deep link when opened in a browser
+    val shareableUrl = "https://purrytify.com/open/song/${songId ?: 0}"
 
     // Generate QR code
     LaunchedEffect(deepLink) {
@@ -182,7 +181,7 @@ fun ShareSongDialog(
             verticalAlignment = Alignment.CenterVertically
             ) {
             Text(
-            text = deepLink.take(50) + if (deepLink.length > 50) "..." else "",
+            text = shareableUrl.take(50) + if (shareableUrl.length > 50) "..." else "",
             style = MaterialTheme.typography.bodyMedium.copy(
             color = androidx.compose.ui.graphics.Color(0xFFCCCCCC),
             fontSize = 14.sp
@@ -194,7 +193,7 @@ fun ShareSongDialog(
                     IconButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("Song Link", deepLink)
+                            val clip = ClipData.newPlainText("Song Link", shareableUrl)
                             clipboard.setPrimaryClip(clip)
                             Toast.makeText(context, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
                         }
@@ -248,7 +247,7 @@ fun ShareSongDialog(
                 Button(
                     onClick = {
                         try {
-                            shareURL(context, deepLink, songTitle, songArtist)
+                            shareURL(context, shareableUrl, songTitle, songArtist)
                         } catch (e: Exception) {
                             e.printStackTrace()
                             Toast.makeText(context, "Error sharing URL: ${e.message}", Toast.LENGTH_SHORT).show()

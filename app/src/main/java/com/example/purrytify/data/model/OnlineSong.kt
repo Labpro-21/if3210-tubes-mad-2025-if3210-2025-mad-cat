@@ -19,7 +19,7 @@ data class OnlineSong(
     val audioUrl: String,
     
     @SerializedName("duration")
-    val duration: String, // format: mm:ss
+    val duration: String,
     
     @SerializedName("country")
     val country: String,
@@ -33,7 +33,6 @@ data class OnlineSong(
     @SerializedName("updatedAt")
     val updatedAt: String
 ) {
-    // Convert duration from mm:ss to milliseconds for MediaPlayer
     fun getDurationInMillis(): Long {
         val parts = duration.split(":")
         return if (parts.size == 2) {

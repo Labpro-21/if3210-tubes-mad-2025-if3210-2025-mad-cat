@@ -32,7 +32,6 @@ class TrendingRepository(
         }
     }
     
-    // Get supported countries for the API
     fun getSupportedCountries(): Map<String, String> {
         return mapOf(
             "ID" to "Indonesia",

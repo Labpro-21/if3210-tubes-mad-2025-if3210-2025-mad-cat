@@ -41,7 +41,6 @@ interface SongDao {
     """)
     suspend fun getLikedSongs(userEmail: String): List<SongEntity>
 
-    // NEW: Added this to get liked songs as a Flow
     @Query("""
         SELECT songs.* FROM songs
         INNER JOIN liked_songs ON songs.id = liked_songs.songId
@@ -59,8 +58,6 @@ interface SongDao {
     @Query("SELECT id FROM songs WHERE title = :title AND artist = :artist")
     suspend fun getSongId(title: String, artist: String): Int
 
-    // Methods for edit and delete functionality
-
     @Update
     suspend fun updateSong(song: SongEntity)
 
@@ -73,7 +70,6 @@ interface SongDao {
     @Query("SELECT EXISTS(SELECT 1 FROM song_uploader WHERE songId = :songId)")
     suspend fun isSongUsedByOthers(songId: Int): Boolean
 
-    // Downloaded songs tracking
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun markSongAsDownloaded(downloadedSong: DownloadedSongCrossRef)
 

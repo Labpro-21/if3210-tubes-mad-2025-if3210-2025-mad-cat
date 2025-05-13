@@ -83,7 +83,6 @@ object RetrofitClient {
         return retrofitInstance!!
     }
 
-    // For general API requests (with auth interceptor)
     val apiService: ApiService
         get() {
             if (apiServiceInstance == null) {
@@ -106,7 +105,6 @@ object RetrofitClient {
             return apiServiceInstance!!
         }
 
-    // For token refresh only (without auth interceptor to avoid loops)
     fun getRefreshClient(): ApiService {
         if (refreshClientInstance == null) {
             val httpClient = createBaseHttpClient().build()

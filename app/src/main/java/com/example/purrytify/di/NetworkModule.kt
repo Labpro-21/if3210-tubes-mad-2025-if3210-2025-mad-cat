@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit
 
 object NetworkModule {
     
-    // Backend URL from the specification
     private const val BASE_URL = "http://34.101.226.132:3000/"
     
     fun provideOkHttpClient(context: Context): OkHttpClient {

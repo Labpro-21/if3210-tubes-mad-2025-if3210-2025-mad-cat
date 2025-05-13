@@ -188,7 +188,8 @@ fun TopChartsScreen(
                                             mappedSong, 
                                             context,
                                             fromOnlinePlaylist = true,
-                                            onlineType = chartType
+                                            onlineType = chartType,
+                                            onlineSongId = song.id
                                         )
                                         onNavigateToPlayer()
                                     }

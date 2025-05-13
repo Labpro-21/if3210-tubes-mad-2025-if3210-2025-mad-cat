@@ -36,14 +36,12 @@ class TokenAutoRefreshWorker(
         } 
         
         try {
-            // Use the Retrofit API service instead of manual OkHttp calls
             val response = RetrofitClient.apiService.refreshToken(
                 RefreshTokenRequest(refreshToken)
             )
             
             if (response.isSuccessful) {
                 response.body()?.let { refreshResponse ->
-                    // Get the new tokens from the response
                     val newToken = refreshResponse.accessToken
                     val newRefreshToken = refreshResponse.refreshToken
 

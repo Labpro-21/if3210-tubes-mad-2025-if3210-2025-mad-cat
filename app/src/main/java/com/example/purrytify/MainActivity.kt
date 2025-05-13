@@ -30,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.work.*
+import kotlinx.coroutines.delay
 import com.example.purrytify.data.api.RetrofitClient
 import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.network.ConnectivityObserver
@@ -109,13 +110,30 @@ class MainActivity : ComponentActivity() {
                     val context = LocalContext.current
                     
                     // Check for deep link
-                    LaunchedEffect(Unit) {
+                    LaunchedEffect(navController) {
                         if (deepLinkPending && deepLinkSong != null) {
                             Log.d(TAG, "Processing deep link in composition")
-                            musicViewModel.playSong(deepLinkSong!!, context)
+                            
+                            // First ensure we have a playlist context
+                            val dummyPlaylist = listOf(deepLinkSong!!)
+                            musicViewModel.setOnlinePlaylist(dummyPlaylist, "deeplink")
+                            
+                            // Load song without playing - just display it in the player screen
+                            musicViewModel.loadSongWithoutPlaying(
+                                deepLinkSong!!, 
+                                context, 
+                                fromOnlinePlaylist = true, 
+                                onlineType = "deeplink",
+                                onlineSongId = deepLinkSongId
+                            )
+                            
+                            // Navigate to player after a small delay to ensure NavHost is ready
+                            delay(200)
                             navController.navigate("player")
+                            
                             deepLinkPending = false
                             deepLinkSong = null
+                            deepLinkSongId = null
                         }
                     }
                     
@@ -194,7 +212,7 @@ class MainActivity : ComponentActivity() {
                                                             uri = onlineSong.audioUrl,
                                                             duration = onlineSong.duration
                                                         )
-                                                        musicViewModel.playSong(song, context)
+                                                        musicViewModel.playSong(song, context, fromOnlinePlaylist = true, onlineType = "", onlineSongId = onlineSong.id)
                                                         navController.navigate("player")
                                                     }
                                                 }
@@ -238,15 +256,34 @@ class MainActivity : ComponentActivity() {
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        Log.d(TAG, "onNewIntent called")
+        setIntent(intent)
         handleIntent(intent)
     }
     
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data
-        if (data != null && data.scheme == "purrytify" && data.host == "song") {
-            val songId = data.lastPathSegment?.toIntOrNull()
+        if (data != null) {
+            var songId: Int? = null
+            
+            when {
+                // Handle purrytify://song/{id}
+                data.scheme == "purrytify" && data.host == "song" -> {
+                    songId = data.lastPathSegment?.toIntOrNull()
+                }
+                // Handle https://purrytify.com/open/song/{id}
+                data.scheme == "https" && data.host == "purrytify.com" && data.path?.startsWith("/open/song") == true -> {
+                    songId = data.lastPathSegment?.toIntOrNull()
+                }
+            }
+            
             if (songId != null) {
                 Log.d(TAG, "Handling deep link for song ID: $songId")
+                // Clear any previous deep link data
+                deepLinkSong = null
+                deepLinkPending = false
+                deepLinkSongId = null
+                
                 // Load the song and navigate to player
                 lifecycleScope.launch {
                     try {
@@ -265,10 +302,10 @@ class MainActivity : ComponentActivity() {
                                     duration = onlineSong.duration
                                 )
                                 
-                                // This should be handled in the composition
-                                // For now, we'll store it in a companion object to be accessed by the UI
+                                // Store deep link data
                                 deepLinkSong = song
                                 deepLinkPending = true
+                                deepLinkSongId = songId
                             }
                         } else {
                             Log.e(TAG, "Failed to fetch song: ${response.code()}")
@@ -330,5 +367,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         var deepLinkSong: Song? = null
         var deepLinkPending: Boolean = false
+        var deepLinkSongId: Int? = null
     }
 }

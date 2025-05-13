@@ -13,7 +13,6 @@ fun NavGraphBuilder.addTopChartsNavigation(
     songViewModel: SongViewModel,
     onNavigateToPlayer: () -> Unit
 ) {
-    // Global charts route
     composable("top_charts/global") {
         TopChartsScreen(
             navController = navController,
@@ -25,7 +24,6 @@ fun NavGraphBuilder.addTopChartsNavigation(
         )
     }
     
-    // Country charts route
     composable("top_charts/{countryCode}/{countryName}") { backStackEntry ->
         val countryCode = backStackEntry.arguments?.getString("countryCode") ?: "ID"
         val countryName = backStackEntry.arguments?.getString("countryName") ?: "Indonesia"
