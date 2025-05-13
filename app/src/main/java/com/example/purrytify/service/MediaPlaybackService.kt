@@ -31,6 +31,11 @@ class MediaPlaybackService : LifecycleService() {
     private var repeatMode = 0 // 0 = OFF, 1 = ALL, 2 = ONE
     private var hasCompletionListenerFired = false
     
+    // Service timeout management
+    private var serviceStartTime: Long = 0
+    private val SERVICE_TIMEOUT = 30 * 60 * 1000L // 30 minutes timeout
+    private var timeoutCheckJob: Job? = null
+    
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var notificationManager: NotificationManager
     private var mediaPlayer: MediaPlayer? = null
@@ -124,6 +129,8 @@ class MediaPlaybackService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         
+        serviceStartTime = System.currentTimeMillis()
+        
         try {
             mediaSession = MediaSessionCompat(this, "PurrytifyMediaSession").apply {
                 setCallback(mediaSessionCallback)
@@ -132,9 +139,25 @@ class MediaPlaybackService : LifecycleService() {
             
             notificationManager = NotificationManager(this)
             
+            // Start timeout check
+            startTimeoutCheck()
+            
             Log.d("MediaPlaybackService", "Service created successfully")
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error in onCreate", e)
+        }
+    }
+    
+    private fun startTimeoutCheck() {
+        timeoutCheckJob?.cancel()
+        timeoutCheckJob = CoroutineScope(Dispatchers.Main).launch {
+            while (true) {
+                delay(60000) // Check every minute
+                if (!isPlaying && System.currentTimeMillis() - serviceStartTime > SERVICE_TIMEOUT) {
+                    Log.d("MediaPlaybackService", "Service idle timeout reached, stopping service")
+                    stopSelf()
+                }
+            }
         }
     }
     
@@ -162,8 +185,39 @@ class MediaPlaybackService : LifecycleService() {
             "ACTION_NEXT" -> mediaSessionCallback.onSkipToNext()
             "ACTION_PREVIOUS" -> mediaSessionCallback.onSkipToPrevious()
             "ACTION_STOP" -> {
-                mediaSessionCallback.onStop()
-                stopSelf()
+                Log.d("MediaPlaybackService", "Received ACTION_STOP, cleaning up")
+                try {
+                    // Stop media playback
+                    mediaPlayer?.apply {
+                        if (isPlaying) {
+                            stop()
+                        }
+                        release()
+                    }
+                    mediaPlayer = null
+                    
+                    // Update state
+                    isPlaying = false
+                    updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+                    
+                    // Stop foreground service and remove notification
+                    stopForeground(Service.STOP_FOREGROUND_REMOVE)
+                    
+                    // Release media session
+                    mediaSession.isActive = false
+                    mediaSession.release()
+                    
+                    // Cancel all jobs
+                    updateJob?.cancel()
+                    timeoutCheckJob?.cancel()
+                    
+                    // Finally stop the service
+                    stopSelf()
+                } catch (e: Exception) {
+                    Log.e("MediaPlaybackService", "Error in ACTION_STOP", e)
+                    stopSelf() // Ensure service stops even if there's an error
+                }
+                return START_NOT_STICKY
             }
             "ACTION_TOGGLE_SHUFFLE" -> {
                 sendMediaActionBroadcast("ACTION_TOGGLE_SHUFFLE")
@@ -446,27 +500,43 @@ class MediaPlaybackService : LifecycleService() {
     }
     
     override fun onDestroy() {
-        Log.d("MediaPlaybackService", "Service onDestroy called")
-        
-        updateJob?.cancel()
-        
         try {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
-                }
-                it.release()
-            }
+            // Cancel all jobs
+            updateJob?.cancel()
+            timeoutCheckJob?.cancel()
+            
+            // Release media player
+            mediaPlayer?.release()
+            mediaPlayer = null
+            
+            // Release media session
+            mediaSession.isActive = false
+            mediaSession.release()
+            
+            // Remove notification
+            stopForeground(Service.STOP_FOREGROUND_REMOVE)
         } catch (e: Exception) {
-            Log.e("MediaPlaybackService", "Error releasing media player", e)
+            Log.e("MediaPlaybackService", "Error in onDestroy", e)
         }
-        mediaPlayer = null
-        mediaSession.release()
-        stopForeground(true)
-        
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        notificationManager.cancel(NotificationManager.NOTIFICATION_ID)
         
         super.onDestroy()
+    }
+    
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        when (level) {
+            TRIM_MEMORY_UI_HIDDEN -> {
+                // App is in background
+                Log.d("MediaPlaybackService", "App UI hidden")
+            }
+            TRIM_MEMORY_RUNNING_LOW, TRIM_MEMORY_RUNNING_CRITICAL -> {
+                // System is running low on memory
+                Log.d("MediaPlaybackService", "System low on memory")
+                if (!isPlaying) {
+                    // If not playing, consider stopping the service
+                    stopSelf()
+                }
+            }
+        }
     }
 }

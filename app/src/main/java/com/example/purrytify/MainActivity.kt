@@ -55,6 +55,10 @@ class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
     private val musicViewModel by viewModels<MusicViewModel>()
     
+    // Deep link tracking
+    private var deepLinkSongId: Int? = null
+    private var deepLinkNavigationPending = false
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
@@ -109,31 +113,68 @@ class MainActivity : ComponentActivity() {
                     
                     val context = LocalContext.current
                     
-                    // Check for deep link
+                    // Handle deep link navigation
                     LaunchedEffect(navController) {
-                        if (deepLinkPending && deepLinkSong != null) {
-                            Log.d(TAG, "Processing deep link in composition")
+                        if (deepLinkNavigationPending && deepLinkSongId != null) {
+                            Log.d(TAG, "Processing deep link navigation for song ID: $deepLinkSongId")
                             
-                            // First ensure we have a playlist context
-                            val dummyPlaylist = listOf(deepLinkSong!!)
-                            musicViewModel.setOnlinePlaylist(dummyPlaylist, "deeplink")
-                            
-                            // Load song without playing - just display it in the player screen
-                            musicViewModel.loadSongWithoutPlaying(
-                                deepLinkSong!!, 
-                                context, 
-                                fromOnlinePlaylist = true, 
-                                onlineType = "deeplink",
-                                onlineSongId = deepLinkSongId
-                            )
-                            
-                            // Navigate to player after a small delay to ensure NavHost is ready
-                            delay(200)
-                            navController.navigate("player")
-                            
-                            deepLinkPending = false
-                            deepLinkSong = null
-                            deepLinkSongId = null
+                            // Fetch and load the song
+                            try {
+                                val trendingApi = RetrofitClient.getInstance(context).create(TrendingApiService::class.java)
+                                val response = trendingApi.getSongById(deepLinkSongId!!)
+                                
+                                if (response.isSuccessful) {
+                                    response.body()?.let { onlineSong ->
+                                        Log.d(TAG, "Successfully fetched song: ${onlineSong.title}")
+                                        
+                                        // Convert OnlineSong to Song
+                                        val song = Song(
+                                            title = onlineSong.title,
+                                            artist = onlineSong.artist,
+                                            coverUri = onlineSong.artworkUrl,
+                                            uri = onlineSong.audioUrl,
+                                            duration = onlineSong.duration
+                                        )
+                                        
+                                        // Create a single-song playlist for deep link
+                                        val deepLinkPlaylist = listOf(song)
+                                        musicViewModel.setOnlinePlaylist(deepLinkPlaylist, "deeplink")
+                                        
+                                        // Delay to ensure NavHost is ready
+                                        delay(500)
+                                        
+                                        // Navigate to player without playing the song
+                                        if (navController.currentBackStackEntry?.destination?.route != "player") {
+                                            navController.navigate("player") {
+                                                // Clear the back stack to prevent issues
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                        
+                                        // Load the song after navigation
+                                        delay(100)
+                                        musicViewModel.loadSongWithoutPlaying(
+                                            song, 
+                                            context, 
+                                            fromOnlinePlaylist = true, 
+                                            onlineType = "deeplink",
+                                            onlineSongId = deepLinkSongId
+                                        )
+                                        
+                                        deepLinkNavigationPending = false
+                                        deepLinkSongId = null
+                                    }
+                                } else {
+                                    Log.e(TAG, "Failed to fetch song: ${response.code()}")
+                                    deepLinkNavigationPending = false
+                                    deepLinkSongId = null
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error fetching song for deep link", e)
+                                deepLinkNavigationPending = false
+                                deepLinkSongId = null
+                            }
                         }
                     }
                     
@@ -279,41 +320,9 @@ class MainActivity : ComponentActivity() {
             
             if (songId != null) {
                 Log.d(TAG, "Handling deep link for song ID: $songId")
-                // Clear any previous deep link data
-                deepLinkSong = null
-                deepLinkPending = false
-                deepLinkSongId = null
-                
-                // Load the song and navigate to player
-                lifecycleScope.launch {
-                    try {
-                        val trendingApi = RetrofitClient.getInstance(applicationContext).create(TrendingApiService::class.java)
-                        val response = trendingApi.getSongById(songId)
-                        if (response.isSuccessful) {
-                            response.body()?.let { onlineSong ->
-                                Log.d(TAG, "Successfully fetched song: ${onlineSong.title}")
-                                
-                                // Convert OnlineSong to Song
-                                val song = Song(
-                                    title = onlineSong.title,
-                                    artist = onlineSong.artist,
-                                    coverUri = onlineSong.artworkUrl,
-                                    uri = onlineSong.audioUrl,
-                                    duration = onlineSong.duration
-                                )
-                                
-                                // Store deep link data
-                                deepLinkSong = song
-                                deepLinkPending = true
-                                deepLinkSongId = songId
-                            }
-                        } else {
-                            Log.e(TAG, "Failed to fetch song: ${response.code()}")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error fetching song for deep link", e)
-                    }
-                }
+                // Set the deep link data
+                deepLinkSongId = songId
+                deepLinkNavigationPending = true
             }
         }
     }
@@ -362,11 +371,5 @@ class MainActivity : ComponentActivity() {
             .build()
 
         WorkManager.getInstance(applicationContext).enqueue(oneTimeRequest)
-    }
-    
-    companion object {
-        var deepLinkSong: Song? = null
-        var deepLinkPending: Boolean = false
-        var deepLinkSongId: Int? = null
     }
 }

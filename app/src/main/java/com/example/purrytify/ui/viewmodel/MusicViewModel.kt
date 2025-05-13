@@ -843,39 +843,39 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Stop playing and clear current song (for deletion)
+    // Stop playing and clear current song (for deletion/logout)
     fun stopAndClearCurrentSong() {
         try {
-            // Stop playback through media session and service
-            if (isServiceBound && mediaService != null) {
-                // Send stop action first
-                context?.let { ctx ->
-                    val stopIntent = Intent(ctx, MediaPlaybackService::class.java)
-                    stopIntent.action = "ACTION_STOP"
-                    ctx.startService(stopIntent)
+            // Stop the service completely
+            context?.let { ctx ->
+                val intent = Intent(ctx, MediaPlaybackService::class.java)
+                intent.action = "ACTION_STOP"
+                ctx.stopService(intent)
+                
+                // Also unbind from the service if bound
+                if (isServiceBound) {
+                    ctx.unbindService(serviceConnection)
+                    isServiceBound = false
                 }
-
-                // Small delay to process the stop
-                viewModelScope.launch {
-                    delay(100)
-                    // Now stop the service
-                    context?.let { ctx ->
-                        val intent = Intent(ctx, MediaPlaybackService::class.java)
-                        ctx.stopService(intent)
-                    }
-                }
-            } else {
-                mediaPlayer?.apply {
-                    if (isPlaying) {
-                        stop()
-                    }
-                    release()
-                }
-                mediaPlayer = null
             }
-
+            
+            // Clear the media service reference
+            mediaService = null
+            
+            // Also release the local media player if any
+            mediaPlayer?.apply {
+                if (isPlaying) {
+                    stop()
+                }
+                release()
+            }
+            mediaPlayer = null
+            
+            // Cancel any ongoing updates
             updateJob?.cancel()
-
+            updateJob = null
+    
+            // Reset all playback state
             _isPlaying.value = false
             _currentPosition.value = 0
             _duration.value = 0
@@ -883,8 +883,13 @@ class MusicViewModel : ViewModel() {
             _currentOnlineSongId.value = null
             currentPlaylist = emptyList()
             currentIndex = 0
+            
+            // Clear playlist contexts
+            onlinePlaylist = emptyList()
+            onlinePlaylistType = ""
+            
         } catch (e: Exception) {
-            Log.e("MusicViewModel", "Error stopping playback", e)
+            Log.e("MusicViewModel", "Error in stopAndClearCurrentSong", e)
         }
     }
 
