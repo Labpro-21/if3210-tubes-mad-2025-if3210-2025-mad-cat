@@ -25,6 +25,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URL
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 
 class MediaPlaybackService : LifecycleService() {
     private var shuffleState = false
@@ -281,6 +284,11 @@ class MediaPlaybackService : LifecycleService() {
                 startPositionUpdates()
                 updateNotification()
                 
+                // Load album art asynchronously for online songs
+                if (song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://")) {
+                    loadAlbumArtAsync(song)
+                }
+                
                 try {
                     val notification = notificationManager.getNotification(
                         song, isPlaying, mediaSession, currentPosition, songDuration,
@@ -303,6 +311,31 @@ class MediaPlaybackService : LifecycleService() {
             }
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error playing song", e)
+        }
+    }
+    
+    private fun loadAlbumArtAsync(song: Song) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Small delay to ensure notification shows immediately with default art
+                delay(100)
+                
+                val url = URL(song.coverUri)
+                val connection = url.openConnection()
+                connection.connect()
+                val inputStream = connection.getInputStream()
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+                
+                if (bitmap != null && currentSong?.title == song.title) {
+                    // Update notification with the loaded artwork
+                    withContext(Dispatchers.Main) {
+                        updateNotification()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MediaPlaybackService", "Error loading album art asynchronously", e)
+            }
         }
     }
     
@@ -426,7 +459,29 @@ class MediaPlaybackService : LifecycleService() {
         val builder = MediaMetadataCompat.Builder().apply {
             putString(MediaMetadataCompat.METADATA_KEY_TITLE, song.title)
             putString(MediaMetadataCompat.METADATA_KEY_ARTIST, song.artist)
-            putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, song.coverUri)
+            
+            // For URLs, use the URL directly. For local files, use file:// prefix
+            val albumArtUri = when {
+                song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
+                    song.coverUri
+                }
+                song.coverUri.isNotEmpty() -> {
+                    "file://" + song.coverUri
+                }
+                else -> ""
+            }
+            putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, albumArtUri)
+            
+            // Optional: Also try to set a bitmap for better compatibility
+            if (song.coverUri.isNotEmpty() && !song.coverUri.startsWith("http")) {
+                try {
+                    val bitmap = BitmapFactory.decodeFile(song.coverUri)
+                    putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
+                } catch (e: Exception) {
+                    Log.e("MediaPlaybackService", "Error loading local album art bitmap", e)
+                }
+            }
+            
             putLong(MediaMetadataCompat.METADATA_KEY_DURATION, songDuration.toLong())
         }
         

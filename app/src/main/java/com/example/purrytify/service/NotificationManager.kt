@@ -21,10 +21,16 @@ import com.example.purrytify.MainActivity
 import com.example.purrytify.R
 import com.example.purrytify.ui.screens.Song
 import java.io.File
+import java.net.URL
+import android.os.StrictMode
+import android.os.Handler
+import android.os.Looper
 
 class NotificationManager(private val context: Context) {
     private val notificationManager: NotificationManager = 
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private var cachedAlbumArt: Bitmap? = null
+    private var lastLoadedUri: String? = null
     
     companion object {
         const val CHANNEL_ID = "com.example.purrytify.MUSIC_CHANNEL"
@@ -57,21 +63,66 @@ class NotificationManager(private val context: Context) {
     
     private fun getAlbumArt(coverUri: String): Bitmap {
         return try {
-            if (coverUri.isNotEmpty() && File(coverUri).exists()) {
-                BitmapFactory.decodeFile(coverUri)
-            } else {
-                BitmapFactory.decodeResource(context.resources, R.drawable.default_album_art)
+            // Check cache first
+            if (coverUri == lastLoadedUri && cachedAlbumArt != null) {
+                return cachedAlbumArt!!
             }
+            
+            val bitmap = when {
+                // Check if it's a URL (for online songs)
+                coverUri.startsWith("http://") || coverUri.startsWith("https://") -> {
+                    try {
+                        // Create a thread to load the image
+                        var resultBitmap: Bitmap? = null
+                        val thread = Thread {
+                            try {
+                                val url = URL(coverUri)
+                                val connection = url.openConnection()
+                                connection.connect()
+                                val inputStream = connection.getInputStream()
+                                resultBitmap = BitmapFactory.decodeStream(inputStream)
+                                inputStream.close()
+                            } catch (e: Exception) {
+                                Log.e("NotificationManager", "Error loading album art from URL: $coverUri", e)
+                            }
+                        }
+                        thread.start()
+                        thread.join(3000) // Wait max 3 seconds
+                        
+                        resultBitmap ?: getDefaultAlbumArt()
+                    } catch (e: Exception) {
+                        Log.e("NotificationManager", "Error loading album art from URL: $coverUri", e)
+                        getDefaultAlbumArt()
+                    }
+                }
+                // Check if it's a local file
+                coverUri.isNotEmpty() && File(coverUri).exists() -> {
+                    BitmapFactory.decodeFile(coverUri)
+                }
+                else -> {
+                    getDefaultAlbumArt()
+                }
+            }
+            
+            // Cache the result
+            cachedAlbumArt = bitmap
+            lastLoadedUri = coverUri
+            bitmap
+            
         } catch (e: Exception) {
             Log.e("NotificationManager", "Error loading album art", e)
-            try {
-                BitmapFactory.decodeResource(context.resources, R.drawable.default_album_art)
-            } catch (e2: Exception) {
-                Log.e("NotificationManager", "Error loading default album art", e2)
-                val bitmap = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
-                bitmap.eraseColor(Color.DKGRAY)
-                bitmap
-            }
+            getDefaultAlbumArt()
+        }
+    }
+    
+    private fun getDefaultAlbumArt(): Bitmap {
+        return try {
+            BitmapFactory.decodeResource(context.resources, R.drawable.default_album_art)
+        } catch (e: Exception) {
+            Log.e("NotificationManager", "Error loading default album art", e)
+            val bitmap = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(Color.DKGRAY)
+            bitmap
         }
     }
     

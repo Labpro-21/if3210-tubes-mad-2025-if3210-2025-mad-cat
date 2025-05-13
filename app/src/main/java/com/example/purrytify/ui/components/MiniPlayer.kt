@@ -108,10 +108,17 @@ fun MiniPlayer(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AsyncImage(
-                        model = if (song.coverUri.isNotEmpty())
-                            File(song.coverUri)
-                        else
-                            "https://example.com/placeholder.jpg",
+                        model = when {
+                            song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
+                                song.coverUri // Use URL directly for online songs
+                            }
+                            song.coverUri.isNotEmpty() -> {
+                                File(song.coverUri) // Use File for local songs
+                            }
+                            else -> {
+                                "https://example.com/placeholder.jpg" // Fallback placeholder
+                            }
+                        },
                         contentDescription = null,
                         modifier = Modifier
                             .size(40.dp)
