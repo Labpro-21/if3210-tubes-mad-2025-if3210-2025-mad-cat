@@ -218,8 +218,16 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 val songId = songDao.getSongId(song.title, song.artist)
                 Log.d("SongViewModel", "Song ID: $songId")
 
-                musicViewModel.stopAndClearCurrentSong()
-                Log.d("SongViewModel", "Stopped and cleared current song")
+                // Check if the deleted song is currently playing
+                val currentSong = musicViewModel.currentSong.value
+                if (currentSong != null && 
+                    currentSong.title == song.title && 
+                    currentSong.artist == song.artist) {
+                    Log.d("SongViewModel", "Deleting currently playing song, stopping playback")
+                    musicViewModel.stopAndClearCurrentSong()
+                } else {
+                    Log.d("SongViewModel", "Deleted song is not currently playing")
+                }
 
                 songDao.deleteUserSong(email, songId)
                 Log.d("SongViewModel", "Deleted user-song relationship")
@@ -245,36 +253,43 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                     songDao.deleteSong(songId)
                     Log.d("SongViewModel", "Deleted song from database")
                     
-                    // Also remove from downloaded songs tracking
-                    val downloadedRef = DownloadedSongCrossRef(
-                        userEmail = email,
-                        songTitle = song.title,
-                        songArtist = song.artist
-                    )
-                    try {
-                        songDao.unmarkSongAsDownloaded(downloadedRef)
-                        Log.d("SongViewModel", "Removed song from downloads tracking")
-                    } catch (e: Exception) {
-                        Log.e("SongViewModel", "Error removing download tracking", e)
-                    }
-
-                    val songInHistory = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
-                        it.title == song.title && it.artist == song.artist
-                    }
-
-                    if (songInHistory != null) {
-                        val updatedList = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).toMutableList()
-                        updatedList.remove(songInHistory)
-                        PlayHistoryTracker.clearHistory(email, tokenManager)
-                        updatedList.forEach {
-                            PlayHistoryTracker.addSongToHistory(email, it, tokenManager)
-                            Log.d("SongViewModel", "Re-added song to history: ${it.title} by ${it.artist}")
-                        }
-                    } else {
-                        Log.d("SongViewModel", "Song not found in history")
-                    }
+                }
+                
+                // Always remove from downloaded songs tracking regardless of whether others use it
+                val downloadedRef = DownloadedSongCrossRef(
+                    userEmail = email,
+                    songTitle = song.title,
+                    songArtist = song.artist
+                )
+                try {
+                    songDao.unmarkSongAsDownloaded(downloadedRef)
+                    Log.d("SongViewModel", "Removed song from downloads tracking")
+                } catch (e: Exception) {
+                    Log.e("SongViewModel", "Error removing download tracking", e)
+                }
+                
+                // We should NOT remove deleted songs from play history
+                // Recently played should show what the user listened to, even if deleted
+                // So we're commenting out the history removal code
+                
+                /*
+                val songInHistory = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
+                    it.title == song.title && it.artist == song.artist
                 }
 
+                if (songInHistory != null) {
+                    val updatedList = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).toMutableList()
+                    updatedList.remove(songInHistory)
+                    PlayHistoryTracker.clearHistory(email, tokenManager)
+                    updatedList.forEach {
+                        PlayHistoryTracker.addSongToHistory(email, it, tokenManager)
+                        Log.d("SongViewModel", "Re-added song to history: ${it.title} by ${it.artist}")
+                    }
+                } else {
+                    Log.d("SongViewModel", "Song not found in history")
+                }
+                */
+                
                 Log.d("SongViewModel", "Song deletion completed: ${song.title} by ${song.artist}")
                 onComplete()
             } catch (e: Exception) {

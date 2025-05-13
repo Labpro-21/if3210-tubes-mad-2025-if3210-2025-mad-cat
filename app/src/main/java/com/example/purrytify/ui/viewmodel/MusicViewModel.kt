@@ -19,10 +19,12 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.example.purrytify.service.MediaPlaybackService
 import com.example.purrytify.ui.screens.Song
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 import java.io.File
 import android.os.Environment
@@ -382,7 +384,7 @@ class MusicViewModel : ViewModel() {
 
     private fun startUpdatingProgress() {
         updateJob?.cancel()
-        updateJob = viewModelScope.launch {
+        updateJob = viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 try {
                     if (isServiceBound && mediaService != null) {
@@ -394,15 +396,17 @@ class MusicViewModel : ViewModel() {
                                 val newIsPlaying = player.isPlaying
                                 val newDuration = player.duration
                                 
-                                // Only update if values have changed
-                                if (_currentPosition.value != newPosition) {
-                                    _currentPosition.value = newPosition
-                                }
-                                if (_isPlaying.value != newIsPlaying) {
-                                    _isPlaying.value = newIsPlaying
-                                }
-                                if (_duration.value != newDuration && newDuration > 0) {
-                                    _duration.value = newDuration
+                                withContext(Dispatchers.Main) {
+                                    // Only update if values have changed
+                                    if (_currentPosition.value != newPosition) {
+                                        _currentPosition.value = newPosition
+                                    }
+                                    if (_isPlaying.value != newIsPlaying) {
+                                        _isPlaying.value = newIsPlaying
+                                    }
+                                    if (_duration.value != newDuration && newDuration > 0) {
+                                        _duration.value = newDuration
+                                    }
                                 }
                             }
                         }
@@ -413,15 +417,17 @@ class MusicViewModel : ViewModel() {
                                 val newIsPlaying = player.isPlaying
                                 val newDuration = player.duration
                                 
-                                // Only update if values have changed
-                                if (_currentPosition.value != newPosition) {
-                                    _currentPosition.value = newPosition
-                                }
-                                if (_isPlaying.value != newIsPlaying) {
-                                    _isPlaying.value = newIsPlaying
-                                }
-                                if (_duration.value != newDuration && newDuration > 0) {
-                                    _duration.value = newDuration
+                                withContext(Dispatchers.Main) {
+                                    // Only update if values have changed
+                                    if (_currentPosition.value != newPosition) {
+                                        _currentPosition.value = newPosition
+                                    }
+                                    if (_isPlaying.value != newIsPlaying) {
+                                        _isPlaying.value = newIsPlaying
+                                    }
+                                    if (_duration.value != newDuration && newDuration > 0) {
+                                        _duration.value = newDuration
+                                    }
                                 }
                             }
                         }
@@ -770,30 +776,46 @@ class MusicViewModel : ViewModel() {
     
     // Stop playing and clear current song (for deletion)
     fun stopAndClearCurrentSong() {
-        if (isServiceBound && mediaService != null) {
-            // Stop the service
-            context?.let { ctx ->
-                val intent = Intent(ctx, MediaPlaybackService::class.java)
-                ctx.stopService(intent)
-            }
-        } else {
-            mediaPlayer?.apply {
-                if (isPlaying) {
-                    stop()
+        try {
+            // Stop playback through media session and service
+            if (isServiceBound && mediaService != null) {
+                // Send stop action first
+                context?.let { ctx ->
+                    val stopIntent = Intent(ctx, MediaPlaybackService::class.java)
+                    stopIntent.action = "ACTION_STOP"
+                    ctx.startService(stopIntent)
                 }
-                release()
+                
+                // Small delay to process the stop
+                viewModelScope.launch {
+                    delay(100)
+                    // Now stop the service
+                    context?.let { ctx ->
+                        val intent = Intent(ctx, MediaPlaybackService::class.java)
+                        ctx.stopService(intent)
+                    }
+                }
+            } else {
+                mediaPlayer?.apply {
+                    if (isPlaying) {
+                        stop()
+                    }
+                    release()
+                }
+                mediaPlayer = null
             }
-            mediaPlayer = null
-        }
-        
-        updateJob?.cancel()
+            
+            updateJob?.cancel()
 
-        _isPlaying.value = false
-        _currentPosition.value = 0
-        _duration.value = 0
-        _currentSong.value = null
-        currentPlaylist = emptyList()
-        currentIndex = 0
+            _isPlaying.value = false
+            _currentPosition.value = 0
+            _duration.value = 0
+            _currentSong.value = null
+            currentPlaylist = emptyList()
+            currentIndex = 0
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Error stopping playback", e)
+        }
     }
 
     // Download song from online to local storage

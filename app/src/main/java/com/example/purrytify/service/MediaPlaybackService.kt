@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Service for media playback in the background
@@ -80,21 +81,31 @@ class MediaPlaybackService : LifecycleService() {
         }
         
         override fun onStop() {
+            Log.d("MediaPlaybackService", "onStop called")
             try {
+                // Stop playback first
                 mediaPlayer?.let {
                     if (it.isPlaying) {
                         it.stop()
                     }
                     it.release()
                     mediaPlayer = null
-                    isPlaying = false
-                    updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
-                    stopForeground(true)
-                    stopSelf()
-                    
-                    // Broadcast the stopped state to update UI
-                    sendPlaybackStateBroadcast(false)
                 }
+                
+                // Update states
+                isPlaying = false
+                updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+                
+                // Remove notification
+                stopForeground(true)
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                notificationManager.cancel(NotificationManager.NOTIFICATION_ID)
+                
+                // Stop the service
+                stopSelf()
+                
+                // Broadcast the stopped state to update UI
+                sendPlaybackStateBroadcast(false)
             } catch (e: Exception) {
                 Log.e("MediaPlaybackService", "Error in onStop", e)
             }
@@ -336,6 +347,38 @@ class MediaPlaybackService : LifecycleService() {
         return mediaPlayer?.duration ?: 0
     }
     
+    // Add a method to stop the service properly
+    fun stopService() {
+        Log.d("MediaPlaybackService", "stopService called")
+        try {
+            // Stop playback
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+                mediaPlayer = null
+            }
+            
+            // Update states
+            isPlaying = false
+            updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
+            
+            // Remove notification
+            stopForeground(true)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            notificationManager.cancel(NotificationManager.NOTIFICATION_ID)
+            
+            // Broadcast the stopped state
+            sendPlaybackStateBroadcast(false)
+            
+            // Stop the service
+            stopSelf()
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error in stopService", e)
+        }
+    }
+    
     // Send broadcast about playback state changes
     private fun sendPlaybackStateBroadcast(isPlaying: Boolean) {
         Log.d("MediaPlaybackService", "Sending playback state broadcast: isPlaying=$isPlaying")
@@ -355,15 +398,24 @@ class MediaPlaybackService : LifecycleService() {
     // Start updates for playback position
     private fun startPositionUpdates() {
         updateJob?.cancel()
-        updateJob = CoroutineScope(Dispatchers.Main).launch {
+        updateJob = CoroutineScope(Dispatchers.IO).launch {
             while (true) {
-                mediaPlayer?.let {
-                    // Always update position, not just when playing
-                    currentPosition = it.currentPosition
-                    // Only update notification occasionally to avoid flicker
-                    if (it.isPlaying && currentPosition % 1000 < 100) { // Update ~every second
-                        updateNotification()
+                try {
+                    mediaPlayer?.let {
+                        // Always update position, not just when playing
+                        val newPosition = it.currentPosition
+                        withContext(Dispatchers.Main) {
+                            currentPosition = newPosition
+                        }
+                        // Only update notification occasionally to avoid flicker
+                        if (it.isPlaying && newPosition % 1000 < 100) { // Update ~every second
+                            withContext(Dispatchers.Main) {
+                                updateNotification()
+                            }
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e("MediaPlaybackService", "Error in position update", e)
                 }
                 delay(100) // Update more frequently for smoother progress
             }
@@ -465,10 +517,33 @@ class MediaPlaybackService : LifecycleService() {
     
     // Clean up
     override fun onDestroy() {
+        Log.d("MediaPlaybackService", "Service onDestroy called")
+        
+        // Cancel all jobs
         updateJob?.cancel()
-        mediaPlayer?.release()
+        
+        // Stop and release media player
+        try {
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            }
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error releasing media player", e)
+        }
         mediaPlayer = null
+        
+        // Release media session
         mediaSession.release()
+        
+        // Stop foreground and remove notification
+        stopForeground(true)
+        
+        // Clear the notification using system notification manager
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        notificationManager.cancel(NotificationManager.NOTIFICATION_ID)
         
         super.onDestroy()
     }

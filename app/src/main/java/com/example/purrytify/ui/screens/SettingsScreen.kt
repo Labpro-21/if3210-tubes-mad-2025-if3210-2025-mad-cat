@@ -156,8 +156,23 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                     Button(
                         onClick = {
                             coroutineScope.launch {
-                                // Stop music playback
+                                // Stop music playback and release the service
                                 musicViewModel.stopAndClearCurrentSong()
+                                
+                                // Send stop action to the media service
+                                val stopIntent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
+                                stopIntent.action = "ACTION_STOP"
+                                context.startService(stopIntent)
+                                
+                                // Small delay to ensure the stop action is processed
+                                kotlinx.coroutines.delay(100)
+                                
+                                // Stop the media service completely
+                                val intent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
+                                context.stopService(intent)
+                                
+                                // Clear token to ensure complete logout
+                                tokenManager.clearTokens()
 
                                 // Navigate to login screen
                                 navController.navigate("login") {
