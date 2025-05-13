@@ -4,6 +4,7 @@ import androidx.room.*
 import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
 import com.example.purrytify.data.local.db.entities.SongUploader
+import com.example.purrytify.data.local.db.entities.DownloadedSongCrossRef
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -71,4 +72,14 @@ interface SongDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM song_uploader WHERE songId = :songId)")
     suspend fun isSongUsedByOthers(songId: Int): Boolean
+
+    // Downloaded songs tracking
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun markSongAsDownloaded(downloadedSong: DownloadedSongCrossRef)
+
+    @Delete
+    suspend fun unmarkSongAsDownloaded(downloadedSong: DownloadedSongCrossRef)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM downloaded_songs WHERE userEmail = :userEmail AND songTitle = :songTitle AND songArtist = :songArtist)")
+    suspend fun isSongDownloadedByUser(userEmail: String, songTitle: String, songArtist: String): Boolean
 }

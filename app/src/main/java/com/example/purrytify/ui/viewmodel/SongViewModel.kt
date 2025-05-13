@@ -8,11 +8,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
 import com.example.purrytify.data.local.db.entities.SongEntity
+import com.example.purrytify.data.local.db.entities.DownloadedSongCrossRef
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.ui.screens.Song
 import com.tubesmobile.purrytify.data.local.db.AppDatabase
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 class SongViewModel(application: Application) : AndroidViewModel(application) {
@@ -25,6 +27,15 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         Log.d("SongViewModel", "Initial email: ${_currentUserEmail.value}")
+        
+        // Ensure we're always using the most current email
+        viewModelScope.launch {
+            val latestEmail = tokenManager.getEmail() ?: "guest@example.com"
+            if (_currentUserEmail.value != latestEmail) {
+                _currentUserEmail.value = latestEmail
+                Log.d("SongViewModel", "Updated email to: $latestEmail")
+            }
+        }
     }
 
     // Fetch all songs for the current user
@@ -59,7 +70,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
-    }
+    }.flowOn(Dispatchers.IO)  // Ensure database operations happen on IO thread
 
     fun logDatabaseContents() {
         viewModelScope.launch {
@@ -92,17 +103,43 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
     // Insert a song with the current user's email
     fun insertSong(song: Song) {
         viewModelScope.launch {
-            val email = currentUserEmail.value
-            val entity = SongEntity(
-                title = song.title,
-                artist = song.artist,
-                duration = song.duration,
-                uri = song.uri,
-                coverUri = song.coverUri
-            )
-
-            val newId = songDao.insertSong(entity).toInt()
-            songDao.registerUserToSong(email, newId)
+            // Get the current email from TokenManager to ensure it's up to date
+            val currentEmail = tokenManager.getEmail() ?: "guest@example.com"
+            Log.d("SongViewModel", "Inserting song for email: $currentEmail")
+            
+            // Check if song already exists for this user
+            val existsForUser = songDao.isSongExistsForUser(song.title, song.artist, currentEmail)
+            if (existsForUser) {
+                Log.d("SongViewModel", "Song already exists for user: ${song.title}")
+                return@launch
+            }
+            
+            // Check if song exists globally
+            val exists = songDao.isSongExists(song.title, song.artist)
+            
+            if (exists) {
+                // Song exists, just register it for this user
+                val songId = songDao.getSongId(song.title, song.artist)
+                Log.d("SongViewModel", "Song exists globally, registering for user: $currentEmail")
+                songDao.registerUserToSong(currentEmail, songId)
+            } else {
+                // Create new song entity
+                Log.d("SongViewModel", "Creating new song: ${song.title}")
+                val entity = SongEntity(
+                    title = song.title,
+                    artist = song.artist,
+                    duration = song.duration,
+                    uri = song.uri,
+                    coverUri = song.coverUri
+                )
+                val newId = songDao.insertSong(entity).toInt()
+                songDao.registerUserToSong(currentEmail, newId)
+            }
+            
+            // Update the current user email after successful insert
+            if (_currentUserEmail.value != currentEmail) {
+                _currentUserEmail.value = currentEmail
+            }
         }
     }
 
@@ -207,6 +244,19 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
 
                     songDao.deleteSong(songId)
                     Log.d("SongViewModel", "Deleted song from database")
+                    
+                    // Also remove from downloaded songs tracking
+                    val downloadedRef = DownloadedSongCrossRef(
+                        userEmail = email,
+                        songTitle = song.title,
+                        songArtist = song.artist
+                    )
+                    try {
+                        songDao.unmarkSongAsDownloaded(downloadedRef)
+                        Log.d("SongViewModel", "Removed song from downloads tracking")
+                    } catch (e: Exception) {
+                        Log.e("SongViewModel", "Error removing download tracking", e)
+                    }
 
                     val songInHistory = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
                         it.title == song.title && it.artist == song.artist

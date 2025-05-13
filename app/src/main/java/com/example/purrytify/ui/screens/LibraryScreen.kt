@@ -54,6 +54,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.launch
 import android.view.inputmethod.EditorInfo
+import com.example.purrytify.data.preferences.TokenManager
 
 data class Song(
     val title: String,
@@ -94,6 +95,14 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
 
         var selectedLibraryMode by remember { mutableStateOf("All") }
         var searchQuery by remember { mutableStateOf("") }
+
+        // Update the SongViewModel with current user email when screen loads
+        LaunchedEffect(Unit) {
+            val tokenManager = TokenManager(context)
+            val currentEmail = tokenManager.getEmail() ?: "guest@example.com"
+            songViewModel.updateUserEmail(currentEmail)
+            Log.d("LibraryScreen", "Updated SongViewModel with email: $currentEmail")
+        }
 
         val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
         val likedSongs = songViewModel.likedSongs.collectAsStateWithLifecycle(initialValue = emptyList())

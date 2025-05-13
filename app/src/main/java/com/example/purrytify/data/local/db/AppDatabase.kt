@@ -7,8 +7,9 @@ import android.content.Context
 import com.example.purrytify.data.local.db.entities.SongEntity
 import com.example.purrytify.data.local.db.entities.LikedSongCrossRef
 import com.example.purrytify.data.local.db.entities.SongUploader
+import com.example.purrytify.data.local.db.entities.DownloadedSongCrossRef
 
-@Database(entities = [SongEntity::class, LikedSongCrossRef::class, SongUploader::class], version = 1)
+@Database(entities = [SongEntity::class, LikedSongCrossRef::class, SongUploader::class, DownloadedSongCrossRef::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     companion object {

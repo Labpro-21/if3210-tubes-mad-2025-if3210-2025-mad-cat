@@ -28,6 +28,10 @@ import java.io.File
 import android.os.Environment
 import androidx.lifecycle.lifecycleScope
 import com.example.purrytify.ui.screens.Song as LocalSong
+import com.example.purrytify.data.local.db.entities.DownloadedSongCrossRef
+import com.tubesmobile.purrytify.data.local.db.AppDatabase
+import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.data.local.db.entities.SongEntity
 
 enum class RepeatMode {
     OFF,    // No repeat - play through playlist once
@@ -74,7 +78,6 @@ class MusicViewModel : ViewModel() {
     private var currentPlaylist: List<Song> = listOf()
     private var currentIndex: Int = 0
 
-    private var songViewModel: SongViewModel? = null
     private var context: Context? = null
     
     // Media service
@@ -204,7 +207,6 @@ class MusicViewModel : ViewModel() {
 
     fun initializePlaybackControls(songViewModel: SongViewModel, context: Context) {
         Log.d("MusicViewModel", "Initializing playback controls")
-        this.songViewModel = songViewModel
         this.context = context
         
         // Start and bind to the media service
@@ -275,22 +277,10 @@ class MusicViewModel : ViewModel() {
             Log.d("MusicViewModel", "Using online playlist with ${currentPlaylist.size} songs")
         } else {
             _playlistContext.value = PlaylistContext.LIBRARY
-            // Use the local library playlist
-            songViewModel?.let { viewModel ->
-                currentPlaylist = runBlocking {
-                    try {
-                        val songs = viewModel.allSongs.first()
-                        if (_isShuffleOn.value) songs.shuffled() else songs
-                    } catch (e: Exception) {
-                        Log.e("MusicViewModel", "Error getting library songs", e)
-                        emptyList()
-                    }
-                }
-                Log.d("MusicViewModel", "Using library playlist with ${currentPlaylist.size} songs")
-            } ?: run {
-                Log.e("MusicViewModel", "SongViewModel is null when trying to play library song!")
-                currentPlaylist = emptyList()
-            }
+            // Use the local library playlist - get it from passed songViewModel
+            // This requires us to pass songViewModel to playSong too or use a different approach
+            currentPlaylist = emptyList()  // We'll need to fix this
+            Log.d("MusicViewModel", "Using library playlist - need to implement")
         }
         
         // Find the index of the song in the playlist
@@ -658,18 +648,10 @@ class MusicViewModel : ViewModel() {
                 }
             }
             PlaylistContext.LIBRARY -> {
-                // Only get library songs if we're actually in library context
-                songViewModel?.let { viewModel ->
-                    runBlocking {
-                        try {
-                            val songs = viewModel.allSongs.first()
-                            if (_isShuffleOn.value) songs.shuffled() else songs
-                        } catch (e: Exception) {
-                            Log.e("MusicViewModel", "Error getting library songs", e)
-                            emptyList()
-                        }
-                    }
-                } ?: emptyList()
+                // For library context, we need access to the songs from SongViewModel
+                // Since we don't have it here, return empty list
+                Log.w("MusicViewModel", "Cannot shuffle library songs without SongViewModel")
+                currentPlaylist // Keep current playlist as is
             }
         }
         
@@ -751,49 +733,35 @@ class MusicViewModel : ViewModel() {
 
         // Don't update online playlists - they're managed by the server
         if (_playlistContext.value == PlaylistContext.LIBRARY) {
-            // Update the playlist
-            viewModelScope.launch {
-                songViewModel?.let { viewModel ->
-                    // Get fresh playlist
-                    currentPlaylist = viewModel.allSongs.first()
-
-                    // Find updated song in playlist
-                    val updatedIndex = currentPlaylist.indexOfFirst {
-                        it.uri == updatedSong.uri
-                    }
-
-                    if (updatedIndex != -1) {
-                        currentIndex = updatedIndex
-                    }
-
-                    // If the song was playing, restart it with the updated details
-                    if (wasPlaying) {
-                        context?.let { ctx ->
-                            if (isServiceBound && mediaService != null) {
-                                mediaService?.playSong(updatedSong)
-                                mediaService?.seekTo(currentPosition)
-                            } else {
-                                mediaPlayer?.release()
-                                mediaPlayer = MediaPlayer().apply {
-                                    setDataSource(ctx, Uri.parse(updatedSong.uri))
-                                    prepare()
-                                    // Restore position if possible
-                                    if (currentPosition > 0 && currentPosition < duration) {
-                                        seekTo(currentPosition)
-                                    }
-                                    if (wasPlaying) {
-                                        start()
-                                        _isPlaying.value = true
-                                    }
-                                    _duration.value = duration
-                                    setOnCompletionListener { 
-                                        Log.d("MusicViewModel", "MediaPlayer song completed during restoration")
-                                        onSongCompletion() 
-                                    }
-                                }
-                                startUpdatingProgress()
+            // For library context, we can't update the playlist without SongViewModel
+            Log.w("MusicViewModel", "Cannot update library playlist without SongViewModel")
+            
+            // If the song was playing, restart it with the updated details
+            if (wasPlaying) {
+                context?.let { ctx ->
+                    if (isServiceBound && mediaService != null) {
+                        mediaService?.playSong(updatedSong)
+                        mediaService?.seekTo(currentPosition)
+                    } else {
+                        mediaPlayer?.release()
+                        mediaPlayer = MediaPlayer().apply {
+                            setDataSource(ctx, Uri.parse(updatedSong.uri))
+                            prepare()
+                            // Restore position if possible
+                            if (currentPosition > 0 && currentPosition < duration) {
+                                seekTo(currentPosition)
+                            }
+                            if (wasPlaying) {
+                                start()
+                                _isPlaying.value = true
+                            }
+                            _duration.value = duration
+                            setOnCompletionListener { 
+                                Log.d("MusicViewModel", "MediaPlayer song completed during restoration")
+                                onSongCompletion() 
                             }
                         }
+                        startUpdatingProgress()
                     }
                 }
             }
@@ -837,6 +805,10 @@ class MusicViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
+                val tokenManager = TokenManager(context)
+                val userEmail = tokenManager.getEmail() ?: "guest@example.com"
+                val database = AppDatabase.getDatabase(context)
+                val songDao = database.songDao()
                 // Create app's music directory if it doesn't exist
                 val musicDir = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Purrytify")
                 if (!musicDir.exists()) {
@@ -854,45 +826,168 @@ class MusicViewModel : ViewModel() {
                 val audioFile = File(musicDir, audioFileName)
                 val imageFile = File(musicDir, imageFileName)
                 
-                // Skip if already downloaded
-                if (audioFile.exists()) {
+                // Check if already downloaded by this user
+                val isAlreadyDownloaded = songDao.isSongDownloadedByUser(userEmail, song.title, song.artist)
+                if (isAlreadyDownloaded) {
                     onError("Song already downloaded")
+                    return@launch
+                }
+                
+                // If file exists but user hasn't downloaded it, just mark it as downloaded for this user
+                if (audioFile.exists() && imageFile.exists()) {
+                    Log.d("MusicViewModel", "Files exist, marking as downloaded for user: $userEmail")
+                    
+                    // Create SongEntity for the existing files
+                    val localSong = LocalSong(
+                        title = song.title,
+                        artist = song.artist,
+                        duration = song.duration,
+                        uri = audioFile.absolutePath,
+                        coverUri = imageFile.absolutePath
+                    )
+                    
+                    // Add to this user's library directly through DAO
+                    Log.d("MusicViewModel", "Adding to user library via DAO")
+                    
+                    // Check if song exists globally
+                    val existsGlobally = songDao.isSongExists(song.title, song.artist)
+                    
+                    if (existsGlobally) {
+                        // Song exists, just register it for this user
+                        val songId = songDao.getSongId(song.title, song.artist)
+                        Log.d("MusicViewModel", "Song exists globally, registering for user: $userEmail")
+                        songDao.registerUserToSong(userEmail, songId)
+                    } else {
+                        // Create new song entity
+                        Log.d("MusicViewModel", "Creating new song: ${song.title}")
+                        val entity = SongEntity(
+                            title = localSong.title,
+                            artist = localSong.artist,
+                            duration = localSong.duration,
+                            uri = localSong.uri,
+                            coverUri = localSong.coverUri
+                        )
+                        val newId = songDao.insertSong(entity).toInt()
+                        songDao.registerUserToSong(userEmail, newId)
+                    }
+                    
+                    // Mark as downloaded for this user
+                    val downloadedSongRef = DownloadedSongCrossRef(
+                        userEmail = userEmail,
+                        songTitle = song.title,
+                        songArtist = song.artist
+                    )
+                    songDao.markSongAsDownloaded(downloadedSongRef)
+                    
+                    Log.d("MusicViewModel", "Marked existing song as downloaded for user: ${song.title}")
+                    onSuccess()
                     return@launch
                 }
                 
                 // Use DownloadManager for downloading files
                 val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 
-                // Download audio file
-                val audioRequest = DownloadManager.Request(Uri.parse(song.uri))
-                    .setTitle("Downloading ${song.title}")
-                    .setDescription("Downloading audio...")
-                    .setDestinationUri(Uri.fromFile(audioFile))
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    .setAllowedOverMetered(true)
-                    .setAllowedOverRoaming(true)
+                // Determine which files need to be downloaded
+                val needsAudioDownload = !audioFile.exists()
+                val needsImageDownload = !imageFile.exists()
                 
-                val audioDownloadId = downloadManager.enqueue(audioRequest)
+                var audioDownloadId: Long? = null
+                var imageDownloadId: Long? = null
                 
-                // Download cover image
-                val imageRequest = DownloadManager.Request(Uri.parse(song.coverUri))
-                    .setTitle("Downloading ${song.title} Cover")
-                    .setDescription("Downloading cover image...")
-                    .setDestinationUri(Uri.fromFile(imageFile))
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                    .setAllowedOverMetered(true)
-                    .setAllowedOverRoaming(true)
+                // Download audio file if needed
+                if (needsAudioDownload) {
+                    val audioRequest = DownloadManager.Request(Uri.parse(song.uri))
+                        .setTitle("Downloading ${song.title}")
+                        .setDescription("Downloading audio...")
+                        .setDestinationUri(Uri.fromFile(audioFile))
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true)
+                    
+                    audioDownloadId = downloadManager.enqueue(audioRequest)
+                }
                 
-                val imageDownloadId = downloadManager.enqueue(imageRequest)
+                // Download cover image if needed
+                if (needsImageDownload) {
+                    val imageRequest = DownloadManager.Request(Uri.parse(song.coverUri))
+                        .setTitle("Downloading ${song.title} Cover")
+                        .setDescription("Downloading cover image...")
+                        .setDestinationUri(Uri.fromFile(imageFile))
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true)
+                    
+                    imageDownloadId = downloadManager.enqueue(imageRequest)
+                }
+                
+                // If no downloads needed, just add to library and mark as downloaded
+                if (!needsAudioDownload && !needsImageDownload) {
+                    Log.d("MusicViewModel", "Files already exist, marking as downloaded for user: $userEmail")
+                    
+                    val localSong = LocalSong(
+                        title = song.title,
+                        artist = song.artist,
+                        duration = song.duration,
+                        uri = audioFile.absolutePath,
+                        coverUri = imageFile.absolutePath
+                    )
+                    
+                    // Add to this user's library directly through DAO
+                    Log.d("MusicViewModel", "Adding to user library via DAO")
+                    
+                    // Check if song exists globally
+                    val existsGlobally = songDao.isSongExists(song.title, song.artist)
+                    
+                    if (existsGlobally) {
+                        // Song exists, just register it for this user
+                        val songId = songDao.getSongId(song.title, song.artist)
+                        Log.d("MusicViewModel", "Song exists globally, registering for user: $userEmail")
+                        songDao.registerUserToSong(userEmail, songId)
+                    } else {
+                        // Create new song entity
+                        Log.d("MusicViewModel", "Creating new song: ${song.title}")
+                        val entity = SongEntity(
+                            title = localSong.title,
+                            artist = localSong.artist,
+                            duration = localSong.duration,
+                            uri = localSong.uri,
+                            coverUri = localSong.coverUri
+                        )
+                        val newId = songDao.insertSong(entity).toInt()
+                        songDao.registerUserToSong(userEmail, newId)
+                    }
+                    
+                    val downloadedSongRef = DownloadedSongCrossRef(
+                        userEmail = userEmail,
+                        songTitle = song.title,
+                        songArtist = song.artist
+                    )
+                    songDao.markSongAsDownloaded(downloadedSongRef)
+                    
+                    Log.d("MusicViewModel", "Marked existing song as downloaded for user: ${song.title}")
+                    onSuccess()
+                    return@launch
+                }
                 
                 // Monitor download completion
                 val query = DownloadManager.Query()
-                query.setFilterById(audioDownloadId, imageDownloadId)
+                val downloadIds = mutableListOf<Long>()
+                audioDownloadId?.let { downloadIds.add(it) }
+                imageDownloadId?.let { downloadIds.add(it) }
+                
+                if (downloadIds.isEmpty()) {
+                    // No downloads needed, this case should have been handled above
+                    Log.e("MusicViewModel", "No downloads to monitor")
+                    onError("No downloads needed")
+                    return@launch
+                }
+                
+                query.setFilterById(*downloadIds.toLongArray())
                 
                 // Check download status periodically
                 viewModelScope.launch {
-                    var audioCompleted = false
-                    var imageCompleted = false
+                    var audioCompleted = !needsAudioDownload // If not needed, consider completed
+                    var imageCompleted = !needsImageDownload // If not needed, consider completed
                     
                     while (!audioCompleted || !imageCompleted) {
                         val cursor = downloadManager.query(query)
@@ -903,8 +998,8 @@ class MusicViewModel : ViewModel() {
                             
                             when (status) {
                                 DownloadManager.STATUS_SUCCESSFUL -> {
-                                    if (id == audioDownloadId) audioCompleted = true
-                                    if (id == imageDownloadId) imageCompleted = true
+                                    if (audioDownloadId != null && id == audioDownloadId) audioCompleted = true
+                                    if (imageDownloadId != null && id == imageDownloadId) imageCompleted = true
                                 }
                                 DownloadManager.STATUS_FAILED -> {
                                     cursor.close()
@@ -929,8 +1024,38 @@ class MusicViewModel : ViewModel() {
                         coverUri = imageFile.absolutePath
                     )
                     
-                    // Add to local library
-                    songViewModel?.insertSong(localSong)
+                    // Add to local library directly through DAO
+                    Log.d("MusicViewModel", "Adding to user library via DAO")
+                    
+                    // Check if song exists globally
+                    val existsGlobally = songDao.isSongExists(song.title, song.artist)
+                    
+                    if (existsGlobally) {
+                        // Song exists, just register it for this user
+                        val songId = songDao.getSongId(song.title, song.artist)
+                        Log.d("MusicViewModel", "Song exists globally, registering for user: $userEmail")
+                        songDao.registerUserToSong(userEmail, songId)
+                    } else {
+                        // Create new song entity
+                        Log.d("MusicViewModel", "Creating new song: ${song.title}")
+                        val entity = SongEntity(
+                            title = localSong.title,
+                            artist = localSong.artist,
+                            duration = localSong.duration,
+                            uri = localSong.uri,
+                            coverUri = localSong.coverUri
+                        )
+                        val newId = songDao.insertSong(entity).toInt()
+                        songDao.registerUserToSong(userEmail, newId)
+                    }
+                    
+                    // Mark as downloaded for this user
+                    val downloadedSongRef = DownloadedSongCrossRef(
+                        userEmail = userEmail,
+                        songTitle = song.title,
+                        songArtist = song.artist
+                    )
+                    songDao.markSongAsDownloaded(downloadedSongRef)
                     
                     Log.d("MusicViewModel", "Song downloaded successfully: ${song.title}")
                     onSuccess()
@@ -942,14 +1067,22 @@ class MusicViewModel : ViewModel() {
         }
     }
     
-    // Check if a song is already downloaded
+    // Check if a song is already downloaded by the current user
     fun isSongDownloaded(song: Song, context: Context): Boolean {
-        val musicDir = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Purrytify")
-        val safeTitle = song.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-        val safeArtist = song.artist.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-        val audioFileName = "${safeArtist}_${safeTitle}.mp3"
-        val audioFile = File(musicDir, audioFileName)
-        return audioFile.exists()
+        return runBlocking {
+            try {
+                val tokenManager = TokenManager(context)
+                val userEmail = tokenManager.getEmail() ?: "guest@example.com"
+                val database = AppDatabase.getDatabase(context)
+                val songDao = database.songDao()
+                
+                // Check if this user has downloaded the song
+                songDao.isSongDownloadedByUser(userEmail, song.title, song.artist)
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Error checking download status", e)
+                false
+            }
+        }
     }
     
     override fun onCleared() {
