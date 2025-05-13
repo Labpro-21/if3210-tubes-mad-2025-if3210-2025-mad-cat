@@ -45,6 +45,7 @@ import com.example.purrytify.ui.components.BottomNavBar
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.addTextChangedListener
 import com.example.purrytify.R
@@ -54,6 +55,9 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.launch
 import android.view.inputmethod.EditorInfo
+import com.example.purrytify.ui.dialogs.SongOptionsDialog
+import com.example.purrytify.ui.dialogs.ShareSongDialog
+import androidx.compose.material.icons.filled.MoreVert
 import com.example.purrytify.data.preferences.TokenManager
 
 data class Song(
@@ -129,6 +133,8 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
         }
 
         var showUploadDialog by remember { mutableStateOf(false) }
+        var showEditDialog by remember { mutableStateOf(false) }
+        var selectedSongForEdit by remember { mutableStateOf<Song?>(null) }
 
         var newSongTitle by remember { mutableStateOf("") }
         var newSongArtist by remember { mutableStateOf("") }
@@ -429,6 +435,17 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                         items(filteredSongs) { song ->
                             LibrarySongItem(
                                 song = song,
+                                songViewModel = songViewModel,
+                                musicViewModel = musicViewModel,
+                                onEditClick = { selectedSong ->
+                                    selectedSongForEdit = selectedSong
+                                    newSongTitle = selectedSong.title
+                                    newSongArtist = selectedSong.artist
+                                    audioDuration = selectedSong.duration
+                                    newSongAudioUri = null
+                                    newSongImageUri = null
+                                    showEditDialog = true
+                                },
                                 onClick = {
                                     scope.launch {
                                         musicViewModel.playSong(song, context)
@@ -799,11 +816,409 @@ fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<S
                 }
             }
         }
+
+        // Edit song dialog
+        if (showEditDialog && selectedSongForEdit != null) {
+            val editImagePickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.GetContent()
+            ) { uri: Uri? ->
+                newSongImageUri = uri
+            }
+
+            val editAudioPickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.GetContent()
+            ) { uri: Uri? ->
+                uri?.let {
+                    newSongAudioUri = it
+                    val retriever = MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(context, it)
+                        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0
+                        val seconds = (durationMs / 1000) % 60
+                        val minutes = (durationMs / (1000 * 60)) % 60
+                        audioDuration = "$minutes:${String.format("%02d", seconds)}"
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        audioDuration = "0:00"
+                    } finally {
+                        retriever.release()
+                    }
+                }
+            }
+
+            ModalBottomSheet(
+                onDismissRequest = {
+                    if (!isUploading) {
+                        showEditDialog = false
+                        selectedSongForEdit = null
+                        newSongTitle = ""
+                        newSongArtist = ""
+                        newSongImageUri = null
+                        newSongAudioUri = null
+                        audioDuration = ""
+                        errorMessage = null
+                    }
+                },
+                sheetState = rememberModalBottomSheetState(),
+                containerColor = Color(0xFF1E1E1E),
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFF555555))
+                        )
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .navigationBarsPadding()
+                        .imePadding()
+                ) {
+                    Text(
+                        text = "Edit Song",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF2A2A2A))
+                                    .clickable { editImagePickerLauncher.launch("image/*") }
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color(0xFF444444),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                            contentAlignment = Alignment.Center
+                            ) {
+                            if (newSongImageUri != null) {
+                                AsyncImage(
+                                    model = newSongImageUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else if (selectedSongForEdit!!.coverUri.isNotEmpty() && File(selectedSongForEdit!!.coverUri).exists()) {
+                                AsyncImage(
+                                    model = File(selectedSongForEdit!!.coverUri),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = Color(0xFF888888),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Change Cover",
+                                        color = Color(0xFF888888),
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Cover Art",
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF2A2A2A))
+                                    .clickable { editAudioPickerLauncher.launch("audio/*") }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF444444),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AudioFile,
+                                        contentDescription = null,
+                                        tint = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF888888),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (newSongAudioUri != null) "New File" else "Keep Current",
+                                        color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF888888),
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (newSongAudioUri != null) audioDuration else selectedSongForEdit!!.duration,
+                                        color = if (newSongAudioUri != null) Color(0xFF1DB954) else Color(0xFF888888),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Audio File",
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Title",
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = newSongTitle,
+                        onValueChange = { newSongTitle = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter song title", color = Color(0xFF666666)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1DB954),
+                            unfocusedBorderColor = Color(0xFF444444),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFF1DB954)
+                        ),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = TextStyle(fontSize = 16.sp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Artist",
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = newSongArtist,
+                        onValueChange = { newSongArtist = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter artist name", color = Color(0xFF666666)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1DB954),
+                            unfocusedBorderColor = Color(0xFF444444),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFF1DB954)
+                        ),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = TextStyle(fontSize = 16.sp)
+                    )
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = errorMessage!!,
+                            color = Color(0xFFFF5252),
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                if (!isUploading) {
+                                    showEditDialog = false
+                                    selectedSongForEdit = null
+                                    newSongTitle = ""
+                                    newSongArtist = ""
+                                    newSongImageUri = null
+                                    newSongAudioUri = null
+                                    audioDuration = ""
+                                    errorMessage = null
+                                }
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text("Cancel", color = Color(0xFFCCCCCC))
+                        }
+
+                        Button(
+                            onClick = {
+                                if (newSongTitle.isBlank()) {
+                                    errorMessage = "Title cannot be empty"
+                                    return@Button
+                                }
+
+                                if (newSongArtist.isBlank()) {
+                                    errorMessage = "Artist cannot be empty"
+                                    return@Button
+                                }
+
+                                errorMessage = null
+                                isUploading = true
+
+                                scope.launch {
+                                    try {
+                                        val oldSong = selectedSongForEdit!!
+
+                                        val audioPath = if (newSongAudioUri != null) {
+                                            val savedPath = saveAudioFile(newSongAudioUri!!)
+                                            if (savedPath == null) {
+                                                errorMessage = "Failed to save audio file"
+                                                isUploading = false
+                                                return@launch
+                                            }
+                                            savedPath
+                                        } else {
+                                            oldSong.uri
+                                        }
+
+                                        val imagePath = if (newSongImageUri != null) {
+                                            saveImageFile(newSongImageUri!!) ?: ""
+                                        } else {
+                                            oldSong.coverUri
+                                        }
+
+                                        val updatedSong = Song(
+                                            title = newSongTitle,
+                                            artist = newSongArtist,
+                                            coverUri = imagePath,
+                                            uri = audioPath,
+                                            duration = if (newSongAudioUri != null) audioDuration else oldSong.duration
+                                        )
+
+                                        songViewModel.updateSong(
+                                            oldSong = oldSong,
+                                            newSong = updatedSong,
+                                            onComplete = {
+                                                isUploading = false
+                                                showEditDialog = false
+                                                selectedSongForEdit = null
+                                                newSongTitle = ""
+                                                newSongArtist = ""
+                                                newSongImageUri = null
+                                                newSongAudioUri = null
+                                                audioDuration = ""
+                                                errorMessage = null
+                                                musicViewModel.updateCurrentSong(updatedSong)
+
+                                                scope.launch {
+                                                    Toast.makeText(context, "Song updated", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        )
+                                    } catch (e: Exception) {
+                                        errorMessage = "Error: ${e.message}"
+                                        isUploading = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1DB954),
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isUploading && newSongTitle.isNotBlank() && newSongArtist.isNotBlank(),
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            if (isUploading) {
+                                CircularProgressIndicator(
+                                    color = Color.Black,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Save Changes", fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibrarySongItem(song: Song, onClick: () -> Unit) {
+fun LibrarySongItem(
+    song: Song,
+    songViewModel: SongViewModel,
+    musicViewModel: MusicViewModel,
+    onEditClick: (Song) -> Unit,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showOptionsDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var currentSongId by remember { mutableStateOf(-1) }
+    
+    LaunchedEffect(song) {
+        try {
+            currentSongId = songViewModel.getSongId(song.title, song.artist)
+        } catch (e: Exception) {
+            currentSongId = -1
+        }
+    }
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -864,6 +1279,134 @@ fun LibrarySongItem(song: Song, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        
+        // Three dots menu button
+        IconButton(
+            onClick = { showOptionsDialog = true },
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+    
+    // Show options dialog
+    if (showOptionsDialog) {
+        SongOptionsDialog(
+            song = song,
+            isOnlineSong = false,
+            onShareClick = {
+                showShareDialog = true
+            },
+            onEditClick = {
+                onEditClick(song)
+            },
+            onDeleteClick = {
+                showDeleteConfirmation = true
+            },
+            onDismiss = { showOptionsDialog = false }
+        )
+    }
+    
+    // Show share dialog
+    if (showShareDialog) {
+        ShareSongDialog(
+            songId = currentSongId,
+            songTitle = song.title,
+            songArtist = song.artist,
+            songUrl = null,
+            onDismiss = { showShareDialog = false }
+        )
+    }
+    
+    // Delete confirmation
+    if (showDeleteConfirmation) {
+        ModalBottomSheet(
+            onDismissRequest = { showDeleteConfirmation = false },
+            sheetState = rememberModalBottomSheetState(),
+            containerColor = Color(0xFF1E1E1E),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color(0xFF555555))
+                    )
+                }
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "Delete Song",
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = "Are you sure you want to delete \"${song.title}\" by ${song.artist}?",
+                    color = Color(0xFFCCCCCC),
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { showDeleteConfirmation = false },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text("Cancel", color = Color(0xFFCCCCCC))
+                    }
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                songViewModel.deleteSong(
+                                    song = song,
+                                    musicViewModel = musicViewModel,
+                                    onComplete = {
+                                        showDeleteConfirmation = false
+                                        Toast.makeText(context, "Song deleted", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF5252),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text("Delete", fontWeight = FontWeight.Medium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
