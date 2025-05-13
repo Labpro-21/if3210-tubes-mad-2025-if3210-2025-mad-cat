@@ -352,6 +352,13 @@ class MediaPlaybackService : LifecycleService() {
             updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
             stopPositionUpdates()
             sendPlaybackStateBroadcast(false)
+            
+            // Stop foreground but keep the notification visible (dismissible)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(Service.STOP_FOREGROUND_DETACH)
+            } else {
+                stopForeground(false)
+            }
         } else {
             mediaPlayer?.start()
             isPlaying = true
@@ -360,6 +367,7 @@ class MediaPlaybackService : LifecycleService() {
             sendPlaybackStateBroadcast(true)
         }
         
+        // Always update notification when toggling play/pause
         updateNotification()
     }
     
