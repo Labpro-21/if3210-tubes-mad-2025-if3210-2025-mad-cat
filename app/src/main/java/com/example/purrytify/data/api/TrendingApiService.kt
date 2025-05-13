@@ -13,4 +13,9 @@ interface TrendingApiService {
     suspend fun getTopCountrySongs(
         @Path("country_code") countryCode: String
     ): Response<List<OnlineSong>>
+    
+    @GET("api/song/{song_id}")
+    suspend fun getSongById(
+        @Path("song_id") songId: Int
+    ): Response<OnlineSong>
 }

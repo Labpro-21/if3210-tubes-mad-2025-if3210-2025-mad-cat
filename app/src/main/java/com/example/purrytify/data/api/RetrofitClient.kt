@@ -25,6 +25,7 @@ object RetrofitClient {
     private var authInterceptor: AuthInterceptor? = null
     private var apiServiceInstance: ApiService? = null
     private var refreshClientInstance: ApiService? = null
+    private var retrofitInstance: Retrofit? = null
 
     private val trustAllCerts = arrayOf<TrustManager>(
         object : X509TrustManager {
@@ -61,6 +62,25 @@ object RetrofitClient {
         if (authInterceptor == null) {
             authInterceptor = AuthInterceptor(context)
         }
+    }
+    
+    fun getInstance(context: Context): Retrofit {
+        if (retrofitInstance == null) {
+            if (authInterceptor == null) {
+                initialize(context)
+            }
+            
+            val httpClient = createBaseHttpClient()
+                .addInterceptor(authInterceptor!!)
+                .build()
+
+            retrofitInstance = Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(httpClient)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+        }
+        return retrofitInstance!!
     }
 
     // For general API requests (with auth interceptor)

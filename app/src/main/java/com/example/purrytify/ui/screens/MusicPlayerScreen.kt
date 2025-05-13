@@ -51,6 +51,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.floor
+import com.example.purrytify.ui.dialogs.ShareSongDialog
+import com.example.purrytify.data.model.OnlineSong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,9 +79,11 @@ fun MusicPlayerScreen(
 
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
-            // For online songs that don't have local IDs, use a special ID
+            // For online songs, try to extract ID from URL if pattern matches
             val songId = if (song.uri.startsWith("http")) {
-                -1 // Special ID for online songs
+                // Extract id from the artwork URL pattern if possible
+                // Pattern: https://storage.googleapis.com/mad-public-bucket/cover/{title}.png
+                -1 // For now, just use -1 for online songs
             } else {
                 songViewModel.getSongId(song.title, song.artist)
             }
@@ -93,6 +97,7 @@ fun MusicPlayerScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
     var newSongTitle by remember { mutableStateOf("") }
     var newSongArtist by remember { mutableStateOf("") }
     var newSongImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -586,6 +591,38 @@ fun MusicPlayerScreen(
                 Column(
                     modifier = Modifier.padding(8.dp)
                 ) {
+                    // Share Song option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                showShareDialog = true
+                                showMenu = false
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Share,
+                            contentDescription = "Share",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Share Song",
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+                    }
+                    
+                    Divider(
+                        color = Color(0xFF333333),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    
+                    // Edit Song option
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1086,6 +1123,18 @@ fun MusicPlayerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+    
+    // Show share dialog
+    if (showShareDialog && currentSong != null) {
+        val isOnlineSong = currentSong!!.uri.startsWith("http")
+        ShareSongDialog(
+            songId = if (!isOnlineSong) currentSongId.value else null,
+            songTitle = currentSong!!.title,
+            songArtist = currentSong!!.artist,
+            songUrl = if (isOnlineSong) currentSong!!.uri else null,
+            onDismiss = { showShareDialog = false }
+        )
     }
 }
 

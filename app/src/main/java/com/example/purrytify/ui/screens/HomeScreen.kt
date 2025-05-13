@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -150,15 +151,33 @@ fun HomeScreen(
                 }
 
                 item {
-                    Text(
-                        text = "Home",
-                        style = TextStyle(
-                            color = Color.White,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Home",
+                            style = TextStyle(
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner,
+                            contentDescription = "Scan QR Code",
+                            tint = Color.White,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clickable {
+                                    navController.navigate("qr_scanner")
+                                }
+                        )
+                    }
                 }
                 
                 // Charts section

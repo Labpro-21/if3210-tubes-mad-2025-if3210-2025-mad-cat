@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +29,7 @@ import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import kotlinx.coroutines.launch
 import java.io.File
+import com.example.purrytify.ui.dialogs.ShareSongDialog
 
 @Composable
 fun MiniPlayer(
@@ -46,6 +48,7 @@ fun MiniPlayer(
     val duration by musicViewModel.duration.collectAsState()
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
+    var showShareDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
@@ -141,6 +144,20 @@ fun MiniPlayer(
 
                     IconButton(
                         onClick = {
+                            showShareDialog = true
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Share,
+                            contentDescription = "Share",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
                             scope.launch {
                                 if (currentSongId.value != -1) {
                                     if (isSongLiked) {
@@ -176,6 +193,18 @@ fun MiniPlayer(
                     }
                 }
             }
+        }
+        
+        // Show share dialog
+        if (showShareDialog) {
+            val isOnlineSong = song.uri.startsWith("http")
+            ShareSongDialog(
+                songId = if (!isOnlineSong) currentSongId.value else null,
+                songTitle = song.title,
+                songArtist = song.artist,
+                songUrl = if (isOnlineSong) song.uri else null,
+                onDismiss = { showShareDialog = false }
+            )
         }
     }
 }

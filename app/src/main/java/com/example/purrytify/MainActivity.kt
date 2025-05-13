@@ -19,8 +19,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,6 +45,10 @@ import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import com.example.purrytify.data.worker.TokenAutoRefreshWorker
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import com.example.purrytify.data.api.TrendingApiService
+import com.example.purrytify.ui.screens.Song
 
 class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
@@ -51,6 +57,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
+
+        // Handle deep links
+        handleIntent(intent)
 
         // Request post notification permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -96,6 +105,19 @@ class MainActivity : ComponentActivity() {
                     
                     // If coming from notification, go straight to player after splash
                     var goToPlayerAfterSplash by remember { mutableStateOf(shouldNavigateToPlayer) }
+                    
+                    val context = LocalContext.current
+                    
+                    // Check for deep link
+                    LaunchedEffect(Unit) {
+                        if (deepLinkPending && deepLinkSong != null) {
+                            Log.d(TAG, "Processing deep link in composition")
+                            musicViewModel.playSong(deepLinkSong!!, context)
+                            navController.navigate("player")
+                            deepLinkPending = false
+                            deepLinkSong = null
+                        }
+                    }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
                         NavHost(
@@ -154,6 +176,37 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             
+                            composable("qr_scanner") {
+                                val context = LocalContext.current
+                                QRScannerScreen(
+                                    onSongScanned = { songId ->
+                                        // Handle the scanned song
+                                        lifecycleScope.launch {
+                                            try {
+                                                val trendingApi = RetrofitClient.getInstance(context).create(TrendingApiService::class.java)
+                                                val response = trendingApi.getSongById(songId)
+                                                if (response.isSuccessful) {
+                                                    response.body()?.let { onlineSong ->
+                                                        val song = Song(
+                                                            title = onlineSong.title,
+                                                            artist = onlineSong.artist,
+                                                            coverUri = onlineSong.artworkUrl,
+                                                            uri = onlineSong.audioUrl,
+                                                            duration = onlineSong.duration
+                                                        )
+                                                        musicViewModel.playSong(song, context)
+                                                        navController.navigate("player")
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e(TAG, "Error fetching song from QR scan", e)
+                                            }
+                                        }
+                                    },
+                                    onBackClick = { navController.popBackStack() }
+                                )
+                            }
+                            
                             // Add top charts navigation routes
                             addTopChartsNavigation(
                                 navController = navController,
@@ -180,6 +233,51 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Initialized music controller")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing music controller", e)
+        }
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+    
+    private fun handleIntent(intent: Intent?) {
+        val data = intent?.data
+        if (data != null && data.scheme == "purrytify" && data.host == "song") {
+            val songId = data.lastPathSegment?.toIntOrNull()
+            if (songId != null) {
+                Log.d(TAG, "Handling deep link for song ID: $songId")
+                // Load the song and navigate to player
+                lifecycleScope.launch {
+                    try {
+                        val trendingApi = RetrofitClient.getInstance(applicationContext).create(TrendingApiService::class.java)
+                        val response = trendingApi.getSongById(songId)
+                        if (response.isSuccessful) {
+                            response.body()?.let { onlineSong ->
+                                Log.d(TAG, "Successfully fetched song: ${onlineSong.title}")
+                                
+                                // Convert OnlineSong to Song
+                                val song = Song(
+                                    title = onlineSong.title,
+                                    artist = onlineSong.artist,
+                                    coverUri = onlineSong.artworkUrl,
+                                    uri = onlineSong.audioUrl,
+                                    duration = onlineSong.duration
+                                )
+                                
+                                // This should be handled in the composition
+                                // For now, we'll store it in a companion object to be accessed by the UI
+                                deepLinkSong = song
+                                deepLinkPending = true
+                            }
+                        } else {
+                            Log.e(TAG, "Failed to fetch song: ${response.code()}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error fetching song for deep link", e)
+                    }
+                }
+            }
         }
     }
     
@@ -227,5 +325,10 @@ class MainActivity : ComponentActivity() {
             .build()
 
         WorkManager.getInstance(applicationContext).enqueue(oneTimeRequest)
+    }
+    
+    companion object {
+        var deepLinkSong: Song? = null
+        var deepLinkPending: Boolean = false
     }
 }
