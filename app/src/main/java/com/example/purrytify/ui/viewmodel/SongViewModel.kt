@@ -268,11 +268,7 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                     Log.e("SongViewModel", "Error removing download tracking", e)
                 }
                 
-                // We should NOT remove deleted songs from play history
-                // Recently played should show what the user listened to, even if deleted
-                // So we're commenting out the history removal code
-                
-                /*
+                // Remove from recently played history
                 val songInHistory = PlayHistoryTracker.getRecentlyPlayedSongs(email, tokenManager).find {
                     it.title == song.title && it.artist == song.artist
                 }
@@ -282,13 +278,12 @@ class SongViewModel(application: Application) : AndroidViewModel(application) {
                     updatedList.remove(songInHistory)
                     PlayHistoryTracker.clearHistory(email, tokenManager)
                     updatedList.forEach {
-                        PlayHistoryTracker.addSongToHistory(email, it, tokenManager)
-                        Log.d("SongViewModel", "Re-added song to history: ${it.title} by ${it.artist}")
+                        PlayHistoryTracker.addSongToHistory(email, it, tokenManager, getApplication())
                     }
+                    Log.d("SongViewModel", "Removed song from recently played: ${song.title} by ${song.artist}")
                 } else {
-                    Log.d("SongViewModel", "Song not found in history")
+                    Log.d("SongViewModel", "Song not found in recently played history")
                 }
-                */
                 
                 Log.d("SongViewModel", "Song deletion completed: ${song.title} by ${song.artist}")
                 onComplete()

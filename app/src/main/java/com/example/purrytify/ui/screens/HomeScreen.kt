@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -33,14 +36,18 @@ import com.example.purrytify.ui.viewmodel.HomeViewModel
 import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
 import com.example.purrytify.ui.components.ChartsSection
 import kotlinx.coroutines.launch
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.Environment
 import java.io.File
+import java.io.FileOutputStream
 import com.example.purrytify.data.preferences.UserProfileManager
 
 object PlayHistoryTracker {
     private val userHistories = mutableMapOf<String, MutableList<Song>>()
     private const val MAX_HISTORY_SIZE = 10
 
-    fun addSongToHistory(email: String, song: Song, tokenManager: TokenManager) {
+    fun addSongToHistory(email: String, song: Song, tokenManager: TokenManager, context: android.content.Context) {
         val history = tokenManager.getRecentlyPlayed(email).toMutableList()
 
         history.removeAll { it.title == song.title && it.artist == song.artist }
@@ -99,7 +106,7 @@ fun HomeScreen(
 
     LaunchedEffect(currentSong, userEmail) {
         if (currentSong != null && currentSong != previousSong) {
-            PlayHistoryTracker.addSongToHistory(userEmail, currentSong!!, tokenManager)
+            PlayHistoryTracker.addSongToHistory(userEmail, currentSong!!, tokenManager, context)
             recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager)
             previousSong = currentSong
         }
@@ -107,7 +114,7 @@ fun HomeScreen(
         if (recentlyPlayedSongs.isEmpty() && allSongs.value.isNotEmpty()) {
             val initialSongs = allSongs.value.shuffled().take(5)
             initialSongs.forEach {
-                PlayHistoryTracker.addSongToHistory(userEmail, it, tokenManager)
+                PlayHistoryTracker.addSongToHistory(userEmail, it, tokenManager, context)
             }
             recentlyPlayedSongs = PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager)
         }
@@ -358,7 +365,7 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
             }
             else -> {
                 // Fallback placeholder
-                "https://example.com/placeholder.jpg"
+                null
             }
         }
 
@@ -368,12 +375,24 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
                 .clip(RoundedCornerShape(4.dp))
                 .background(Color(0xFF2A2A2A))
         ) {
-            AsyncImage(
-                model = imageModel,
-                contentDescription = song.title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (imageModel != null) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = song.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Show a music note icon as fallback
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(24.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
