@@ -160,6 +160,12 @@ class NotificationManager(private val context: Context) {
             setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             setShowWhen(false)
             setOnlyAlertOnce(true)
+            
+            // Set notification as dismissible when paused
+            if (!isPlaying) {
+                setAutoCancel(false)  // Don't auto-cancel on tap when paused
+            }
+            
             addAction(getPreviousAction(mediaSession))
             addAction(getPlayPauseAction(isPlaying, mediaSession))
             addAction(getNextAction(mediaSession))
@@ -180,6 +186,7 @@ class NotificationManager(private val context: Context) {
             setColorized(true)
             color = ContextCompat.getColor(context, R.color.colorPrimary)
             priority = NotificationCompat.PRIORITY_MAX
+            // Make notification dismissible when paused
             setOngoing(isPlaying)
             setDeleteIntent(getStopAction(mediaSession))
         }

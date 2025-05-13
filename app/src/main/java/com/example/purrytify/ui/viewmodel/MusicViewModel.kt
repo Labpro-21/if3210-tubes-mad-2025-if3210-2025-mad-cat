@@ -438,6 +438,8 @@ class MusicViewModel : ViewModel() {
             mediaService?.togglePlayPause()
             // Update state immediately
             _isPlaying.value = !_isPlaying.value
+            // Explicitly update notification when toggling play/pause
+            mediaService?.updateNotification()
         } else {
             mediaPlayer?.let {
                 if (it.isPlaying) {

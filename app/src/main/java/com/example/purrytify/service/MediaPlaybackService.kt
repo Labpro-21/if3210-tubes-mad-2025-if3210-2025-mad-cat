@@ -66,11 +66,15 @@ class MediaPlaybackService : LifecycleService() {
                     it.pause()
                     isPlaying = false
                     updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
-                    updateNotification()
-                    stopPositionUpdates()
                     
+                    // Update notification to show pause state
+                    updateNotification()
+                    
+                    stopPositionUpdates()
                     sendPlaybackStateBroadcast(false)
                     
+                    // Stop foreground but keep the notification visible (dismissible)
+                    // Using STOP_FOREGROUND_DETACH keeps notification visible but dismissible
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                         stopForeground(Service.STOP_FOREGROUND_DETACH)
                     } else {
@@ -510,7 +514,7 @@ class MediaPlaybackService : LifecycleService() {
         mediaSession.setPlaybackState(builder.build())
     }
     
-    private fun updateNotification() {
+    fun updateNotification() {
         currentSong?.let { song ->
             val notification = notificationManager.getNotification(
                 song,
@@ -523,16 +527,20 @@ class MediaPlaybackService : LifecycleService() {
             )
             
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(NotificationManager.NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                if (isPlaying) {
+                    // When playing, update as foreground service
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(NotificationManager.NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    } else {
+                        startForeground(NotificationManager.NOTIFICATION_ID, notification)
+                    }
                 } else {
-                    startForeground(NotificationManager.NOTIFICATION_ID, notification)
+                    // When paused, just update the notification normally to keep it dismissible
+                    val systemNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    systemNotificationManager.notify(NotificationManager.NOTIFICATION_ID, notification)
                 }
                 
-                val systemNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-                systemNotificationManager.notify(NotificationManager.NOTIFICATION_ID, notification)
-                
-                Log.d("MediaPlaybackService", "Notification updated successfully: ${song.title}")
+                Log.d("MediaPlaybackService", "Notification updated successfully: ${song.title}, playing: $isPlaying")
             } catch (e: Exception) {
                 Log.e("MediaPlaybackService", "Error updating notification", e)
                 e.printStackTrace()
