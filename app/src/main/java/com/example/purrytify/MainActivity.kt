@@ -80,11 +80,6 @@ class MainActivity : ComponentActivity() {
         val shouldNavigateToPlayer = intent?.action == "OPEN_PLAYER_SCREEN"
         Log.d(TAG, "Should navigate to player: $shouldNavigateToPlayer")
         
-        // Check if we're being launched from a deep link
-        if (intent?.action == Intent.ACTION_VIEW) {
-            handleDeepLink(intent)
-        }
-        
         setContent {
             PurrytifyTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -185,22 +180,6 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Initialized music controller")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing music controller", e)
-        }
-    }
-    
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        if (intent.action == Intent.ACTION_VIEW) {
-            handleDeepLink(intent)
-        }
-    }
-    
-    private fun handleDeepLink(intent: Intent) {
-        if (musicViewModel.handleDeepLink(intent, this)) {
-            // Navigate to player screen if song was found and played
-            // This will be handled by the navigation state in the compose UI
-            Log.d(TAG, "Deep link handled successfully")
         }
     }
     

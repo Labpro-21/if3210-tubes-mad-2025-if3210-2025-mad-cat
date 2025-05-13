@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -366,20 +365,6 @@ fun TrendingSongItem(
                     tint = Color.White
                 )
             }
-        }
-        
-        // Share button
-        IconButton(
-            onClick = {
-                musicViewModel.shareSong(localSong, context)
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.Share,
-                contentDescription = "Share",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }
