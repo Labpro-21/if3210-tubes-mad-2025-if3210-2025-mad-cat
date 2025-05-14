@@ -3,9 +3,13 @@ package com.example.purrytify.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Binder
@@ -43,6 +47,21 @@ class MediaPlaybackService : LifecycleService() {
     private var updateJob: Job? = null
     private var currentPosition = 0
     private var songDuration = 0 // Renamed to avoid conflict
+    
+    companion object {
+        private const val TAG = "MediaPlaybackService"
+    }
+    
+    // BroadcastReceiver for audio device changes
+    private val audioDeviceReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.example.purrytify.AUDIO_DEVICE_CHANGED") {
+                val deviceType = intent.getIntExtra("deviceType", 0)
+                Log.d(TAG, "Received audio device change broadcast: deviceType=$deviceType")
+                setAudioOutputDevice(deviceType)
+            }
+        }
+    }
     
     // Callback for media session events
     private val mediaSessionCallback = object : MediaSessionCompat.Callback() {
@@ -149,6 +168,10 @@ class MediaPlaybackService : LifecycleService() {
             
             // Initialize notification manager
             notificationManager = NotificationManager(this)
+            
+            // Register the audio device receiver
+            val filter = IntentFilter("com.example.purrytify.AUDIO_DEVICE_CHANGED")
+            registerReceiver(audioDeviceReceiver, filter)
             
             Log.d("MediaPlaybackService", "Service created successfully")
         } catch (e: Exception) {
@@ -515,6 +538,70 @@ class MediaPlaybackService : LifecycleService() {
         updateNotification()
     }
     
+    // Handle audio output device selection
+    fun setAudioOutputDevice(deviceType: Int) {
+        try {
+            when (deviceType) {
+                // Built-in speaker
+                0 -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    audioManager.isSpeakerphoneOn = true
+                    audioManager.mode = AudioManager.MODE_NORMAL
+                    
+                    mediaPlayer?.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    Log.d(TAG, "Set audio output to built-in speaker")
+                }
+                // Bluetooth device
+                1 -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    audioManager.isSpeakerphoneOn = false
+                    audioManager.mode = AudioManager.MODE_NORMAL
+                    
+                    // Start Bluetooth SCO if available
+                    if (audioManager.isBluetoothScoAvailableOffCall) {
+                        audioManager.startBluetoothSco()
+                        audioManager.isBluetoothScoOn = true
+                    }
+                    
+                    mediaPlayer?.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    Log.d(TAG, "Set audio output to Bluetooth device")
+                }
+                // Wired headset
+                2 -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    audioManager.isSpeakerphoneOn = false
+                    audioManager.mode = AudioManager.MODE_NORMAL
+                    
+                    // If Bluetooth SCO is active, stop it
+                    if (audioManager.isBluetoothScoOn) {
+                        audioManager.stopBluetoothSco()
+                        audioManager.isBluetoothScoOn = false
+                    }
+                    
+                    mediaPlayer?.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    Log.d(TAG, "Set audio output to wired headset")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting audio output device: ${e.message}")
+        }
+    }
+    
     // Clean up
     override fun onDestroy() {
         Log.d("MediaPlaybackService", "Service onDestroy called")
@@ -544,6 +631,9 @@ class MediaPlaybackService : LifecycleService() {
         // Clear the notification using system notification manager
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         notificationManager.cancel(NotificationManager.NOTIFICATION_ID)
+        
+        // Unregister the audio device receiver
+        unregisterReceiver(audioDeviceReceiver)
         
         super.onDestroy()
     }

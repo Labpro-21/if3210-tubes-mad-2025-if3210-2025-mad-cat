@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import android.media.MediaPlayer
+import android.media.AudioAttributes
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.viewModelScope
@@ -1107,6 +1108,47 @@ class MusicViewModel : ViewModel() {
         }
     }
     
+    // Handle audio output device changes
+    fun updateAudioOutput(deviceType: Int) {
+        // Implement audio output routing based on device type
+        try {
+            when (deviceType) {
+                // Built-in speaker
+                0 -> {
+                    mediaPlayer?.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    Log.d(TAG, "Set audio output to built-in speaker")
+                }
+                // Bluetooth device
+                1 -> {
+                    mediaPlayer?.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    Log.d(TAG, "Set audio output to Bluetooth device")
+                }
+                // Wired headset
+                2 -> {
+                    mediaPlayer?.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    Log.d(TAG, "Set audio output to wired headset")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating audio output: ${e.message}")
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()

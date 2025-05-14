@@ -43,6 +43,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.purrytify.ui.dialogs.AudioDeviceSelectionDialog
+import com.example.purrytify.ui.dialogs.AudioDeviceIndicator
+import com.example.purrytify.ui.viewmodel.AudioDeviceViewModel
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.RepeatMode
 import com.example.purrytify.ui.viewmodel.SongViewModel
@@ -59,6 +62,7 @@ import com.example.purrytify.data.model.OnlineSong
 fun MusicPlayerScreen(
     musicViewModel: MusicViewModel,
     songViewModel: SongViewModel = viewModel(),
+    audioDeviceViewModel: AudioDeviceViewModel = viewModel(),
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -76,6 +80,9 @@ fun MusicPlayerScreen(
     val isShuffleOn by musicViewModel.isShuffleOn.collectAsState()
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
+    
+    // Audio device selection dialog state
+    val isDeviceSelectionShowing by audioDeviceViewModel.isDeviceSelectionShowing.collectAsState()
 
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
@@ -326,6 +333,12 @@ fun MusicPlayerScreen(
                     )
                 }
 
+                // Add audio device indicator here
+                AudioDeviceIndicator(
+                    audioDeviceViewModel = audioDeviceViewModel,
+                    onClick = { audioDeviceViewModel.showDeviceSelection() }
+                )
+
                 IconButton(
                     onClick = { showMenu = true }
                 ) {
@@ -563,6 +576,15 @@ fun MusicPlayerScreen(
             }
         }
     }
+    
+    // Audio device selection dialog
+    if (isDeviceSelectionShowing) {
+        AudioDeviceSelectionDialog(
+            audioDeviceViewModel = audioDeviceViewModel,
+            onDismiss = { audioDeviceViewModel.hideDeviceSelection() }
+        )
+    }
+    
     if (showMenu) {
         val isOnlineSong = currentSong?.uri?.startsWith("http") == true
         
@@ -591,6 +613,37 @@ fun MusicPlayerScreen(
                 Column(
                     modifier = Modifier.padding(8.dp)
                 ) {
+                    // Output device selection option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                audioDeviceViewModel.showDeviceSelection()
+                                showMenu = false
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Headphones,
+                            contentDescription = "Select Output Device",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Select Output Device",
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+                    }
+                    
+                    Divider(
+                        color = Color(0xFF333333),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                
                     // Share Song option
                     Row(
                         modifier = Modifier

@@ -1,6 +1,5 @@
 package com.example.purrytify
 
-import HomeScreen
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -10,26 +9,33 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.work.*
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.purrytify.data.api.RetrofitClient
 import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.network.ConnectivityObserver
@@ -39,6 +45,7 @@ import com.example.purrytify.ui.components.NetworkPopup
 import com.example.purrytify.navigation.addTopChartsNavigation
 import com.example.purrytify.ui.screens.*
 import com.example.purrytify.ui.theme.PurrytifyTheme
+import com.example.purrytify.ui.viewmodel.AudioDeviceViewModel
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
@@ -49,10 +56,13 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 import com.example.purrytify.data.api.TrendingApiService
 import com.example.purrytify.ui.screens.Song
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
 
 class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
     private val musicViewModel by viewModels<MusicViewModel>()
+    private val audioDeviceViewModel by viewModels<AudioDeviceViewModel>()
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,6 +79,29 @@ class MainActivity : ComponentActivity() {
                     this,
                     arrayOf(Manifest.permission.POST_NOTIFICATIONS),
                     100
+                )
+            }
+        }
+        
+        // Request Bluetooth permissions for Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val requiredPermissions = mutableListOf<String>()
+            
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
+                != PackageManager.PERMISSION_GRANTED) {
+                requiredPermissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) 
+                != PackageManager.PERMISSION_GRANTED) {
+                requiredPermissions.add(Manifest.permission.BLUETOOTH_SCAN)
+            }
+            
+            if (requiredPermissions.isNotEmpty()) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    requiredPermissions.toTypedArray(),
+                    101
                 )
             }
         }
@@ -165,6 +198,7 @@ class MainActivity : ComponentActivity() {
                             composable("player") {
                                 MusicPlayerScreen(
                                     musicViewModel = musicViewModel,
+                                    audioDeviceViewModel = audioDeviceViewModel,
                                     onBackClick = { navController.popBackStack() }
                                 )
                             }
@@ -230,7 +264,10 @@ class MainActivity : ComponentActivity() {
             // Initialize music playback controller with more error handling
             val songViewModel: SongViewModel = SongViewModel(application)
             musicViewModel.initializePlaybackControls(songViewModel, this)
-            Log.d(TAG, "Initialized music controller")
+            
+            // Initialize audio device manager
+            audioDeviceViewModel.initialize(this)
+            Log.d(TAG, "Initialized music controller and audio device manager")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing music controller", e)
         }
