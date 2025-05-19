@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -53,6 +54,7 @@ import java.io.FileOutputStream
 import kotlin.math.floor
 import com.example.purrytify.ui.dialogs.ShareSongDialog
 import com.example.purrytify.data.model.OnlineSong
+import com.example.purrytify.ui.components.AudioDeviceBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +77,8 @@ fun MusicPlayerScreen(
     val repeatMode by musicViewModel.repeatMode.collectAsState()
     val isShuffleOn by musicViewModel.isShuffleOn.collectAsState()
     val currentOnlineSongId by musicViewModel.currentOnlineSongId.collectAsState()
+    val currentAudioDevice by musicViewModel.currentAudioDevice.collectAsState()
+    val showAudioDeviceSelector by musicViewModel.showAudioDeviceSelector.collectAsState()
     var isSongLiked by remember { mutableStateOf(false) }
     val currentSongId = remember { mutableStateOf(-1) }
 
@@ -561,6 +565,32 @@ fun MusicPlayerScreen(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+            }
+
+            // Audio device selector
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { musicViewModel.showAudioDeviceSelector() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Headphones,
+                        contentDescription = "Select Audio Output",
+                        tint = Color.White
+                    )
+                }
+                
+                Text(
+                    text = currentAudioDevice,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }
@@ -1135,6 +1165,13 @@ fun MusicPlayerScreen(
             songArtist = currentSong!!.artist,
             songUrl = null, // We always use deep links, not direct URLs
             onDismiss = { showShareDialog = false }
+        )
+    }
+
+    // Show audio device selector
+    if (showAudioDeviceSelector) {
+        AudioDeviceBottomSheet(
+            onDismiss = { musicViewModel.dismissAudioDeviceSelector() }
         )
     }
 }
