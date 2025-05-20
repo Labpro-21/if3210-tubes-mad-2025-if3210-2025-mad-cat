@@ -3,14 +3,16 @@ package com.example.purrytify.ui.screens
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -44,13 +47,22 @@ import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
 import com.example.purrytify.ui.viewmodel.SongViewModel
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
 
-        fun getListenedCount(email: String): Int {
+    fun getListenedCount(email: String): Int {
         return userListenedSongsMap[email]?.size ?: 0
     }
 
@@ -121,6 +133,16 @@ fun ProfileScreen(
     // Keep track of the current song
     val currentSong by musicViewModel.currentSong.collectAsState()
     var previousSong by remember { mutableStateOf<Song?>(null) }
+    
+    // Analytics state values
+    val timeListened by ListeningAnalytics.timeListened.collectAsStateWithLifecycle()
+    val formattedTimeListened = ListeningAnalytics.formatTimeListened()
+    val topSong by ListeningAnalytics.topSong.collectAsStateWithLifecycle()
+    val topArtist by ListeningAnalytics.topArtist.collectAsStateWithLifecycle()
+    val streakSong by ListeningAnalytics.streakSong.collectAsStateWithLifecycle()
+    
+    // Control whether to show analytics section
+    var showAnalytics by remember { mutableStateOf(false) }
 
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
@@ -172,6 +194,36 @@ fun ProfileScreen(
                 Log.e("ProfileScreen", "Error fetching profile", e)
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    // Load analytics data when screen initializes
+    LaunchedEffect(userEmail) {
+        if (userEmail.isNotEmpty()) {
+            ListeningAnalytics.loadFromPreferences(context, userEmail)
+        }
+    }
+    
+    // Track current song playback for analytics
+    LaunchedEffect(currentSong, musicViewModel.isPlaying.collectAsState().value) {
+        val isPlaying = musicViewModel.isPlaying.value
+        currentSong?.let { song ->
+            if (isPlaying) {
+                // Song started playing or is continuing to play
+                ListeningAnalytics.startPlayback(song)
+            } else {
+                // Song paused or stopped
+                ListeningAnalytics.pausePlayback()
+            }
+        }
+    }
+    
+    // Save analytics data when leaving the screen
+    DisposableEffect(key1 = userEmail) {
+        onDispose {
+            if (userEmail.isNotEmpty()) {
+                ListeningAnalytics.saveToPreferences(context, userEmail)
             }
         }
     }
@@ -365,6 +417,92 @@ fun ProfileScreen(
                                         label = "LISTENED"
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // Analytics section
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Listening Analytics",
+                                            style = TextStyle(
+                                                color = Color.White,
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                        
+                                        IconButton(
+                                            onClick = { showAnalytics = !showAnalytics }
+                                        ) {
+                                            Icon(
+                                                imageVector = if (showAnalytics) 
+                                                    Icons.Default.ExpandLess 
+                                                else 
+                                                    Icons.Default.ExpandMore,
+                                                contentDescription = "Toggle Analytics",
+                                                tint = Color.White
+                                            )
+                                        }
+                                    }
+                                    
+                                    AnimatedVisibility(
+                                        visible = showAnalytics,
+                                        enter = expandVertically(),
+                                        exit = shrinkVertically()
+                                    ) {
+                                        Column(modifier = Modifier.padding(top = 8.dp)) {
+                                            // Time listened
+                                            AnalyticsCard(
+                                                title = "Total Time Listened",
+                                                value = formattedTimeListened,
+                                                icon = Icons.Default.AccessTime
+                                            )
+                                            
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            // Top song
+                                            AnalyticsCard(
+                                                title = "Most Played Song",
+                                                value = if (topSong.first.isEmpty()) "None yet" else topSong.first,
+                                                subtitle = if (topSong.third > 0L) "${ListeningAnalytics.formatDuration(topSong.third)} of listening time" else "",
+                                                icon = Icons.Default.MusicNote,
+                                                onClick = { navController.navigate("top_songs") }
+                                            )
+                                            
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            // Top artist
+                                            AnalyticsCard(
+                                                title = "Favorite Artist",
+                                                value = if (topArtist.first.isEmpty()) "None yet" else topArtist.first,
+                                                subtitle = if (topArtist.second > 0) "${topArtist.second} plays" else "",
+                                                icon = Icons.Default.Person
+                                            )
+                                            
+                                            if (streakSong.third > 0) {
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                
+                                                // Current streak
+                                                AnalyticsCard(
+                                                    title = "Listening Streak",
+                                                    value = streakSong.first,
+                                                    subtitle = "${streakSong.third} days in a row",
+                                                    icon = Icons.Default.Star
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -404,5 +542,87 @@ fun StatItem(count: Int, label: String) {
                 fontSize = 14.sp
             )
         )
+    }
+}
+
+@Composable
+fun AnalyticsCard(
+    title: String,
+    value: String,
+    icon: ImageVector,
+    subtitle: String = "",
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF1E1E1E)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Icon
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF6CCB64),
+                modifier = Modifier.size(32.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Title and value
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    style = TextStyle(
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
+                )
+                Text(
+                    text = value,
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                
+                if (subtitle.isNotEmpty()) {
+                    Text(
+                        text = subtitle,
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 12.sp
+                        ),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+
+            // Arrow icon for navigation
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
