@@ -273,6 +273,18 @@ class MainActivity : ComponentActivity() {
                                 songViewModel = songViewModel,
                                 onNavigateToPlayer = { navController.navigate("player") }
                             )
+                            
+                            // Add MixPlaylistScreen route
+                            composable("mix_playlist/{mixName}") { backStackEntry ->
+                                val mixName = backStackEntry.arguments?.getString("mixName") ?: "Your Daily Mix"
+                                MixPlaylistScreen(
+                                    navController = navController,
+                                    mixName = mixName,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
                         }
 
                         if (status != ConnectivityObserver.Status.Available) {
