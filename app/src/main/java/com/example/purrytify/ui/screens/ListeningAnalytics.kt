@@ -1,7 +1,9 @@
 package com.example.purrytify.ui.screens
-
+// Dipindahin ke data nanti
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -13,6 +15,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.ui.viewmodel.MusicViewModel
 
 object ListeningAnalytics {
     // Track time listened in seconds
@@ -20,13 +23,46 @@ object ListeningAnalytics {
     private val _timeListened = MutableStateFlow(0L) 
     val timeListened: StateFlow<Long> = _timeListened.asStateFlow()
     
+    // Track daily listening data
+    private val dailyListeningMap = mutableMapOf<String, Long>()
+    
+    // Track the date of the last load or reset
+    private var lastLoadDate: String = ""
+
+    // Track song play counts - map song keys to play count
+    private val songPlayCounts = mutableMapOf<String, Int>()
+    
+    // Track song cover image URLs
+    private val songCoverUrls = mutableMapOf<String, String>()
+    
+    // Track currently playing song to prevent duplicate counts
+    private var _lastPlayedSongKey: String? = null
+
+    // Helper class for returning 4 values
+    data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
+    fun initializeAnalytics(context: Context, email: String) {
+        if (lastLoadedEmail == email) return
+        
+        // Reset counters first
+        _timeListened.value = 0
+        
+        // Load data from preferences (this will handle proper daily reset)
+        loadFromPreferences(context, email)
+        
+        ListenedSongsTracker.loadListenedSongs(email, context)
+        
+        // Log current state after initialization
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+        Log.d("ListeningAnalytics", "Analytics initialized. Today (${today}) time: ${_timeListened.value} seconds")
+    }
+
     // Track artist play counts
     private val artistPlayCounts = mutableMapOf<String, Int>()
     private val _topArtist = MutableStateFlow(Pair("", 0))
     val topArtist: StateFlow<Pair<String, Int>> = _topArtist.asStateFlow()
     
-    // Track song play counts and duration listened (in seconds)
-    val songPlayCounts = mutableMapOf<String, Int>()
+    // Track song duration listened (in seconds)
     val songListeningDurations = mutableMapOf<String, Long>()
     private val _topSong = MutableStateFlow(Triple("", 0, 0L))
     val topSong: StateFlow<Triple<String, Int, Long>> = _topSong.asStateFlow()
@@ -37,37 +73,54 @@ object ListeningAnalytics {
     private val _streakSong = MutableStateFlow(Triple("", "", 0))
     val streakSong: StateFlow<Triple<String, String, Int>> = _streakSong.asStateFlow()
     
-    // Track currently playing song
-    private var currentlyPlayingSong: Song? = null
-    private var playbackStartTime: Long = 0L
-    private var isPlaying = false
-    
-    // For real-time updates
-    private var timerJob: Job? = null
-    
     // Flag to prevent multiple loads
     private var lastLoadedEmail: String? = null
     private var lastContext: Context? = null
     private var lastUserEmail: String? = null
 
-    fun startPlayback(song: Song) {
-        // Cancel any existing timer
-        timerJob?.cancel()
+    private var currentlyPlayingSong: Song? = null
+    
+    // Track current session start time
+    private var sessionStartTime: Long = 0
+
+    fun startPlayback(song: Song, musicViewModel: MusicViewModel, context: Context, email: String) {
+        val currentSong = musicViewModel.currentSong.value
+        
+        // Create a song key that uniquely identifies this song
+        val songKey = "${song.title}_${song.artist}"
+        
+        // Store cover URL if available
+        if (song.coverUri.isNotEmpty()) {
+            songCoverUrls[songKey] = song.coverUri
+            Log.d("ListeningAnalytics", "Saved cover URL for $songKey: ${song.coverUri}")
+        }
+        
+        // Check if this is the same song as last time to prevent duplicate counts on page refreshes
+        if (_lastPlayedSongKey == songKey) {
+            // Same song, just continue tracking without incrementing counters
+            Log.d("ListeningAnalytics", "Same song detected, not incrementing play count: $songKey")
+            startPlaybackTracking(musicViewModel, context, email)
+            return
+        }
+        
+        // Update tracking for new song
+        _lastPlayedSongKey = songKey
         
         // Update currently playing song
-        currentlyPlayingSong = song
-        playbackStartTime = System.currentTimeMillis()
-        isPlaying = true
-        
-        // Update song play count
-        val songKey = "${song.title}_${song.artist}"
-        val currentCount = songPlayCounts.getOrDefault(songKey, 0)
-        songPlayCounts[songKey] = currentCount + 1
+        currentlyPlayingSong = currentSong
         
         // Update artist play count
         val artist = song.artist
         val currentArtistCount = artistPlayCounts.getOrDefault(artist, 0)
         artistPlayCounts[artist] = currentArtistCount + 1
+        
+        // Update play count for the song
+        val currentPlayCount = songPlayCounts.getOrDefault(songKey, 0)
+        songPlayCounts[songKey] = currentPlayCount + 1
+        
+        Log.d("ListeningAnalytics", "New song play: $songKey - count now ${currentPlayCount + 1}")
+
+        logTopSongsByPlayCount()
         
         // Update top song and artist
         updateTopSongAndArtist()
@@ -87,7 +140,6 @@ object ListeningAnalytics {
                 songStreakDays[songKey] = 1
             }
         } else {
-            // First time playing
             songStreakDays[songKey] = 1
         }
         
@@ -95,92 +147,15 @@ object ListeningAnalytics {
         
         // Update streak song
         updateStreakSong()
-        
-        // Start real-time timer to update time listened
-        startTimer()
+
+        startPlaybackTracking(musicViewModel, context, email)
     }
-    
-    private fun startTimer() {
-        timerJob?.cancel()
-        timerJob = CoroutineScope(Dispatchers.Default).launch {
-            while (isPlaying && currentlyPlayingSong != null) {
-                delay(1000)
-                if (isPlaying) { // Double check isPlaying karena bisa berubah selama delay
-                    totalTimeListened.value += 1
-                    _timeListened.value = totalTimeListened.value
-                    
-                    // Add 1 second to the current song's listening duration
-                    val songKey = "${currentlyPlayingSong!!.title}_${currentlyPlayingSong!!.artist}"
-                    val currentDuration = songListeningDurations.getOrDefault(songKey, 0L)
-                    val newDuration = currentDuration + 1
-                    songListeningDurations[songKey] = newDuration
-                    updateTopSongAndArtist()
-                    
-                    // Real-time save
-                    lastContext?.let { ctx ->
-                        lastUserEmail?.let { email ->
-                            saveToPreferences(ctx, email)
-                        }
-                    }
-                }
-            }
-        }
+
+    fun getSongCoverUrl(title: String, artist: String): String? {
+        val songKey = "${title}_${artist}"
+        return songCoverUrls[songKey]
     }
-    
-    fun pausePlayback() {
-        if (currentlyPlayingSong != null) {
-            isPlaying = false
-            timerJob?.cancel()
-            
-            if (playbackStartTime > 0) {
-                val duration = System.currentTimeMillis() - playbackStartTime
-                val durationInSeconds = duration / 1000 // Convert to seconds
-                
-                // Hanya update waktu untuk periode yang sudah berlalu
-                if (durationInSeconds > 0) {
-                    val songKey = "${currentlyPlayingSong!!.title}_${currentlyPlayingSong!!.artist}"
-                    val currentDuration = songListeningDurations.getOrDefault(songKey, 0L)
-                    songListeningDurations[songKey] = currentDuration + durationInSeconds
-                    
-                    totalTimeListened.value += durationInSeconds
-                    _timeListened.value = totalTimeListened.value
-                    
-                    updateTopSongAndArtist()
-                }
-            }
-            
-            playbackStartTime = 0L
-            
-            // Real-time save
-            lastContext?.let { ctx ->
-                lastUserEmail?.let { email ->
-                    saveToPreferences(ctx, email)
-                }
-            }
-        }
-    }
-    
-    fun resumePlayback() {
-        if (currentlyPlayingSong != null) {
-            isPlaying = true
-            playbackStartTime = System.currentTimeMillis()
-            startTimer()
-        }
-    }
-    
-    fun stopPlayback() {
-        pausePlayback()
-        isPlaying = false
-        currentlyPlayingSong = null
-        timerJob?.cancel()
-        // Real-time save
-        lastContext?.let { ctx ->
-            lastUserEmail?.let { email ->
-                saveToPreferences(ctx, email)
-            }
-        }
-    }
-    
+
     private fun updateTopSongAndArtist() {
         songListeningDurations.maxByOrNull { it.value }?.let { (songKey, duration) ->
             val count = songPlayCounts[songKey] ?: 0
@@ -208,6 +183,10 @@ object ListeningAnalytics {
         // Save time listened
         tokenManager.saveString("${email}_time_listened", totalTimeListened.value.toString())
         
+        // Save today's listening data
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+        tokenManager.saveString("${email}_listened_${today}", dailyListeningMap.getOrDefault(today, 0L).toString())
+        
         // Save artist play counts
         val artistData = artistPlayCounts.entries.joinToString("|") { "${it.key}:${it.value}" }
         tokenManager.saveString("${email}_artist_counts", artistData)
@@ -231,23 +210,63 @@ object ListeningAnalytics {
         }
         tokenManager.saveString("${email}_last_played", dateData)
         
+        // Save daily listening data map
+        val dailyData = dailyListeningMap.entries.joinToString("|") {
+            "${it.key}:${it.value}"
+        }
+        tokenManager.saveString("${email}_daily_listening", dailyData)
+        
+        // Save cover URLs
+        val coverUrlData = songCoverUrls.entries.joinToString("|") { "${it.key}:${it.value}" }
+        tokenManager.saveString("${email}_cover_urls", coverUrlData)
+        
+        Log.d("ListeningAnalytics", "Saved ${songCoverUrls.size} cover URLs to preferences")
         Log.d("ListeningAnalytics", "Saved ${songListeningDurations.size} song durations to preferences")
     }
     
     fun loadFromPreferences(context: Context, email: String) {
-        if (lastLoadedEmail == email) return // Only load once per user
+        if (lastLoadedEmail == email) return
         lastLoadedEmail = email
         lastContext = context
         lastUserEmail = email
         
         val tokenManager = TokenManager(context)
+        val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+        
+        // Check if we need to reset the daily counter (new day)
+        if (lastLoadDate != today) {
+            // Reset today's listening time - we'll load it from preferences if available
+            _timeListened.value = 0
+            
+            // Update last load date
+            lastLoadDate = today
+            Log.d("ListeningAnalytics", "New day detected, resetting daily counter")
+        }
         
         // Load time listened
         val timeStr = tokenManager.getString("${email}_time_listened")
         timeStr?.toLongOrNull()?.let {
             totalTimeListened.value = it
-            _timeListened.value = it
+            if (_timeListened.value == 0L) {
+                // Check if we have today's data specifically
+                val todayTimeStr = tokenManager.getString("${email}_listened_${today}")
+                todayTimeStr?.toLongOrNull()?.let { todayTime ->
+                    _timeListened.value = todayTime
+                    Log.d("ListeningAnalytics", "Loaded today's time listened: $todayTime seconds")
+                }
+            }
             Log.d("ListeningAnalytics", "Loaded total time listened: $it seconds")
+        }
+        
+        // Load daily listening data
+        val dailyDataStr = tokenManager.getString("${email}_daily_listening")
+        dailyDataStr?.split("|")?.forEach {
+            val parts = it.split(":")
+            if (parts.size == 2) {
+                val date = parts[0]
+                val seconds = parts[1].toLongOrNull() ?: 0L
+                dailyListeningMap[date] = seconds
+            }
         }
         
         // Load artist play counts
@@ -258,17 +277,6 @@ object ListeningAnalytics {
                 val artist = parts[0]
                 val count = parts[1].toIntOrNull() ?: 0
                 artistPlayCounts[artist] = count
-            }
-        }
-        
-        // Load song play counts
-        val songData = tokenManager.getString("${email}_song_counts")
-        songData?.split("|")?.forEach {
-            val parts = it.split(":")
-            if (parts.size == 2) {
-                val song = parts[0]
-                val count = parts[1].toIntOrNull() ?: 0
-                songPlayCounts[song] = count
             }
         }
         
@@ -314,6 +322,29 @@ object ListeningAnalytics {
             }
         }
         
+        // Load song play counts
+        val songCountData = tokenManager.getString("${email}_song_counts")
+        songCountData?.split("|")?.forEach {
+            val parts = it.split(":")
+            if (parts.size == 2) {
+                val song = parts[0]
+                val count = parts[1].toIntOrNull() ?: 0
+                songPlayCounts[song] = count
+            }
+        }
+        
+        // Load cover URLs
+        val coverUrlData = tokenManager.getString("${email}_cover_urls")
+        coverUrlData?.split("|")?.forEach {
+            val parts = it.split(":")
+            if (parts.size == 2) {
+                val songKey = parts[0]
+                val coverUrl = parts[1]
+                songCoverUrls[songKey] = coverUrl
+                Log.d("ListeningAnalytics", "Loaded cover URL for $songKey: $coverUrl")
+            }
+        }
+        
         // Update derived values
         updateTopSongAndArtist()
         updateStreakSong()
@@ -335,8 +366,9 @@ object ListeningAnalytics {
 
     // Format time into hours and minutes
     fun formatTimeListened(): String {
-        val hours = _timeListened.value / 3600
-        val minutes = (_timeListened.value % 3600) / 60
+        val seconds = _timeListened.value
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
         
         return if (hours > 0) {
             "$hours h $minutes min"
@@ -356,9 +388,11 @@ object ListeningAnalytics {
                     append("${hours}h ")
                 }
             }
-            // Always show minutes even if they're zero
-            append("${minutes}m ")
-            // Only show seconds if they're non-zero or if hours and minutes are both zero
+            if (seconds != null) {
+                if (seconds > 0 || (hours == 0L && minutes == 0L)) {
+                    append("${minutes}m ")
+                }
+            }
             if (seconds != null) {
                 if (seconds > 0 || (hours == 0L && minutes == 0L)) {
                     append("${seconds}s")
@@ -374,5 +408,174 @@ object ListeningAnalytics {
             val count = songPlayCounts[songKey] ?: 0
             Triple(title, count, duration)
         }.sortedByDescending { it.third }
+    }
+
+    // Modify getAllSongPlayData to include cover URLs
+    fun getAllSongPlayData(): List<Quad<String, String, Int, String?>> {
+        return songPlayCounts.map { (songKey, count) ->
+            val parts = songKey.split("_")
+            val title = parts.firstOrNull() ?: songKey
+            val artist = parts.getOrNull(1) ?: "Unknown"
+            val coverUrl = songCoverUrls[songKey]
+            Quad(title, artist, count, coverUrl)
+        }.sortedByDescending { it.third } // Sort by play count
+    }
+
+    // Get all artist play counts
+    fun getAllArtistsData(): List<Pair<String, Int>> {
+        return artistPlayCounts.map { (artist, count) ->
+            Pair(artist, count)
+        }.sortedByDescending { it.second } // Sort by play count
+    }
+
+    // Get daily listening data
+    fun getDailyListeningData(): Map<String, Long> {
+        val today = LocalDate.now()
+        val result = mutableMapOf<String, Long>()
+        
+        // Get data for the last 7 days
+        for (i in 0..6) {
+            val date = today.minusDays(i.toLong())
+            val dateStr = date.format(DateTimeFormatter.ISO_DATE)
+
+            val minutes = if (i == 0) {
+                _timeListened.value / 60
+            } else {
+                (dailyListeningMap[dateStr] ?: 0L) / 60
+            }
+
+            if (i == 0) {
+                Log.d("ListeningAnalytics", "Today's minutes: $minutes (from ${_timeListened.value} seconds)")
+            }
+            
+            result[dateStr] = minutes
+        }
+        
+        return result
+    }
+
+    private var playbackJob: Job? = null
+
+    fun pausePlayback() {
+        playbackJob?.cancel()
+        Log.d("ListeningAnalytics", "Playback paused")
+
+        if (sessionStartTime > 0) {
+            val sessionDuration = (System.currentTimeMillis() - sessionStartTime) / 1000
+            Log.d("ListeningAnalytics", "Session duration: $sessionDuration seconds")
+            sessionStartTime = 0
+        }
+    }
+
+    fun startPlaybackTracking(musicViewModel: MusicViewModel, context: Context, email: String) {
+        val currentSong = musicViewModel.currentSong.value
+        
+        // Set session start time
+        sessionStartTime = System.currentTimeMillis()
+
+        currentSong?.let { song ->
+            val songKey = "${song.title}_${song.artist}"
+            var secondCounter = 0
+
+            playbackJob?.cancel()
+            playbackJob = CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+
+                    val startTime = System.currentTimeMillis()
+                    
+                    while (musicViewModel.isPlaying.value) {
+                        _timeListened.value += 1
+                        totalTimeListened.value += 1
+
+                        val todaySeconds = dailyListeningMap.getOrDefault(today, 0L) + 1
+                        dailyListeningMap[today] = todaySeconds
+
+                        songListeningDurations[songKey] = songListeningDurations.getOrDefault(songKey, 0L) + 1
+
+                        secondCounter++
+
+                        if (secondCounter >= 300) {
+                            saveToPreferences(context, email)
+                            secondCounter = 0
+                            Log.d("ListeningAnalytics", "Saved listening data after 5 minutes")
+                        }
+
+                        delay(1000)
+                    }
+
+                    val endTime = System.currentTimeMillis()
+                    val actualListenedSeconds = (endTime - startTime) / 1000
+
+                    sessionStartTime = 0
+
+                    if (secondCounter > 0) {
+                        saveToPreferences(context, email)
+                        Log.d("ListeningAnalytics", "Saved remaining listening data (${secondCounter}s)")
+                    }
+                } catch (e: Exception) {
+                    Log.e("ListeningAnalytics", "Error in playback tracking", e)
+                }
+            }
+        }
+    }
+
+    // Log top songs by play count
+    fun logTopSongsByPlayCount() {
+        val topPlayedSongs = songPlayCounts.toList()
+            .sortedByDescending { it.second }
+            .take(5)
+        
+        if (topPlayedSongs.isNotEmpty()) {
+            Log.d("ListeningAnalytics", "===== TOP SONGS BY PLAY COUNT =====")
+            topPlayedSongs.forEachIndexed { index, (songKey, count) ->
+                val songName = songKey.split("_").firstOrNull() ?: songKey
+                val artist = songKey.split("_").getOrNull(1) ?: "Unknown"
+                val duration = songListeningDurations[songKey] ?: 0L
+                Log.d("ListeningAnalytics", "${index + 1}. $songName by $artist: played $count times (total listening time: ${formatDuration(duration)})")
+            }
+        } else {
+            Log.d("ListeningAnalytics", "No song play data available yet")
+        }
+    }
+
+    // Reset all analytics data
+    fun resetAllData(context: Context, email: String) {
+        _timeListened.value = 0
+        totalTimeListened.value = 0
+
+        dailyListeningMap.clear()
+        songPlayCounts.clear()
+        artistPlayCounts.clear()
+        songListeningDurations.clear()
+        songLastPlayed.clear()
+        songStreakDays.clear()
+        songCoverUrls.clear()
+
+        lastLoadDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+
+        val tokenManager = TokenManager(context)
+        tokenManager.saveString("${email}_time_listened", "0")
+        tokenManager.saveString("${email}_listened_${lastLoadDate}", "0")
+        tokenManager.saveString("${email}_daily_listening", "")
+        tokenManager.saveString("${email}_artist_counts", "")
+        tokenManager.saveString("${email}_song_counts", "")
+        tokenManager.saveString("${email}_song_durations", "")
+        tokenManager.saveString("${email}_song_streaks", "")
+        tokenManager.saveString("${email}_last_played", "")
+        tokenManager.saveString("${email}_cover_urls", "")
+        
+        Log.d("ListeningAnalytics", "All data reset!")
+    }
+
+    // Get all songs by a specific artist
+    fun getSongsByArtist(artist: String): List<String> {
+        return songPlayCounts.filter { (songKey, _) ->
+            val parts = songKey.split("_")
+            val songArtist = parts.getOrNull(1) ?: ""
+            songArtist == artist
+        }.map { (songKey, _) ->
+            songKey.split("_").firstOrNull() ?: songKey
+        }
     }
 }

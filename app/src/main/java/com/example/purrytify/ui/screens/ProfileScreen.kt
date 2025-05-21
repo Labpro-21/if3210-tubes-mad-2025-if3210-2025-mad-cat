@@ -2,13 +2,17 @@ package com.example.purrytify.ui.screens
 
 import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -58,6 +62,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.example.purrytify.utils.PdfExportUtil
 
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
@@ -211,7 +216,7 @@ fun ProfileScreen(
         currentSong?.let { song ->
             if (isPlaying) {
                 // Song started playing or is continuing to play
-                ListeningAnalytics.startPlayback(song)
+                ListeningAnalytics.startPlayback(song, musicViewModel = musicViewModel, context = context, email = userEmail)
             } else {
                 // Song paused or stopped
                 ListeningAnalytics.pausePlayback()
@@ -219,7 +224,7 @@ fun ProfileScreen(
         }
     }
     
-    // Save analytics data when leaving the screen
+    // Save analytics data
     DisposableEffect(key1 = userEmail) {
         onDispose {
             if (userEmail.isNotEmpty()) {
@@ -228,10 +233,9 @@ fun ProfileScreen(
         }
     }
 
-    // Create a gradient background for the profile page
     val gradientColors = listOf(
-        Color(0xFF095256), // Dark teal top color
-        Color(0xFF121212)  // Dark bottom color
+        Color(0xFF095256),
+        Color(0xFF121212)
     )
 
     Box(
@@ -248,7 +252,6 @@ fun ProfileScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Settings button in top right corner
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -276,7 +279,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(bottom = 56.dp) // Add padding to account for mini player + navbar
+                    .padding(bottom = 64.dp)
             ) {
                 if (!isOnline) {
                     ErrorScreen(pageName = "Profile")
@@ -284,7 +287,13 @@ fun ProfileScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 24.dp),
+                            .padding(horizontal = 24.dp)
+                            .verticalScroll(
+                                rememberScrollState(),
+                                enabled = true,
+                                reverseScrolling = false,
+                                flingBehavior = null
+                            ),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Spacer(modifier = Modifier.height(24.dp))
@@ -299,11 +308,9 @@ fun ProfileScreen(
                             )
                         } else {
                             profileData?.let { profile ->
-                                // Profile Photo with edit button
                                 Box(
                                     contentAlignment = Alignment.BottomEnd
                                 ) {
-                                    // Profile Image
                                     AsyncImage(
                                         model = ImageRequest.Builder(context)
                                             .data("http://34.101.226.132:3000/uploads/profile-picture/${profile.profilePhoto}")
@@ -314,7 +321,7 @@ fun ProfileScreen(
                                         modifier = Modifier
                                             .size(150.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF6CCB64)), // Light green background for profile pic
+                                            .background(Color(0xFF6CCB64)),
                                         error = painterResource(id = R.drawable.default_profile),
                                         placeholder = painterResource(id = R.drawable.default_profile)
                                     )
@@ -441,17 +448,44 @@ fun ProfileScreen(
                                             )
                                         )
                                         
-                                        IconButton(
-                                            onClick = { showAnalytics = !showAnalytics }
-                                        ) {
-                                            Icon(
-                                                imageVector = if (showAnalytics) 
-                                                    Icons.Default.ExpandLess 
-                                                else 
-                                                    Icons.Default.ExpandMore,
-                                                contentDescription = "Toggle Analytics",
-                                                tint = Color.White
-                                            )
+                                        Row {
+                                            // Reset Data Button
+                                            IconButton(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        // Reset analytics data
+                                                        ListeningAnalytics.resetAllData(context, userEmail)
+
+                                                        val tokenManager = TokenManager(context)
+                                                        tokenManager.saveString("listened_songs_$userEmail", "")
+                                                        ListenedSongsTracker.loadListenedSongs(userEmail, context)
+                                                        listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+
+                                                        showAnalytics = false
+                                                        delay(100)
+                                                        showAnalytics = true
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Refresh,
+                                                    contentDescription = "Reset Data",
+                                                    tint = Color.White
+                                                )
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = { showAnalytics = !showAnalytics }
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (showAnalytics) 
+                                                        Icons.Default.ExpandLess 
+                                                    else 
+                                                        Icons.Default.ExpandMore,
+                                                    contentDescription = "Toggle Analytics",
+                                                    tint = Color.White
+                                                )
+                                            }
                                         }
                                     }
                                     
@@ -465,7 +499,8 @@ fun ProfileScreen(
                                             AnalyticsCard(
                                                 title = "Total Time Listened",
                                                 value = formattedTimeListened,
-                                                icon = Icons.Default.AccessTime
+                                                icon = Icons.Default.AccessTime,
+                                                onClick = { navController.navigate("time_listened") }
                                             )
                                             
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -486,7 +521,8 @@ fun ProfileScreen(
                                                 title = "Favorite Artist",
                                                 value = if (topArtist.first.isEmpty()) "None yet" else topArtist.first,
                                                 subtitle = if (topArtist.second > 0) "${topArtist.second} plays" else "",
-                                                icon = Icons.Default.Person
+                                                icon = Icons.Default.Person,
+                                                onClick = { navController.navigate("top_artists") }
                                             )
                                             
                                             if (streakSong.third > 0) {
@@ -500,6 +536,87 @@ fun ProfileScreen(
                                                     icon = Icons.Default.Star
                                                 )
                                             }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            
+                                            Button(
+                                                onClick = {
+                                                    // Show options for exporting analytics
+                                                    val options = arrayOf("Download PDF", "Share PDF", "Both")
+                                                    
+                                                    // Create and show the dialog
+                                                    val dialog = android.app.AlertDialog.Builder(context)
+                                                        .setTitle("Export Analytics")
+                                                        .setItems(options) { _, which ->
+                                                            coroutineScope.launch {
+                                                                val topSongs = ListeningAnalytics.getAllSongListeningData()
+                                                                    .take(10)
+                                                                    .map { Triple(it.first, it.second.toString(), (it.third / 60).toInt()) }
+
+                                                                val topArtists = ListeningAnalytics.getAllArtistsData()
+                                                                    .take(10)
+                                                                
+                                                                val shouldShare = which == 1 || which == 2 // Share or Both
+                                                                val shouldDownload = which == 0 || which == 2 // Download or Both
+                                                                
+                                                                val success = PdfExportUtil.exportAnalyticsToPdf(
+                                                                    context = context,
+                                                                    username = profileData?.username ?: userEmail,
+                                                                    timeListened = formattedTimeListened,
+                                                                    topSongs = topSongs,
+                                                                    topArtists = topArtists,
+                                                                    shouldShare = shouldShare,
+                                                                    shouldDownload = shouldDownload
+                                                                )
+
+                                                                val message = if (success) {
+                                                                    when {
+                                                                        shouldShare && shouldDownload -> "Analytics downloaded and shared"
+                                                                        shouldShare -> "Analytics shared successfully"
+                                                                        else -> "Analytics downloaded successfully"
+                                                                    }
+                                                                } else {
+                                                                    "Failed to export analytics"
+                                                                }
+                                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                        .setNegativeButton("Cancel") { dialog, _ ->
+                                                            dialog.dismiss()
+                                                        }
+                                                        .create()
+                                                    
+                                                    dialog.show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFF6CCB64).copy(alpha = 0.7f)
+                                                ),
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp)
+                                                    .height(48.dp)
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.PictureAsPdf,
+                                                        contentDescription = "Export PDF",
+                                                        tint = Color.White
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = "Export Analytics as PDF",
+                                                        style = TextStyle(
+                                                            color = Color.White,
+                                                            fontSize = 16.sp,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -510,7 +627,6 @@ fun ProfileScreen(
             }
         }
 
-        // Bottom Navigation Bar with mini player
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
@@ -616,7 +732,6 @@ fun AnalyticsCard(
                 }
             }
 
-            // Arrow icon for navigation
             Icon(
                 imageVector = Icons.Default.ArrowForward,
                 contentDescription = null,

@@ -273,6 +273,36 @@ class MainActivity : ComponentActivity() {
                                 songViewModel = songViewModel,
                                 onNavigateToPlayer = { navController.navigate("player") }
                             )
+                            
+                            // Add the TopSongs screen to navigation
+                            composable("top_songs") {
+                                TopSongsScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            // Add the Time Listened screen for analytics
+                            composable("time_listened") {
+                                TimeListenedScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            // Add the Top Artists screen for analytics
+                            composable("top_artists") {
+                                TopArtistsScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
                         }
 
                         if (status != ConnectivityObserver.Status.Available) {

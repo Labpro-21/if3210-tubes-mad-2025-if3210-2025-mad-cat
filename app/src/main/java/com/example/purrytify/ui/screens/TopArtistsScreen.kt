@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -29,25 +28,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
 import com.example.purrytify.ui.components.BottomNavBar
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
-import java.io.File
 
 @Composable
-fun TopSongsScreen(
+fun TopArtistsScreen(
     navController: NavController,
     musicViewModel: MusicViewModel,
     songViewModel: SongViewModel,
     onNavigateToPlayer: () -> Unit
 ) {
-    val songPlayData = remember { ListeningAnalytics.getAllSongPlayData() }
-    val songCount = songPlayData.size
+    val artistData = remember { ListeningAnalytics.getAllArtistsData() }
+    val artistCount = artistData.size
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var showResetConfirmation by remember { mutableStateOf(false) }
 
     val gradientColors = listOf(
@@ -84,7 +79,7 @@ fun TopSongsScreen(
                 }
 
                 Text(
-                    text = "Most Played Songs",
+                    text = "Top Artists",
                     style = TextStyle(
                         color = Color.White,
                         fontSize = 22.sp,
@@ -110,7 +105,7 @@ fun TopSongsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         ) {
-                            append("$songCount different songs")
+                            append("$artistCount different artists")
                         }
                         append(" this month")
                     },
@@ -127,14 +122,14 @@ fun TopSongsScreen(
                     .weight(1f)
                     .padding(bottom = 56.dp)
             ) {
-                itemsIndexed(songPlayData) { index, (title, artist, playCount, coverUrl) ->
-                    TopSongItem(
+                itemsIndexed(artistData) { index, (artist, playCount) ->
+                    val songsByArtist = ListeningAnalytics.getSongsByArtist(artist)
+
+                    TopArtistItem(
                         index = index + 1,
-                        title = title,
                         artist = artist,
                         playCount = playCount,
-                        coverUrl = coverUrl,
-                        songViewModel = songViewModel,
+                        songCount = songsByArtist.size
                     )
 
                     Divider(
@@ -178,14 +173,15 @@ fun TopSongsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1DB954))
+                    .background(Color(0xFF1E1E1E))
+                    .clickable { navController.navigate("top_songs") }
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Top Songs",
                     style = TextStyle(
-                        color = Color.Black,
+                        color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -198,15 +194,14 @@ fun TopSongsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1E1E1E))
-                    .clickable { navController.navigate("top_artists") }
+                    .background(Color(0xFF1DB954))
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Top Artists",
                     style = TextStyle(
-                        color = Color.White,
+                        color = Color.Black,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -218,11 +213,11 @@ fun TopSongsScreen(
             navController = navController,
             musicViewModel = musicViewModel,
             songViewModel = songViewModel,
-            currentRoute = "top_songs",
+            currentRoute = "top_artists",
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
-        
+
         // Reset confirmation dialog
         if (showResetConfirmation) {
             AlertDialog(
@@ -242,17 +237,17 @@ fun TopSongsScreen(
                 },
                 confirmButton = {
                     Button(
-                        onClick = { 
+                        onClick = {
                             // Reset all analytics data
                             val userEmail = songViewModel.currentUserEmail.value
                             if (userEmail.isNotEmpty()) {
                                 ListeningAnalytics.resetAllData(context, userEmail)
                                 Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
-                                // Refresh
+                                // Refresh the current screen
                                 navController.navigate("home") {
                                     popUpTo("home")
                                 }
-                                navController.navigate("top_songs")
+                                navController.navigate("top_artists")
                             }
                             showResetConfirmation = false
                         },
@@ -282,18 +277,13 @@ fun TopSongsScreen(
 
 @SuppressLint("DefaultLocale")
 @Composable
-fun TopSongItem(
+fun TopArtistItem(
     index: Int,
-    title: String,
     artist: String,
     playCount: Int,
-    coverUrl: String?,
-    songViewModel: SongViewModel,
+    songCount: Int
 ) {
     val context = LocalContext.current
-    val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
-    val song = allSongs.find { it.title == title && it.artist == artist }
-        ?: allSongs.find { it.title == title }
 
     Row(
         modifier = Modifier
@@ -319,28 +309,12 @@ fun TopSongItem(
                 .background(Color(0xFF2A2A2A)),
             contentAlignment = Alignment.Center
         ) {
-            val imageModel = when {
-                song?.coverUri?.startsWith("http") == true -> song.coverUri
-                song?.coverUri?.isNotEmpty() == true && File(song.coverUri).exists() -> File(song.coverUri)
-                !coverUrl.isNullOrEmpty() -> coverUrl
-                else -> null
-            }
-
-            if (imageModel != null) {
-                AsyncImage(
-                    model = imageModel,
-                    contentDescription = title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         Column(
@@ -349,7 +323,7 @@ fun TopSongItem(
                 .padding(start = 12.dp)
         ) {
             Text(
-                text = title,
+                text = artist,
                 style = TextStyle(
                     color = Color.White,
                     fontSize = 16.sp,
@@ -360,20 +334,10 @@ fun TopSongItem(
             )
 
             Text(
-                text = artist,
+                text = "$songCount songs",
                 style = TextStyle(
                     color = Color.Gray,
                     fontSize = 14.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = "$playCount plays",
-                style = TextStyle(
-                    color = Color(0xFF1DB954),
-                    fontSize = 12.sp
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
