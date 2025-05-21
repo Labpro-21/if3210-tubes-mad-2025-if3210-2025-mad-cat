@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,12 +24,15 @@ import androidx.navigation.NavController
 import com.example.purrytify.ui.components.BottomNavBar
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.toArgb
+import com.example.purrytify.utils.PdfExporter
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -78,6 +80,9 @@ fun TimeListenedScreen(
         ListeningAnalytics.getDailyListeningData() 
     }
 
+    // State for reset confirmation dialog
+    var showResetConfirmation by remember { mutableStateOf(false) }
+
     val gradientColors = listOf(
         Color(0xFF095256),
         Color(0xFF121212)
@@ -122,8 +127,6 @@ fun TimeListenedScreen(
                     ),
                     modifier = Modifier.padding(start = 16.dp)
                 )
-                
-                Spacer(modifier = Modifier.weight(1f))
             }
 
             // Total listening time card
@@ -429,79 +432,121 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
     // Find max value for scaling
     val maxValue = sortedData.maxOrNull() ?: 1L
     
-    Canvas(
-        modifier = Modifier.fillMaxSize()
+    // Use Material 3 styling
+    val primaryColor = Color(0xFF1DB954)
+    val chartLineColor = primaryColor
+    val gradientStartColor = Color(0x401DB954)
+    val gradientEndColor = Color(0x001DB954)
+    
+    // Create points for line chart
+    val points = sortedData.mapIndexed { index, value ->
+        value.toFloat() / maxValue.toFloat()
+    }
+    
+    // Draw Material 3 based chart
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        val height = size.height
-        val width = size.width
-        
-        val barWidth = width / (sortedData.size * 2)
-        val path = Path()
-        val points = mutableListOf<Offset>()
-        
-        // Draw line chart
-        sortedData.forEachIndexed { index, value ->
-            val x = (index * (width / (sortedData.size - 1)))
-            val y = height - (height * (value.toFloat() / maxValue.toFloat()))
+        // Material 3 Line Chart using Surface
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.Transparent
+        ) {
+            val pointCount = points.size
+            val pointSpacing = remember { 1f / (pointCount - 1) }
             
-            val point = Offset(x.toFloat(), y)
-            points.add(point)
-            
-            if (index == 0) {
-                path.moveTo(point.x, point.y)
-            } else {
-                path.lineTo(point.x, point.y)
-            }
-            
-            // Draw point
-            drawCircle(
-                color = Color(0xFF1DB954),
-                radius = 6f,
-                center = point
-            )
-        }
-        
-        // Draw line
-        drawPath(
-            path = path,
-            color = Color(0xFF1DB954),
-            style = Stroke(
-                width = 3f,
-                cap = StrokeCap.Round
-            )
-        )
-        
-        // Draw area under the line (gradient)
-        val fillPath = Path().apply {
-            // Start from bottom-left
-            moveTo(0f, height)
-            
-            // Add all line points
-            points.forEachIndexed { index, offset ->
-                if (index == 0) {
-                    lineTo(offset.x, offset.y)
-                } else {
-                    lineTo(offset.x, offset.y)
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Line chart implementation
+                androidx.compose.foundation.Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val height = size.height
+                    val width = size.width
+                    
+                    val path = Path()
+                    val chartPoints = mutableListOf<Offset>()
+                    
+                    // Draw line chart with Material 3 styling
+                    points.forEachIndexed { index, normalizedValue ->
+                        val x = (index * (width / (points.size - 1)))
+                        val y = height - (height * normalizedValue)
+                        
+                        val point = Offset(x.toFloat(), y)
+                        chartPoints.add(point)
+                        
+                        if (index == 0) {
+                            path.moveTo(point.x, point.y)
+                        } else {
+                            path.lineTo(point.x, point.y)
+                        }
+                        
+                        // Draw point markers with Material 3 styling
+                        drawCircle(
+                            color = chartLineColor,
+                            radius = 6f,
+                            center = point
+                        )
+                    }
+                    
+                    // Draw line with Material 3 styling
+                    drawPath(
+                        path = path,
+                        color = chartLineColor,
+                        style = Stroke(
+                            width = 3f,
+                            cap = StrokeCap.Round
+                        )
+                    )
+                    
+                    // Draw area under the line using Material 3 gradient
+                    val fillPath = Path().apply {
+                        // Start from bottom-left
+                        moveTo(0f, height)
+                        
+                        // Add all line points
+                        chartPoints.forEachIndexed { index, offset ->
+                            if (index == 0) {
+                                lineTo(offset.x, offset.y)
+                            } else {
+                                lineTo(offset.x, offset.y)
+                            }
+                        }
+                        
+                        // Complete the path to bottom-right
+                        lineTo(width, height)
+                        close()
+                    }
+                    
+                    // Draw gradient fill with Material 3 styling
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                gradientStartColor,
+                                gradientEndColor
+                            ),
+                            startY = 0f,
+                            endY = height
+                        )
+                    )
+                }
+                
+                // Draw labels for each point
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Only rendering invisible placeholders as actual labels are rendered outside
+                    repeat(pointCount) {
+                        Box(modifier = Modifier.size(4.dp)) {}
+                    }
                 }
             }
-            
-            // Complete the path to bottom-right
-            lineTo(width, height)
-            close()
         }
-        
-        // Draw gradient fill
-        drawPath(
-            path = fillPath,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color(0x401DB954),
-                    Color(0x001DB954)
-                ),
-                startY = 0f,
-                endY = height
-            )
-        )
     }
 }
 

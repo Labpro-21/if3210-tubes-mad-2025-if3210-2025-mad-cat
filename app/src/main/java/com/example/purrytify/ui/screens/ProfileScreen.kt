@@ -1,6 +1,5 @@
 package com.example.purrytify.ui.screens
 
-import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -12,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -51,18 +49,14 @@ import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
 import com.example.purrytify.ui.viewmodel.SongViewModel
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.material3.AlertDialog
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.purrytify.utils.PdfExportUtil
+import com.example.purrytify.ui.screens.ListeningAnalytics.MonthlyAnalytics
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import com.example.purrytify.utils.PdfExportUtil
 
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
@@ -140,14 +134,16 @@ fun ProfileScreen(
     var previousSong by remember { mutableStateOf<Song?>(null) }
     
     // Analytics state values
-    val timeListened by ListeningAnalytics.timeListened.collectAsStateWithLifecycle()
     val formattedTimeListened = ListeningAnalytics.formatTimeListened()
     val topSong by ListeningAnalytics.topSong.collectAsStateWithLifecycle()
     val topArtist by ListeningAnalytics.topArtist.collectAsStateWithLifecycle()
     val streakSong by ListeningAnalytics.streakSong.collectAsStateWithLifecycle()
-    
+
     // Control whether to show analytics section
     var showAnalytics by remember { mutableStateOf(false) }
+
+    // State to show reset confirmation dialog
+    var showResetConfirmation by remember { mutableStateOf(false) }
 
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
@@ -235,7 +231,8 @@ fun ProfileScreen(
 
     val gradientColors = listOf(
         Color(0xFF095256),
-        Color(0xFF121212)
+        Color(0xFF121212),
+        Color(0xFF000000)
     )
 
     Box(
@@ -243,9 +240,11 @@ fun ProfileScreen(
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = gradientColors,
-                    startY = 0f,
-                    endY = 1200f
+                    colorStops = arrayOf(
+                        0.0f to Color(0xFF095256),
+                        0.25f to Color(0xFF121212),
+                        1.0f to Color.Black
+                    )
                 )
             )
     ) {
@@ -279,7 +278,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(bottom = 64.dp)
+                    .padding(bottom = 54.dp)
             ) {
                 if (!isOnline) {
                     ErrorScreen(pageName = "Profile")
@@ -293,7 +292,8 @@ fun ProfileScreen(
                                 enabled = true,
                                 reverseScrolling = false,
                                 flingBehavior = null
-                            ),
+                            )
+                            .padding(bottom = 80.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Spacer(modifier = Modifier.height(24.dp))
@@ -429,195 +429,217 @@ fun ProfileScreen(
 
                                 // Analytics section
                                 Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    horizontalAlignment = Alignment.Start
                                 ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text(
+                                        text = "Your Sound Capsule",
+                                        style = TextStyle(
+                                            color = Color.White,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    ListeningAnalytics.getMonthlyAnalytics().toList()
+                                        .sortedByDescending { (month, _) ->
+                                            LocalDate.parse("01 $month 2025", DateTimeFormatter.ofPattern("dd MMMM yyyy")).monthValue
+                                        }
+                                        .filter { (month, _) ->
+                                            LocalDate.parse("01 $month 2025", DateTimeFormatter.ofPattern("dd MMMM yyyy"))
+                                                .isBefore(LocalDate.of(2025, 6, 1))
+                                        }
+                                        .forEach { (month, data) ->
+                                            val date = LocalDate.parse("01 $month 2025", DateTimeFormatter.ofPattern("dd MMMM yyyy"))
+                                            val formattedMonthYear = date.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+
                                         Text(
-                                            text = "Listening Analytics",
+                                            text = formattedMonthYear,
                                             style = TextStyle(
                                                 color = Color.White,
                                                 fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold
-                                            )
+                                            ),
+                                            modifier = Modifier.padding(vertical = 8.dp)
                                         )
-                                        
-                                        Row {
-                                            // Reset Data Button
-                                            IconButton(
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        // Reset analytics data
-                                                        ListeningAnalytics.resetAllData(context, userEmail)
 
-                                                        val tokenManager = TokenManager(context)
-                                                        tokenManager.saveString("listened_songs_$userEmail", "")
-                                                        ListenedSongsTracker.loadListenedSongs(userEmail, context)
-                                                        listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
-
-                                                        showAnalytics = false
-                                                        delay(100)
-                                                        showAnalytics = true
-                                                    }
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { navController.navigate("time_listened") },
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Column(modifier = Modifier.padding(16.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text("Time listened", color = Color.Gray, fontSize = 14.sp)
+                                                    Icon(
+                                                        imageVector = Icons.Default.ArrowForward,
+                                                        contentDescription = null,
+                                                        tint = Color.White.copy(alpha = 0.7f),
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
                                                 }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Refresh,
-                                                    contentDescription = "Reset Data",
-                                                    tint = Color.White
-                                                )
-                                            }
-                                            
-                                            IconButton(
-                                                onClick = { showAnalytics = !showAnalytics }
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (showAnalytics) 
-                                                        Icons.Default.ExpandLess 
-                                                    else 
-                                                        Icons.Default.ExpandMore,
-                                                    contentDescription = "Toggle Analytics",
-                                                    tint = Color.White
+                                                Text(
+                                                    text = data.timeListened ?: "No Data",
+                                                    color = Color(0xFF00FF7F),
+                                                    fontSize = 28.sp,
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                             }
                                         }
-                                    }
-                                    
-                                    AnimatedVisibility(
-                                        visible = showAnalytics,
-                                        enter = expandVertically(),
-                                        exit = shrinkVertically()
-                                    ) {
-                                        Column(modifier = Modifier.padding(top = 8.dp)) {
-                                            // Time listened
-                                            AnalyticsCard(
-                                                title = "Total Time Listened",
-                                                value = formattedTimeListened,
-                                                icon = Icons.Default.AccessTime,
-                                                onClick = { navController.navigate("time_listened") }
-                                            )
-                                            
-                                            Spacer(modifier = Modifier.height(8.dp))
 
-                                            // Top song
-                                            AnalyticsCard(
-                                                title = "Most Played Song",
-                                                value = if (topSong.first.isEmpty()) "None yet" else topSong.first,
-                                                subtitle = if (topSong.third > 0L) "${ListeningAnalytics.formatDuration(topSong.third)} of listening time" else "",
-                                                icon = Icons.Default.MusicNote,
-                                                onClick = { navController.navigate("top_songs") }
-                                            )
-                                            
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.height(12.dp))
 
-                                            // Top artist
-                                            AnalyticsCard(
-                                                title = "Favorite Artist",
-                                                value = if (topArtist.first.isEmpty()) "None yet" else topArtist.first,
-                                                subtitle = if (topArtist.second > 0) "${topArtist.second} plays" else "",
-                                                icon = Icons.Default.Person,
-                                                onClick = { navController.navigate("top_artists") }
-                                            )
-                                            
-                                            if (streakSong.third > 0) {
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                
-                                                // Current streak
-                                                AnalyticsCard(
-                                                    title = "Listening Streak",
-                                                    value = streakSong.first,
-                                                    subtitle = "${streakSong.third} days in a row",
-                                                    icon = Icons.Default.Star
-                                                )
-                                            }
-
-                                            Spacer(modifier = Modifier.height(16.dp))
-                                            
-                                            Button(
-                                                onClick = {
-                                                    // Show options for exporting analytics
-                                                    val options = arrayOf("Download PDF", "Share PDF", "Both")
-                                                    
-                                                    // Create and show the dialog
-                                                    val dialog = android.app.AlertDialog.Builder(context)
-                                                        .setTitle("Export Analytics")
-                                                        .setItems(options) { _, which ->
-                                                            coroutineScope.launch {
-                                                                val topSongs = ListeningAnalytics.getAllSongListeningData()
-                                                                    .take(10)
-                                                                    .map { Triple(it.first, it.second.toString(), (it.third / 60).toInt()) }
-
-                                                                val topArtists = ListeningAnalytics.getAllArtistsData()
-                                                                    .take(10)
-                                                                
-                                                                val shouldShare = which == 1 || which == 2 // Share or Both
-                                                                val shouldDownload = which == 0 || which == 2 // Download or Both
-                                                                
-                                                                val success = PdfExportUtil.exportAnalyticsToPdf(
-                                                                    context = context,
-                                                                    username = profileData?.username ?: userEmail,
-                                                                    timeListened = formattedTimeListened,
-                                                                    topSongs = topSongs,
-                                                                    topArtists = topArtists,
-                                                                    shouldShare = shouldShare,
-                                                                    shouldDownload = shouldDownload
-                                                                )
-
-                                                                val message = if (success) {
-                                                                    when {
-                                                                        shouldShare && shouldDownload -> "Analytics downloaded and shared"
-                                                                        shouldShare -> "Analytics shared successfully"
-                                                                        else -> "Analytics downloaded successfully"
-                                                                    }
-                                                                } else {
-                                                                    "Failed to export analytics"
-                                                                }
-                                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        }
-                                                        .setNegativeButton("Cancel") { dialog, _ ->
-                                                            dialog.dismiss()
-                                                        }
-                                                        .create()
-                                                    
-                                                    dialog.show()
-                                                },
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = Color(0xFF6CCB64).copy(alpha = 0.7f)
-                                                ),
-                                                shape = RoundedCornerShape(12.dp),
+                                        Row(modifier = Modifier.fillMaxWidth()) {
+                                            Card(
                                                 modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp)
-                                                    .height(48.dp)
+                                                    .weight(1f)
+                                                    .padding(end = 4.dp)
+                                                    .clickable { navController.navigate("top_artists") },
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                                                shape = RoundedCornerShape(12.dp)
                                             ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.Center
+                                                Column(
+                                                    modifier = Modifier.padding(16.dp),
+                                                    horizontalAlignment = Alignment.Start
                                                 ) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text("Top artist", color = Color.Gray, fontSize = 14.sp)
+                                                        Icon(
+                                                            imageVector = Icons.Default.ArrowForward,
+                                                            contentDescription = null,
+                                                            tint = Color.White.copy(alpha = 0.7f),
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        text = data.topArtist ?: "None yet",
+                                                        color = Color(0xFF669BEC),
+                                                        fontSize = 16.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Spacer(modifier = Modifier.height(10.dp))
                                                     Icon(
-                                                        imageVector = Icons.Default.PictureAsPdf,
-                                                        contentDescription = "Export PDF",
+                                                        imageVector = Icons.Default.Person,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .size(58.dp)
+                                                            .background(Color.DarkGray, shape = CircleShape)
+                                                            .padding(8.dp),
                                                         tint = Color.White
                                                     )
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text(
-                                                        text = "Export Analytics as PDF",
-                                                        style = TextStyle(
-                                                            color = Color.White,
-                                                            fontSize = 16.sp,
-                                                            fontWeight = FontWeight.Medium
+                                                }
+                                            }
+
+                                            Card(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(start = 4.dp)
+                                                    .clickable { navController.navigate("top_songs") },
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(16.dp),
+                                                    horizontalAlignment = Alignment.Start
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text("Top song", color = Color.Gray, fontSize = 14.sp)
+                                                        Icon(
+                                                            imageVector = Icons.Default.ArrowForward,
+                                                            contentDescription = null,
+                                                            tint = Color.White.copy(alpha = 0.7f),
+                                                            modifier = Modifier.size(24.dp)
                                                         )
+                                                    }
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        text = data.topSong ?: "None yet",
+                                                        color = Color(0xFFF8E747),
+                                                        fontSize = 16.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Spacer(modifier = Modifier.height(10.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.MusicNote,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .size(58.dp)
+                                                            .background(Color.DarkGray, shape = CircleShape)
+                                                            .padding(8.dp),
+                                                        tint = Color.White
                                                     )
                                                 }
                                             }
                                         }
+
+                                        if (data.streak != null && data.streak > 0) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Column(modifier = Modifier.padding(16.dp)) {
+                                                    Text("You had a ${data.streak}-day streak", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                                    AsyncImage(
+                                                        model = ListeningAnalytics.getSongCoverUrl(data.topSong ?: "", data.topArtist ?: ""),
+                                                        contentDescription = "Streak Song Cover",
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(150.dp)
+                                                            .clip(RoundedCornerShape(8.dp)),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        text = "You played consistently during this month. Keep it up!",
+                                                        color = Color.Gray,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(20.dp))
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(24.dp))
+
+                                // Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    IconButton(
+                                        onClick = { showResetConfirmation = true }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Reset Data",
+                                            tint = Color.White
+                                        )
                                     }
                                 }
                             }
@@ -635,8 +657,69 @@ fun ProfileScreen(
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+
+        // Add confirmation dialog
+        if (showResetConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmation = false },
+                title = {
+                    Text(
+                        text = "Reset Data",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
+                        color = Color.White
+                    )
+                },
+
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                // Reset analytics data
+                                ListeningAnalytics.resetAllData(context, userEmail)
+
+                                val tokenManager = TokenManager(context)
+                                tokenManager.saveString("listened_songs_$userEmail", "")
+                                ListenedSongsTracker.loadListenedSongs(userEmail, context)
+                                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+
+                                showAnalytics = false
+                                delay(100)
+                                showAnalytics = true
+
+                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
+                            }
+                            showResetConfirmation = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE53935)
+                        )
+                    ) {
+                        Text("Reset")
+                    }
+
+                },
+                dismissButton = {
+                    Button(
+                        onClick = { showResetConfirmation = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF424242)
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+                },
+                containerColor = Color(0xFF2A2A2A),
+                shape = RoundedCornerShape(16.dp)
+                )
+            }
+        }
     }
-}
 
 @Composable
 fun StatItem(count: Int, label: String) {
@@ -662,82 +745,61 @@ fun StatItem(count: Int, label: String) {
 }
 
 @Composable
-fun AnalyticsCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    subtitle: String = "",
-    onClick: () -> Unit = {}
+fun MonthlyListeningAnalytics(
+    analyticsData: Map<String, MonthlyAnalytics>,
+    onMonthSelected: (String) -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1E1E1E)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Icon
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color(0xFF6CCB64),
-                modifier = Modifier.size(32.dp)
-            )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        analyticsData.forEach { (month, data) ->
+            var isExpanded by remember { mutableStateOf(false) }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Title and value
-            Column(
-                modifier = Modifier.weight(1f)
+            // Dropdown for each month
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .clickable { isExpanded = !isExpanded },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = title,
-                    style = TextStyle(
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
-                    )
-                )
-                Text(
-                    text = value,
-                    style = TextStyle(
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = month,
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
-                    ),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                
-                if (subtitle.isNotEmpty()) {
-                    Text(
-                        text = subtitle,
-                        style = TextStyle(
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 12.sp
-                        ),
-                        modifier = Modifier.padding(top = 2.dp)
                     )
+
+                    if (isExpanded) {
+                        if (data.timeListened == null) {
+                            Text(
+                                text = "No Data Available",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        } else {
+                            Text(
+                                text = "Time Listened: ${data.timeListened}",
+                                color = Color(0xFF00FF7F),
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Top Song: ${data.topSong ?: "None"}",
+                                color = Color(0xFFF8E747),
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Top Artist: ${data.topArtist ?: "None"}",
+                                color = Color(0xFF669BEC),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
                 }
             }
-
-            Icon(
-                imageVector = Icons.Default.ArrowForward,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(24.dp)
-            )
         }
     }
 }

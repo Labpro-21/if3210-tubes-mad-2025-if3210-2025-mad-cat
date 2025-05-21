@@ -157,10 +157,22 @@ object ListeningAnalytics {
     }
 
     private fun updateTopSongAndArtist() {
-        songListeningDurations.maxByOrNull { it.value }?.let { (songKey, duration) ->
+        // Try to find a top song by listening duration first
+        val topSongByDuration = songListeningDurations.maxByOrNull { it.value }
+        
+        if (topSongByDuration != null) {
+            val (songKey, duration) = topSongByDuration
             val count = songPlayCounts[songKey] ?: 0
             val songTitle = songKey.split("_").first()
             _topSong.value = Triple(songTitle, count, duration)
+        } else if (songPlayCounts.isNotEmpty()) {
+            // Fallback to play counts if no listening durations
+            val topSongByPlayCount = songPlayCounts.maxByOrNull { it.value }
+            topSongByPlayCount?.let { (songKey, count) ->
+                val duration = songListeningDurations[songKey] ?: 0L
+                val songTitle = songKey.split("_").first()
+                _topSong.value = Triple(songTitle, count, duration)
+            }
         }
 
         artistPlayCounts.maxByOrNull { it.value }?.let { (artist, count) ->
@@ -551,6 +563,14 @@ object ListeningAnalytics {
         songLastPlayed.clear()
         songStreakDays.clear()
         songCoverUrls.clear()
+        
+        // Reset the StateFlow objects explicitly to empty values
+        _topSong.value = Triple("", 0, 0L)
+        _topArtist.value = Pair("", 0)
+        _streakSong.value = Triple("", "", 0)
+        
+        // Clear the last played song key to ensure next play is counted as new
+        _lastPlayedSongKey = null
 
         lastLoadDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
 
@@ -565,6 +585,10 @@ object ListeningAnalytics {
         tokenManager.saveString("${email}_last_played", "")
         tokenManager.saveString("${email}_cover_urls", "")
         
+        // Ensure UI gets updated immediately after reset
+        updateTopSongAndArtist()
+        updateStreakSong()
+        
         Log.d("ListeningAnalytics", "All data reset!")
     }
 
@@ -577,5 +601,51 @@ object ListeningAnalytics {
         }.map { (songKey, _) ->
             songKey.split("_").firstOrNull() ?: songKey
         }
+    }
+
+    // Monthly analytics data class
+    data class MonthlyAnalytics(
+        val timeListened: String?,
+        val topSong: String?,
+        val topArtist: String?,
+        val streak: Int?
+    )
+
+    // Get monthly analytics data
+    fun getMonthlyAnalytics(): Map<String, MonthlyAnalytics> {
+        val monthlyAnalytics = mutableMapOf<String, MonthlyAnalytics>()
+
+        val currentYear = LocalDate.now().year
+        for (month in 1..12) {
+            val monthName = LocalDate.of(currentYear, month, 1).month.name.lowercase().replaceFirstChar { it.uppercase() }
+
+            val timeListened = dailyListeningMap.filterKeys {
+                LocalDate.parse(it).monthValue == month
+            }.values.sum()
+
+            val topSong = songPlayCounts.filterKeys {
+                val date = songLastPlayed[it] ?: return@filterKeys false
+                date.monthValue == month
+            }.maxByOrNull { it.value }?.key?.split("_")?.firstOrNull()
+
+            val topArtist = artistPlayCounts.maxByOrNull { it.value }?.key
+
+            val streak = songStreakDays.filterKeys {
+                val date = songLastPlayed[it] ?: return@filterKeys false
+                date.monthValue == month
+            }.maxByOrNull { it.value }?.value
+
+            // Exclude months where all data is null or zero
+            if (timeListened > 0 || topSong != null || topArtist != null || streak != null) {
+                monthlyAnalytics[monthName] = MonthlyAnalytics(
+                    timeListened = if (timeListened > 0) formatDuration(timeListened) else null,
+                    topSong = topSong,
+                    topArtist = topArtist,
+                    streak = streak
+                )
+            }
+        }
+
+        return monthlyAnalytics
     }
 }

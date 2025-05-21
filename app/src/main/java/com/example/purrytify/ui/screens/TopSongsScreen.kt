@@ -1,7 +1,7 @@
 package com.example.purrytify.ui.screens
 
-import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,21 +19,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.purrytify.ui.components.BottomNavBar
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
-import java.io.File
 
 @Composable
 fun TopSongsScreen(
@@ -46,171 +42,52 @@ fun TopSongsScreen(
 ) {
     val songPlayData = remember { ListeningAnalytics.getAllSongPlayData() }
     val songCount = songPlayData.size
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var showResetConfirmation by remember { mutableStateOf(false) }
 
-    val gradientColors = listOf(
-        Color(0xFF095256),
-        Color(0xFF121212)
-    )
+    val gradientColors = listOf(Color(0xFF000000), Color(0xFF1B1B1B))
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = gradientColors,
-                    startY = 0f,
-                    endY = 1200f
-                )
-            )
+            .background(Brush.verticalGradient(colors = gradientColors))
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
+            TopBar(navController)
+
+            Text(
+                text = "May 2025",
+                color = Color.Gray,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+
+            Text(
+                text = buildAnnotatedString {
+                    append("You played ")
+                    withStyle(style = SpanStyle(color = Color(0xFFFFD700), fontWeight = FontWeight.Bold)) {
+                        append("$songCount different songs ")
+                    }
+                    append("this month.")
+                },
+                fontSize = 26.sp,
+                lineHeight = 32.sp,
+                color = Color.White,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Divider(
+                color = Color.Gray.copy(alpha = 0.3f),
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                itemsIndexed(songPlayData.take(4)) { index, (title, artist, playCount, coverUrl) ->
+                    TopSongItemStyled(index + 1, title, artist, playCount, coverUrl.toString())
                 }
-
-                Text(
-                    text = "Most Played Songs",
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    modifier = Modifier
-                        .padding(start = 16.dp)
-                        .weight(1f)
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
-            ) {
-                Text(
-                    text = buildAnnotatedString {
-                        append("You listened to ")
-                        withStyle(
-                            style = SpanStyle(
-                                color = Color(0xFFFFD700),
-                                fontWeight = FontWeight.Bold
-                            )
-                        ) {
-                            append("$songCount different songs")
-                        }
-                        append(" this month")
-                    },
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 18.sp
-                    )
-                )
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f)
-                    .padding(bottom = 56.dp)
-            ) {
-                itemsIndexed(songPlayData) { index, (title, artist, playCount, coverUrl) ->
-                    TopSongItem(
-                        index = index + 1,
-                        title = title,
-                        artist = artist,
-                        playCount = playCount,
-                        coverUrl = coverUrl,
-                        songViewModel = songViewModel,
-                    )
-
-                    Divider(
-                        color = Color.DarkGray.copy(alpha = 0.5f),
-                        thickness = 1.dp,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .align(Alignment.BottomCenter),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1E1E1E))
-                    .clickable { navController.navigate("time_listened") }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Listening Time",
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1DB954))
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Top Songs",
-                    style = TextStyle(
-                        color = Color.Black,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1E1E1E))
-                    .clickable { navController.navigate("top_artists") }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Top Artists",
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
             }
         }
 
@@ -222,162 +99,102 @@ fun TopSongsScreen(
             onMiniPlayerClick = onNavigateToPlayer,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
-        
-        // Reset confirmation dialog
-        if (showResetConfirmation) {
-            AlertDialog(
-                onDismissRequest = { showResetConfirmation = false },
-                title = {
-                    Text(
-                        text = "Reset Data",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
-                        color = Color.White
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { 
-                            // Reset all analytics data
-                            val userEmail = songViewModel.currentUserEmail.value
-                            if (userEmail.isNotEmpty()) {
-                                ListeningAnalytics.resetAllData(context, userEmail)
-                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
-                                // Refresh
-                                navController.navigate("home") {
-                                    popUpTo("home")
-                                }
-                                navController.navigate("top_songs")
-                            }
-                            showResetConfirmation = false
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE53935)
-                        )
-                    ) {
-                        Text("Reset")
-                    }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = { showResetConfirmation = false },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF424242)
-                        )
-                    ) {
-                        Text("Cancel")
-                    }
-                },
-                containerColor = Color(0xFF2A2A2A),
-                shape = RoundedCornerShape(16.dp)
-            )
-        }
     }
 }
 
-@SuppressLint("DefaultLocale")
 @Composable
-fun TopSongItem(
-    index: Int,
-    title: String,
-    artist: String,
-    playCount: Int,
-    coverUrl: String?,
-    songViewModel: SongViewModel,
-) {
-    val context = LocalContext.current
-    val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
-    val song = allSongs.find { it.title == title && it.artist == artist }
-        ?: allSongs.find { it.title == title }
-
+fun TopBar(navController: NavController) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .height(60.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = String.format("%02d", index),
-            style = TextStyle(
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            modifier = Modifier.width(40.dp)
-        )
-
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF2A2A2A)),
-            contentAlignment = Alignment.Center
-        ) {
-            val imageModel = when {
-                song?.coverUri?.startsWith("http") == true -> song.coverUri
-                song?.coverUri?.isNotEmpty() == true && File(song.coverUri).exists() -> File(song.coverUri)
-                !coverUrl.isNullOrEmpty() -> coverUrl
-                else -> null
-            }
-
-            if (imageModel != null) {
-                AsyncImage(
-                    model = imageModel,
-                    contentDescription = title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+        IconButton(onClick = { navController.popBackStack() }) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.White
+            )
         }
 
-        Column(
+        Text(
+            text = "Top songs",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(start = 8.dp)
+        )
+    }
+}
+
+@Composable
+fun TopSongItemStyled(index: Int, title: String, artist: String, playCount: Int, coverUrl: String) {
+    Column {
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = title,
-                style = TextStyle(
+                text = index.toString().padStart(2, '0'),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFD700),
+                modifier = Modifier.width(32.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
                     color = Color.White,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Text(
-                text = artist,
-                style = TextStyle(
+                Text(
+                    text = artist,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "$playCount plays",
                     color = Color.Gray,
                     fontSize = 14.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                )
+            }
 
-            Text(
-                text = "$playCount plays",
-                style = TextStyle(
-                    color = Color(0xFF1DB954),
-                    fontSize = 12.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Spacer(modifier = Modifier.width(12.dp))
+
+            AsyncImage(
+                model = coverUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.DarkGray),
+                contentScale = ContentScale.Crop
             )
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Divider(
+            color = Color.Gray.copy(alpha = 0.3f),
+            thickness = 1.dp,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
     }
 }
