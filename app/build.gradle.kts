@@ -140,6 +140,10 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.1")
     implementation("androidx.camera:camera-view:1.3.1")
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    
+    // PDF Generation
+    implementation("com.itextpdf:itextpdf:5.5.13.3")
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     // Fragment
     implementation("androidx.fragment:fragment-ktx:1.6.2")
