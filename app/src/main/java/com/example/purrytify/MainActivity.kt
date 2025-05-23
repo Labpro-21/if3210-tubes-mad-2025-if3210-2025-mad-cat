@@ -280,6 +280,31 @@ class MainActivity : ComponentActivity() {
                                 MixPlaylistScreen(
                                     navController = navController,
                                     mixName = mixName,
+
+                            // Add the TopSongs screen to navigation
+                            composable("top_songs") {
+                                TopSongsScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            // Add the Time Listened screen for analytics
+                            composable("time_listened") {
+                                TimeListenedScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            // Add the Top Artists screen for analytics
+                            composable("top_artists") {
+                                TopArtistsScreen(
+                                    navController = navController,
                                     musicViewModel = musicViewModel,
                                     songViewModel = songViewModel,
                                     onNavigateToPlayer = { navController.navigate("player") }

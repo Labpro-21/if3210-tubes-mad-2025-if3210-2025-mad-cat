@@ -15,7 +15,6 @@ import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Log
-import androidx.lifecycle.LifecycleService
 import androidx.media.session.MediaButtonReceiver
 import com.example.purrytify.MainActivity
 import com.example.purrytify.ui.screens.Song
@@ -28,8 +27,13 @@ import kotlinx.coroutines.withContext
 import java.net.URL
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
+import kotlinx.coroutines.flow.collect
+// Import AudioDevice related classes from the service package
+import com.example.purrytify.service.AudioDevice
+import com.example.purrytify.service.AudioDeviceManager
+import com.example.purrytify.service.AudioDeviceType
 
-class MediaPlaybackService : LifecycleService() {
+class MediaPlaybackService : Service() {
     private var shuffleState = false
     private var repeatMode = 0 // 0 = OFF, 1 = ALL, 2 = ONE
     private var hasCompletionListenerFired = false
@@ -47,6 +51,8 @@ class MediaPlaybackService : LifecycleService() {
     private var updateJob: Job? = null
     private var currentPosition = 0
     private var songDuration = 0
+    private var audioDeviceManager: AudioDeviceManager? = null
+    private var currentAudioDevice: AudioDevice? = null
     
     private val mediaSessionCallback = object : MediaSessionCompat.Callback() {
         override fun onPlay() {
@@ -146,6 +152,15 @@ class MediaPlaybackService : LifecycleService() {
             
             notificationManager = NotificationManager(this)
             
+            // Initialize audio device manager
+            audioDeviceManager = AudioDeviceManager(this).also { manager ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    manager.activeDevice.collect { device ->
+                        handleAudioDeviceChange(device)
+                    }
+                }
+            }
+            
             // Start timeout check
             startTimeoutCheck()
             
@@ -169,13 +184,10 @@ class MediaPlaybackService : LifecycleService() {
     }
     
     override fun onBind(intent: Intent): IBinder {
-        super.onBind(intent)
         return binder
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
-        
         Log.d("MediaPlaybackService", "onStartCommand, action: ${intent?.action}")
         
         MediaButtonReceiver.handleIntent(mediaSession, intent)
@@ -572,6 +584,10 @@ class MediaPlaybackService : LifecycleService() {
     
     override fun onDestroy() {
         try {
+            // Cleanup audio device manager
+            audioDeviceManager?.cleanup()
+            audioDeviceManager = null
+            
             // Cancel all jobs
             updateJob?.cancel()
             timeoutCheckJob?.cancel()
@@ -608,6 +624,63 @@ class MediaPlaybackService : LifecycleService() {
                     stopSelf()
                 }
             }
+        }
+    }
+    
+    private fun handleAudioDeviceChange(newDevice: AudioDevice?) {
+        try {
+            currentAudioDevice = newDevice
+            
+            // If we have an active MediaPlayer, handle the routing
+            mediaPlayer?.let { player ->
+                if (player.isPlaying) {
+                    val currentPosition = player.currentPosition
+                    val wasPlaying = true
+                    
+                    // Release and recreate MediaPlayer to apply new routing
+                    player.release()
+                    mediaPlayer = MediaPlayer().apply {
+                        setDataSource(applicationContext, Uri.parse(currentSong?.uri))
+                        prepare()
+                        seekTo(currentPosition)
+                        if (wasPlaying) {
+                            start()
+                        }
+                    }
+                }
+            }
+            
+            // Send broadcast about device change
+            val intent = Intent("com.example.purrytify.AUDIO_DEVICE_CHANGED")
+            intent.putExtra("deviceName", newDevice?.name ?: "Internal Speaker")
+            sendBroadcast(intent)
+            
+            // Update notification to show current output device
+            updateNotification()
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error handling audio device change", e)
+            // Fallback to internal speaker
+            fallbackToInternalSpeaker()
+        }
+    }
+    
+    private fun fallbackToInternalSpeaker() {
+        try {
+            // Switch to internal speaker
+            audioDeviceManager?.switchToDevice(AudioDevice(
+                id = "internal_speaker",
+                name = "Internal Speaker",
+                type = AudioDeviceType.INTERNAL_SPEAKER,
+                isConnected = true,
+                isActive = true
+            ))
+            
+            // Show error message
+            val intent = Intent("com.example.purrytify.PLAYBACK_ERROR")
+            intent.putExtra("error", "Audio device disconnected. Switched to internal speaker.")
+            sendBroadcast(intent)
+        } catch (e: Exception) {
+            Log.e("MediaPlaybackService", "Error falling back to internal speaker", e)
         }
     }
 }
