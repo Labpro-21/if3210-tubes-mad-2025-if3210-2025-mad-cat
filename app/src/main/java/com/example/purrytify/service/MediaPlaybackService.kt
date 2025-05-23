@@ -37,10 +37,8 @@ class MediaPlaybackService : Service() {
     private var shuffleState = false
     private var repeatMode = 0 // 0 = OFF, 1 = ALL, 2 = ONE
     private var hasCompletionListenerFired = false
-    
-    // Service timeout management
     private var serviceStartTime: Long = 0
-    private val SERVICE_TIMEOUT = 30 * 60 * 1000L // 30 minutes timeout
+    private val SERVICE_TIMEOUT = 30 * 60 * 1000L
     private var timeoutCheckJob: Job? = null
     
     private lateinit var mediaSession: MediaSessionCompat
@@ -72,15 +70,9 @@ class MediaPlaybackService : Service() {
                     it.pause()
                     isPlaying = false
                     updatePlaybackState(PlaybackStateCompat.STATE_PAUSED)
-                    
-                    // Update notification to show pause state
                     updateNotification()
-                    
                     stopPositionUpdates()
                     sendPlaybackStateBroadcast(false)
-                    
-                    // Stop foreground but keep the notification visible (dismissible)
-                    // Using STOP_FOREGROUND_DETACH keeps notification visible but dismissible
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                         stopForeground(Service.STOP_FOREGROUND_DETACH)
                     } else {
@@ -152,7 +144,6 @@ class MediaPlaybackService : Service() {
             
             notificationManager = NotificationManager(this)
             
-            // Initialize audio device manager
             audioDeviceManager = AudioDeviceManager(this).also { manager ->
                 CoroutineScope(Dispatchers.Main).launch {
                     manager.activeDevice.collect { device ->
@@ -161,7 +152,6 @@ class MediaPlaybackService : Service() {
                 }
             }
             
-            // Start timeout check
             startTimeoutCheck()
             
             Log.d("MediaPlaybackService", "Service created successfully")
@@ -206,7 +196,6 @@ class MediaPlaybackService : Service() {
             "ACTION_STOP" -> {
                 Log.d("MediaPlaybackService", "Received ACTION_STOP, cleaning up")
                 try {
-                    // Stop media playback
                     mediaPlayer?.apply {
                         if (isPlaying) {
                             stop()
@@ -215,26 +204,20 @@ class MediaPlaybackService : Service() {
                     }
                     mediaPlayer = null
                     
-                    // Update state
                     isPlaying = false
                     updatePlaybackState(PlaybackStateCompat.STATE_STOPPED)
                     
-                    // Stop foreground service and remove notification
                     stopForeground(Service.STOP_FOREGROUND_REMOVE)
                     
-                    // Release media session
                     mediaSession.isActive = false
                     mediaSession.release()
-                    
-                    // Cancel all jobs
                     updateJob?.cancel()
                     timeoutCheckJob?.cancel()
                     
-                    // Finally stop the service
                     stopSelf()
                 } catch (e: Exception) {
                     Log.e("MediaPlaybackService", "Error in ACTION_STOP", e)
-                    stopSelf() // Ensure service stops even if there's an error
+                    stopSelf()
                 }
                 return START_NOT_STICKY
             }
@@ -300,7 +283,6 @@ class MediaPlaybackService : Service() {
                 startPositionUpdates()
                 updateNotification()
                 
-                // Load album art asynchronously for online songs
                 if (song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://")) {
                     loadAlbumArtAsync(song)
                 }
@@ -333,7 +315,6 @@ class MediaPlaybackService : Service() {
     private fun loadAlbumArtAsync(song: Song) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Small delay to ensure notification shows immediately with default art
                 delay(100)
                 
                 val url = URL(song.coverUri)
@@ -365,7 +346,6 @@ class MediaPlaybackService : Service() {
             stopPositionUpdates()
             sendPlaybackStateBroadcast(false)
             
-            // Stop foreground but keep the notification visible (dismissible)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(Service.STOP_FOREGROUND_DETACH)
             } else {
@@ -379,7 +359,6 @@ class MediaPlaybackService : Service() {
             sendPlaybackStateBroadcast(true)
         }
         
-        // Always update notification when toggling play/pause
         updateNotification()
     }
     
@@ -484,7 +463,6 @@ class MediaPlaybackService : Service() {
             putString(MediaMetadataCompat.METADATA_KEY_TITLE, song.title)
             putString(MediaMetadataCompat.METADATA_KEY_ARTIST, song.artist)
             
-            // For URLs, use the URL directly. For local files, use file:// prefix
             val albumArtUri = when {
                 song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
                     song.coverUri
@@ -496,7 +474,6 @@ class MediaPlaybackService : Service() {
             }
             putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, albumArtUri)
             
-            // Optional: Also try to set a bitmap for better compatibility
             if (song.coverUri.isNotEmpty() && !song.coverUri.startsWith("http")) {
                 try {
                     val bitmap = BitmapFactory.decodeFile(song.coverUri)
@@ -548,14 +525,12 @@ class MediaPlaybackService : Service() {
             
             try {
                 if (isPlaying) {
-                    // When playing, update as foreground service
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         startForeground(NotificationManager.NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
                     } else {
                         startForeground(NotificationManager.NOTIFICATION_ID, notification)
                     }
                 } else {
-                    // When paused, just update the notification normally to keep it dismissible
                     val systemNotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                     systemNotificationManager.notify(NotificationManager.NOTIFICATION_ID, notification)
                 }
@@ -584,23 +559,14 @@ class MediaPlaybackService : Service() {
     
     override fun onDestroy() {
         try {
-            // Cleanup audio device manager
             audioDeviceManager?.cleanup()
             audioDeviceManager = null
-            
-            // Cancel all jobs
             updateJob?.cancel()
             timeoutCheckJob?.cancel()
-            
-            // Release media player
             mediaPlayer?.release()
             mediaPlayer = null
-            
-            // Release media session
             mediaSession.isActive = false
             mediaSession.release()
-            
-            // Remove notification
             stopForeground(Service.STOP_FOREGROUND_REMOVE)
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error in onDestroy", e)
@@ -613,14 +579,11 @@ class MediaPlaybackService : Service() {
         super.onTrimMemory(level)
         when (level) {
             TRIM_MEMORY_UI_HIDDEN -> {
-                // App is in background
                 Log.d("MediaPlaybackService", "App UI hidden")
             }
             TRIM_MEMORY_RUNNING_LOW, TRIM_MEMORY_RUNNING_CRITICAL -> {
-                // System is running low on memory
                 Log.d("MediaPlaybackService", "System low on memory")
                 if (!isPlaying) {
-                    // If not playing, consider stopping the service
                     stopSelf()
                 }
             }
@@ -631,13 +594,11 @@ class MediaPlaybackService : Service() {
         try {
             currentAudioDevice = newDevice
             
-            // If we have an active MediaPlayer, handle the routing
             mediaPlayer?.let { player ->
                 if (player.isPlaying) {
                     val currentPosition = player.currentPosition
                     val wasPlaying = true
                     
-                    // Release and recreate MediaPlayer to apply new routing
                     player.release()
                     mediaPlayer = MediaPlayer().apply {
                         setDataSource(applicationContext, Uri.parse(currentSong?.uri))
@@ -650,23 +611,18 @@ class MediaPlaybackService : Service() {
                 }
             }
             
-            // Send broadcast about device change
             val intent = Intent("com.example.purrytify.AUDIO_DEVICE_CHANGED")
             intent.putExtra("deviceName", newDevice?.name ?: "Internal Speaker")
             sendBroadcast(intent)
-            
-            // Update notification to show current output device
             updateNotification()
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error handling audio device change", e)
-            // Fallback to internal speaker
             fallbackToInternalSpeaker()
         }
     }
     
     private fun fallbackToInternalSpeaker() {
         try {
-            // Switch to internal speaker
             audioDeviceManager?.switchToDevice(AudioDevice(
                 id = "internal_speaker",
                 name = "Internal Speaker",
@@ -675,7 +631,6 @@ class MediaPlaybackService : Service() {
                 isActive = true
             ))
             
-            // Show error message
             val intent = Intent("com.example.purrytify.PLAYBACK_ERROR")
             intent.putExtra("error", "Audio device disconnected. Switched to internal speaker.")
             sendBroadcast(intent)
