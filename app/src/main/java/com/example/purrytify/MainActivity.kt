@@ -274,6 +274,13 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToPlayer = { navController.navigate("player") }
                             )
                             
+                            // Add MixPlaylistScreen route
+                            composable("mix_playlist/{mixName}") { backStackEntry ->
+                                val mixName = backStackEntry.arguments?.getString("mixName") ?: "Your Daily Mix"
+                                MixPlaylistScreen(
+                                    navController = navController,
+                                    mixName = mixName,
+
                             // Add the TopSongs screen to navigation
                             composable("top_songs") {
                                 TopSongsScreen(
