@@ -28,12 +28,13 @@ import kotlinx.coroutines.withContext
 import kotlin.random.Random
 import java.io.File
 import android.os.Environment
-import androidx.lifecycle.lifecycleScope
 import com.example.purrytify.ui.screens.Song as LocalSong
 import com.example.purrytify.data.local.db.entities.DownloadedSongCrossRef
 import com.tubesmobile.purrytify.data.local.db.AppDatabase
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.local.db.entities.SongEntity
+import androidx.fragment.app.FragmentActivity
+import com.example.purrytify.ui.screens.AudioDeviceBottomSheet
 
 enum class RepeatMode {
     OFF,    // No repeat - play through playlist once
@@ -90,6 +91,13 @@ class MusicViewModel : ViewModel() {
     private var mediaService: MediaPlaybackService? = null
     private var isServiceBound = false
 
+    private val _currentAudioDevice = MutableStateFlow<String>("Internal Speaker")
+    val currentAudioDevice: StateFlow<String> = _currentAudioDevice
+
+    // Audio device selector state
+    private val _showAudioDeviceSelector = MutableStateFlow(false)
+    val showAudioDeviceSelector: StateFlow<Boolean> = _showAudioDeviceSelector
+
     // BroadcastReceiver for playback state changes
     private val playbackStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -133,12 +141,44 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    // Audio device change receiver
+    private val audioDeviceReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                "com.example.purrytify.AUDIO_DEVICE_CHANGED" -> {
+                    val deviceName = intent.getStringExtra("deviceName") ?: "Internal Speaker"
+                    _currentAudioDevice.value = deviceName
+                }
+                "com.example.purrytify.PLAYBACK_ERROR" -> {
+                    val error = intent.getStringExtra("error")
+                    error?.let { errorMessage ->
+                        // Show error message to user (you can use a LiveData or StateFlow for this)
+                        Log.e("MusicViewModel", "Playback error: $errorMessage")
+                    }
+                }
+            }
+        }
+    }
+
     // Register receivers
-    private fun registerPlaybackStateReceiver() {
+    private fun registerReceivers() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context?.registerReceiver(
                 playbackStateReceiver,
                 IntentFilter("com.example.purrytify.PLAYBACK_STATE_CHANGED"),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+            context?.registerReceiver(
+                mediaActionReceiver,
+                IntentFilter("com.example.purrytify.MEDIA_ACTION"),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+            context?.registerReceiver(
+                audioDeviceReceiver,
+                IntentFilter().apply {
+                    addAction("com.example.purrytify.AUDIO_DEVICE_CHANGED")
+                    addAction("com.example.purrytify.PLAYBACK_ERROR")
+                },
                 Context.RECEIVER_NOT_EXPORTED
             )
         } else {
@@ -146,20 +186,16 @@ class MusicViewModel : ViewModel() {
                 playbackStateReceiver,
                 IntentFilter("com.example.purrytify.PLAYBACK_STATE_CHANGED")
             )
-        }
-    }
-
-    private fun registerMediaActionReceiver() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context?.registerReceiver(
-                mediaActionReceiver,
-                IntentFilter("com.example.purrytify.MEDIA_ACTION"),
-                Context.RECEIVER_NOT_EXPORTED
-            )
-        } else {
             context?.registerReceiver(
                 mediaActionReceiver,
                 IntentFilter("com.example.purrytify.MEDIA_ACTION")
+            )
+            context?.registerReceiver(
+                audioDeviceReceiver,
+                IntentFilter().apply {
+                    addAction("com.example.purrytify.AUDIO_DEVICE_CHANGED")
+                    addAction("com.example.purrytify.PLAYBACK_ERROR")
+                }
             )
         }
     }
@@ -182,8 +218,7 @@ class MusicViewModel : ViewModel() {
                 }
 
                 // Register broadcast receivers
-                registerPlaybackStateReceiver()
-                registerMediaActionReceiver()
+                registerReceivers()
 
                 // Start updating progress if we have a current song
                 if (currentSong.value != null) {
@@ -1182,6 +1217,16 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    // Function to show audio device selector
+    fun showAudioDeviceSelector() {
+        _showAudioDeviceSelector.value = true
+    }
+
+    // Function to dismiss audio device selector
+    fun dismissAudioDeviceSelector() {
+        _showAudioDeviceSelector.value = false
+    }
+
     override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
@@ -1199,6 +1244,12 @@ class MusicViewModel : ViewModel() {
                 ctx.unregisterReceiver(mediaActionReceiver)
             } catch (e: Exception) {
                 Log.e("MusicViewModel", "Error unregistering media receiver", e)
+            }
+
+            try {
+                ctx.unregisterReceiver(audioDeviceReceiver)
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Error unregistering audio device receiver", e)
             }
         }
 
