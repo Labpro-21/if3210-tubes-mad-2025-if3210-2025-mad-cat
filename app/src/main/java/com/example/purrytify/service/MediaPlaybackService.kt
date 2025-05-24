@@ -187,6 +187,23 @@ class MediaPlaybackService : Service() {
                 Log.d("MediaPlaybackService", "Starting in foreground mode")
                 if (currentSong != null) {
                     updateNotification()
+                } else {
+                    // If no current song, create a placeholder notification
+                    val placeholderSong = Song(
+                        title = "No music playing",
+                        artist = "Purrytify",
+                        duration = "0",
+                        uri = "",
+                        coverUri = ""
+                    )
+                    val notification = notificationManager.getNotification(
+                        placeholderSong, false, mediaSession, 0, 0, false, 0
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(NotificationManager.NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    } else {
+                        startForeground(NotificationManager.NOTIFICATION_ID, notification)
+                    }
                 }
             }
             "ACTION_PLAY" -> mediaSessionCallback.onPlay()

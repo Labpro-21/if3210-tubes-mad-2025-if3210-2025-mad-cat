@@ -30,6 +30,7 @@ fun ChartsSection(
     countryName: String,
     countryCode: String,
     isCountrySupported: Boolean,
+    chartTitle: String = "Top 50",
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -59,9 +60,9 @@ fun ChartsSection(
                 modifier = Modifier.weight(1f)
             )
             
-            // Top 50 Country Card
+            // Top Country Card
             ChartCard(
-                title = if (isCountrySupported) "Top 50" else "Not Available",
+                title = if (isCountrySupported) chartTitle else "Not Available",
                 subtitle = countryName.uppercase(),
                 onClick = if (isCountrySupported) onCountryClick else null,
                 gradientColors = if (isCountrySupported) {

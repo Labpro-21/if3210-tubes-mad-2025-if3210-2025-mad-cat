@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.PlayHistoryTracker
@@ -41,6 +42,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Brush
 import java.io.File
 import com.example.purrytify.data.preferences.UserProfileManager
+import com.example.purrytify.data.preferences.UserProfile
+import androidx.compose.runtime.mutableStateOf
+import com.example.purrytify.data.api.RetrofitClient
 
 @Composable
 fun HomeScreen(
@@ -54,9 +58,51 @@ fun HomeScreen(
     val tokenManager = remember { TokenManager(context) }
     val userProfileManager = remember { UserProfileManager(context) }
     val userEmail = tokenManager.getEmail() ?: ""
-    val userProfile = userProfileManager.getUserProfile(userEmail)
-    val userCountryCode = userProfile?.country ?: "ID"
+    
+    // Track navigation state to refresh profile when returning from EditProfileScreen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    // State for user profile
+    var userProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var userCountryCode by remember { mutableStateOf("ID") }
+    
+    // Fetch fresh profile data when navigating to home or returning from edit screen
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "home" || currentRoute == null) {
+            try {
+                val response = RetrofitClient.apiService.getProfile()
+                if (response.isSuccessful) {
+                    response.body()?.let { profile ->
+                        val localProfile = UserProfile(
+                            email = profile.email,
+                            name = profile.username ?: "",
+                            age = 0,
+                            gender = "",
+                            country = profile.location ?: "ID",
+                            profileImageUrl = profile.profilePhoto
+                        )
+                        userProfileManager.saveUserProfile(localProfile)
+                        userProfile = localProfile
+                        userCountryCode = profile.location ?: "ID"
+                        Log.d("HomeScreen", "Fetched fresh profile with country: ${profile.location}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("HomeScreen", "Error fetching profile", e)
+                // Fall back to local cache if network fails
+                userProfile = userProfileManager.getUserProfile(userEmail)
+                userCountryCode = userProfile?.country ?: "ID"
+            }
+        }
+    }
+    
     val userCountryName = homeViewModel.getSupportedCountries()[userCountryCode] ?: "Indonesia"
+
+    // Log the country code being used
+    LaunchedEffect(userCountryCode) {
+        Log.d("HomeScreen", "Current user country code: $userCountryCode for user: $userEmail")
+    }
 
     val scope = rememberCoroutineScope()
 
@@ -161,6 +207,7 @@ fun HomeScreen(
                         onCountryClick = {
                             navController.navigate("top_charts/$userCountryCode/$userCountryName")
                         },
+                chartTitle = "Top 10 Country",
                         countryName = userCountryName,
                         countryCode = userCountryCode,
                         isCountrySupported = homeViewModel.isCountrySupported(userCountryCode)
@@ -172,6 +219,7 @@ fun HomeScreen(
                     TopMixesSection(
                         likedSongs = allSongs.value,
                         recentlyPlayedSongs = recentlyPlayedSongs,
+                        userCountryCode = userCountryCode,
                         onPlaylistClick = { mixName ->
                             navController.navigate("mix_playlist/$mixName")
                         }
@@ -430,27 +478,27 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
 fun TopMixesSection(
     likedSongs: List<Song>,
     recentlyPlayedSongs: List<Song>,
+    userCountryCode: String,
     onPlaylistClick: (String) -> Unit
 ) {
     // Get context and view models
     val context = LocalContext.current
     val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(context))
-    val tokenManager = remember { TokenManager(context) }
-    val userProfileManager = remember { UserProfileManager(context) }
-    val userEmail = tokenManager.getEmail() ?: ""
-    val userProfile = userProfileManager.getUserProfile(userEmail)
-    val userCountryCode = userProfile?.country ?: "ID"
     
     // Mix names
     val mixOneName = "Your Daily Mix"
     val mixTwoName = "Favorites Mix"
     
+    android.util.Log.d("TopMixesSection", "Using country code: $userCountryCode")
+    
     // Daily Mix: Fetch global and country top songs
     val globalTopSongs = homeViewModel.globalTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
     val countryTopSongs = homeViewModel.countryTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(userCountryCode) {
+        Log.d("TopMixesSection", "Country code changed to: $userCountryCode, fetching new songs")
         homeViewModel.fetchGlobalTopSongs()
+        // Make sure we use the latest country code
         homeViewModel.fetchCountryTopSongs(userCountryCode)
     }
 

@@ -76,7 +76,7 @@ fun TopChartsScreen(
     val errorMessage by homeViewModel.errorMessage.collectAsStateWithLifecycle()
     
     // Determine chart title and drawable resource
-    val chartTitle = if (chartType == "global") "Top 50 Global" else "Top 50 ${countryName ?: chartType}"
+    val chartTitle = if (chartType == "global") "Top 50 Global" else "Top 10 ${countryName ?: chartType}"
     val coverDrawableId = if (chartType == "global") R.drawable.top50global else R.drawable.top50indonesia
     
     // Header gradient colors - using a darker green to black gradient like in the screenshot
@@ -92,6 +92,7 @@ fun TopChartsScreen(
         if (chartType == "global") {
             homeViewModel.fetchGlobalTopSongs()
         } else {
+            // Make sure we're fetching with the correct country code
             homeViewModel.fetchCountryTopSongs(chartType)
         }
     }

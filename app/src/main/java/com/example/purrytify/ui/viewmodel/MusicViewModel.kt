@@ -239,7 +239,11 @@ class MusicViewModel : ViewModel() {
         intent.action = "START_FOREGROUND"
 
         try {
-            context.startService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
             Log.d("MusicViewModel", "Service started successfully")
             viewModelScope.launch {
                 delay(500)
@@ -401,7 +405,11 @@ class MusicViewModel : ViewModel() {
                 if (this.context != null) {
                     val intent = Intent(this.context, MediaPlaybackService::class.java)
                     intent.action = "START_FOREGROUND"
-                    this.context?.startService(intent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        this.context?.startForegroundService(intent)
+                    } else {
+                        this.context?.startService(intent)
+                    }
                     serviceConnected = this.context?.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE) ?: false
                     Log.d("MusicViewModel", "Re-attempting service connection: $serviceConnected")
                 }

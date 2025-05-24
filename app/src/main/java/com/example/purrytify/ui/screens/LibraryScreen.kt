@@ -60,13 +60,13 @@ import com.example.purrytify.ui.dialogs.ShareSongDialog
 import androidx.compose.material.icons.filled.MoreVert
 import com.example.purrytify.data.preferences.TokenManager
 
-data class Song(
-    val title: String,
-    val artist: String,
-    val coverUri: String,
-    val uri: String,
-    val duration: String
-)
+//data class Song(
+//    val title: String,
+//    val artist: String,
+//    val coverUri: String,
+//    val uri: String,
+//    val duration: String
+//)
 
 fun extractMetadataFromAudio(context: android.content.Context, uri: Uri): Pair<String, String> {
     val retriever = MediaMetadataRetriever()

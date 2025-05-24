@@ -57,6 +57,9 @@ import com.example.purrytify.utils.PdfExportUtil
 import com.example.purrytify.ui.screens.ListeningAnalytics.MonthlyAnalytics
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.example.purrytify.data.preferences.UserProfileManager
+import com.example.purrytify.data.preferences.UserProfile
+import androidx.navigation.compose.currentBackStackEntryAsState
 
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
@@ -103,6 +106,7 @@ fun ProfileScreen(
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val coroutineScope = rememberCoroutineScope()
+    val userProfileManager = remember { UserProfileManager(context) }
 
     val connectivityObserver = remember { NetworkConnectivityObserver(context) }
     val networkViewModel: NetworkViewModel = viewModel(
@@ -114,6 +118,10 @@ fun ProfileScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf("") }
     var profileData by remember { mutableStateOf<ProfileResponse?>(null) }
+    
+    // Track navigation state to refresh profile when returning from EditProfileScreen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     // Get all songs from the SongViewModel
     val allSongs = songViewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -175,26 +183,42 @@ fun ProfileScreen(
         }
     }
 
-    // Fetch profile data on first composition
-    LaunchedEffect(key1 = true) {
-        ListenedSongsTracker.loadListenedSongs(userEmail, context)
-        listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+    // Fetch profile data on first composition and when returning from edit screen
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "profile") {
+            ListenedSongsTracker.loadListenedSongs(userEmail, context)
+            listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
 
-        coroutineScope.launch {
-            try {
-                isLoading = true
-                val response = RetrofitClient.apiService.getProfile()
-                if (response.isSuccessful) {
-                    profileData = response.body()
-                } else {
-                    errorMessage = "Error: ${response.message()}"
-                    Log.e("ProfileScreen", "Error response: ${response.code()}")
+            coroutineScope.launch {
+                try {
+                    isLoading = true
+                    val response = RetrofitClient.apiService.getProfile()
+                    if (response.isSuccessful) {
+                        profileData = response.body()
+                        
+                        // Update local cache with fresh data from server
+                        profileData?.let { profile ->
+                            val userProfile = UserProfile(
+                                email = profile.email,
+                                name = profile.username ?: "",
+                                age = 0, // Default values as these aren't in ProfileResponse
+                                gender = "", // Default values as these aren't in ProfileResponse
+                                country = profile.location ?: "ID",
+                                profileImageUrl = profile.profilePhoto
+                            )
+                            userProfileManager.saveUserProfile(userProfile)
+                            Log.d("ProfileScreen", "Updated local profile cache with country: ${profile.location}")
+                        }
+                    } else {
+                        errorMessage = "Error: ${response.message()}"
+                        Log.e("ProfileScreen", "Error response: ${response.code()}")
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Error: ${e.localizedMessage}"
+                    Log.e("ProfileScreen", "Error fetching profile", e)
+                } finally {
+                    isLoading = false
                 }
-            } catch (e: Exception) {
-                errorMessage = "Error: ${e.localizedMessage}"
-                Log.e("ProfileScreen", "Error fetching profile", e)
-            } finally {
-                isLoading = false
             }
         }
     }
