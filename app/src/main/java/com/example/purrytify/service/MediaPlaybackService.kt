@@ -153,7 +153,7 @@ class MediaPlaybackService : Service() {
             notificationManager = NotificationManager(this)
             
             // Initialize audio device manager
-            audioDeviceManager = AudioDeviceManager(this).also { manager ->
+            audioDeviceManager = AudioDeviceManager.getInstance(this).also { manager ->
                 CoroutineScope(Dispatchers.Main).launch {
                     manager.activeDevice.collect { device ->
                         handleAudioDeviceChange(device)
@@ -631,25 +631,6 @@ class MediaPlaybackService : Service() {
         try {
             currentAudioDevice = newDevice
             
-            // If we have an active MediaPlayer, handle the routing
-            mediaPlayer?.let { player ->
-                if (player.isPlaying) {
-                    val currentPosition = player.currentPosition
-                    val wasPlaying = true
-                    
-                    // Release and recreate MediaPlayer to apply new routing
-                    player.release()
-                    mediaPlayer = MediaPlayer().apply {
-                        setDataSource(applicationContext, Uri.parse(currentSong?.uri))
-                        prepare()
-                        seekTo(currentPosition)
-                        if (wasPlaying) {
-                            start()
-                        }
-                    }
-                }
-            }
-            
             // Send broadcast about device change
             val intent = Intent("com.example.purrytify.AUDIO_DEVICE_CHANGED")
             intent.putExtra("deviceName", newDevice?.name ?: "Internal Speaker")
@@ -657,6 +638,8 @@ class MediaPlaybackService : Service() {
             
             // Update notification to show current output device
             updateNotification()
+            
+            Log.d("MediaPlaybackService", "Audio device changed to: ${newDevice?.name}")
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error handling audio device change", e)
             // Fallback to internal speaker
