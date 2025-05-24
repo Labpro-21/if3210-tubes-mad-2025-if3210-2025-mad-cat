@@ -11,14 +11,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,15 +33,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.purrytify.R
 import com.example.purrytify.data.model.OnlineSong
 import com.example.purrytify.ui.viewmodel.HomeViewModel
 import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.dialogs.SongOptionsDialog
+import com.example.purrytify.ui.dialogs.ShareSongDialog
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import com.example.purrytify.ui.screens.Song
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import androidx.compose.foundation.Image
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +75,19 @@ fun TopChartsScreen(
     
     val errorMessage by homeViewModel.errorMessage.collectAsStateWithLifecycle()
     
+    // Determine chart title and drawable resource
+    val chartTitle = if (chartType == "global") "Top 50 Global" else "Top 50 ${countryName ?: chartType}"
+    val coverDrawableId = if (chartType == "global") R.drawable.top50global else R.drawable.top50indonesia
+    
+    // Header gradient colors - using a darker green to black gradient like in the screenshot
+    val headerGradient = remember {
+        Brush.verticalGradient(
+            colors = listOf(Color(0xFF1DB954), Color(0xFF0E5C27), Color(0xFF121212)),
+            startY = 0f,
+            endY = 1200f
+        )
+    }
+    
     LaunchedEffect(chartType) {
         if (chartType == "global") {
             homeViewModel.fetchGlobalTopSongs()
@@ -92,12 +115,7 @@ fun TopChartsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = if (chartType == "global") "Top 50 Global" else "Top 50 ${countryName ?: chartType}",
-                        color = Color.White
-                    )
-                },
+                title = { /* Empty title, we'll use custom header */ },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -108,7 +126,7 @@ fun TopChartsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF121212)
+                    containerColor = Color.Transparent
                 )
             )
         },
@@ -165,9 +183,62 @@ fun TopChartsScreen(
                 }
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 80.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(headerGradient),
+                        contentPadding = PaddingValues(bottom = 90.dp) // Extra padding for mini player
                     ) {
+                        // Header with cover image
+                        item {
+                            Spacer(modifier = Modifier.height(48.dp)) // Space for the TopAppBar
+                            
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                            ) {
+                                // Cover image
+                                Box(
+                                    modifier = Modifier
+                                        .size(160.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .align(Alignment.CenterHorizontally)
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = coverDrawableId),
+                                        contentDescription = chartTitle,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(24.dp))
+                                
+                                // Chart title
+                                Text(
+                                    text = chartTitle,
+                                    style = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 32.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                // Description
+                                Text(
+                                    text = "Most played songs on Purrytify",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontSize = 14.sp
+                                    )
+                                )
+                                
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
+                        }
+                        
                         itemsIndexed(songs.value) { index, song ->
                             TrendingSongItem(
                                 song = song,
@@ -223,6 +294,8 @@ fun TrendingSongItem(
     // Check if the song is already downloaded
     var isDownloaded by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
+    var showOptionsDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
     
     // Convert OnlineSong to Song for checking download status
     val localSong = remember(song) {
@@ -243,8 +316,7 @@ fun TrendingSongItem(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                if (isDownloaded) Color(0xFF1DB954).copy(alpha = 0.1f) else Color.Transparent,
-                RoundedCornerShape(8.dp)
+                if (isDownloaded) Color(0xFF1DB954).copy(alpha = 0.1f) else Color.Transparent
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -279,8 +351,8 @@ fun TrendingSongItem(
         // Album artwork
         Box(
             modifier = Modifier
-                .size(60.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(50.dp)
+                .clip(RoundedCornerShape(4.dp))
                 .background(Color(0xFF2A2A2A))
         ) {
             AsyncImage(
@@ -367,5 +439,47 @@ fun TrendingSongItem(
                 )
             }
         }
+        
+        // Options button (three dots)
+        IconButton(
+            onClick = { showOptionsDialog = true },
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+    
+    // Show options dialog
+    if (showOptionsDialog) {
+        SongOptionsDialog(
+            song = localSong,
+            isOnlineSong = true,
+            onShareClick = {
+                showShareDialog = true
+            },
+            onEditClick = {
+                // Not available for online songs
+            },
+            onDeleteClick = {
+                // Not available for online songs
+            },
+            onDismiss = { showOptionsDialog = false }
+        )
+    }
+    
+    // Show share dialog
+    if (showShareDialog) {
+        ShareSongDialog(
+            songId = song.id,
+            songTitle = song.title,
+            songArtist = song.artist,
+            songUrl = song.audioUrl,
+            onDismiss = { showShareDialog = false }
+        )
     }
 }
