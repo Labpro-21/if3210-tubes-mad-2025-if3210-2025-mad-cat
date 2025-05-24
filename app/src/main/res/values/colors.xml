@@ -3,6 +3,9 @@
     <color name="colorPrimary">#FF6CCB64</color>
     <color name="colorPrimaryDark">#FF095256</color>
     <color name="colorAccent">#FF095256</color>
+    <color name="colorSurface">#FF121212</color>
+    <color name="colorOnSurface">#FFFFFFFF</color>
+    <color name="colorOnSurfaceVariant">#FFBBBBBB</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

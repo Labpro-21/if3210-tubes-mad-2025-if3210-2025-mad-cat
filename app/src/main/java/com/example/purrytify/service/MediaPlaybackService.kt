@@ -28,10 +28,10 @@ import java.net.URL
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import kotlinx.coroutines.flow.collect
-// Import AudioDevice related classes from the service package
-import com.example.purrytify.service.AudioDevice
-import com.example.purrytify.service.AudioDeviceManager
-import com.example.purrytify.service.AudioDeviceType
+// Import AudioDevice related classes from the data model package
+import com.example.purrytify.data.model.AudioDevice
+import com.example.purrytify.data.model.AudioDeviceType
+import com.example.purrytify.service.audio.AudioDeviceManager
 
 class MediaPlaybackService : Service() {
     private var shuffleState = false
@@ -670,7 +670,7 @@ class MediaPlaybackService : Service() {
             audioDeviceManager?.switchToDevice(AudioDevice(
                 id = "internal_speaker",
                 name = "Internal Speaker",
-                type = AudioDeviceType.INTERNAL_SPEAKER,
+                type = AudioDeviceType.SPEAKER,
                 isConnected = true,
                 isActive = true
             ))
@@ -679,6 +679,9 @@ class MediaPlaybackService : Service() {
             val intent = Intent("com.example.purrytify.PLAYBACK_ERROR")
             intent.putExtra("error", "Audio device disconnected. Switched to internal speaker.")
             sendBroadcast(intent)
+            
+            // Update notification
+            updateNotification()
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error falling back to internal speaker", e)
         }

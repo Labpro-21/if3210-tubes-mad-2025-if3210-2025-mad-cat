@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <!-- Bottom sheet dialog theme -->
+    <style name="CustomBottomSheetDialog" parent="ThemeOverlay.MaterialComponents.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/CustomBottomSheet</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:colorBackground">@color/colorSurface</item>
+        <item name="colorOnSurface">@color/colorOnSurface</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+    </style>
+
+    <style name="CustomBottomSheet" parent="Widget.MaterialComponents.BottomSheet">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceBottomSheetDialog</item>
+        <item name="backgroundTint">@color/colorSurface</item>
+        <item name="android:elevation">16dp</item>
+    </style>
+
+    <style name="ShapeAppearanceBottomSheetDialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopRight">16dp</item>
+        <item name="cornerSizeTopLeft">16dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+    </style>
+</resources> 

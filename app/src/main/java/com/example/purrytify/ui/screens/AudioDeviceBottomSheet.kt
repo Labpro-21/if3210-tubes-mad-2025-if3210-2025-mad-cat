@@ -10,9 +10,9 @@ import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.example.purrytify.R
-import com.example.purrytify.service.AudioDevice
-import com.example.purrytify.service.AudioDeviceManager
-import com.example.purrytify.service.AudioDeviceType
+import com.example.purrytify.data.model.AudioDevice
+import com.example.purrytify.data.model.AudioDeviceType
+import com.example.purrytify.service.audio.AudioDeviceManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -22,6 +22,8 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
     private lateinit var deviceAdapter: AudioDeviceAdapter
     private lateinit var deviceRecyclerView: RecyclerView
     private lateinit var scanningProgress: View
+
+    override fun getTheme(): Int = R.style.CustomBottomSheetDialog
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -44,15 +46,26 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
 
     private fun setupDeviceList() {
         deviceAdapter = AudioDeviceAdapter { device ->
-            deviceManager.switchToDevice(device)
-            dismiss()
+            if (device.isConnected) {
+                deviceManager.switchToDevice(device)
+                dismiss()
+            }
         }
         deviceRecyclerView.adapter = deviceAdapter
 
         // Observe available devices
         viewLifecycleOwner.lifecycleScope.launch {
             deviceManager.availableDevices.collectLatest { devices ->
-                deviceAdapter.submitList(devices)
+                // Filter to only show connected devices and the speaker
+                val filteredDevices = devices.filter { 
+                    it.isConnected || it.type == AudioDeviceType.SPEAKER 
+                }
+                deviceAdapter.submitList(filteredDevices)
+                
+                // Hide scanning progress once we have devices
+                if (filteredDevices.isNotEmpty()) {
+                    scanningProgress.visibility = View.GONE
+                }
             }
         }
 
@@ -117,18 +130,37 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
 
                 // Set icon based on device type
                 deviceIcon.setImageResource(when (device.type) {
-                    AudioDeviceType.BLUETOOTH_DEVICE -> R.drawable.ic_bluetooth_audio
+                    AudioDeviceType.BLUETOOTH_HEADPHONES, 
+                    AudioDeviceType.BLUETOOTH_HEADSET,
+                    AudioDeviceType.BLUETOOTH_SPEAKER -> R.drawable.ic_bluetooth_audio
+                    AudioDeviceType.SPEAKER,
                     AudioDeviceType.INTERNAL_SPEAKER -> R.drawable.ic_speaker
+                    AudioDeviceType.WIRED_HEADPHONES,
                     AudioDeviceType.WIRED_HEADSET -> R.drawable.ic_headset
-                    AudioDeviceType.USB_DEVICE -> R.drawable.ic_usb
+                    AudioDeviceType.USB_HEADSET -> R.drawable.ic_usb
+                    else -> R.drawable.ic_speaker
                 })
 
-                // Set status text
+                // Set status text based on actual device state
                 deviceStatus.text = when {
-                    isActive -> "Connected • Active"
-                    device.isConnected -> "Connected"
-                    else -> "Available"
+                    isActive -> "Active"
+                    device.isConnected -> {
+                        // Always show speaker as available
+                        if (device.type == AudioDeviceType.SPEAKER) {
+                            "Available"
+                        } else {
+                            "Connected"
+                        }
+                    }
+                    else -> "Disconnected"
                 }
+                
+                // Set status color based on status
+                deviceStatus.setTextColor(
+                    itemView.context.getColor(
+                        if (isActive) R.color.colorPrimary else R.color.colorOnSurfaceVariant
+                    )
+                )
             }
         }
     }
