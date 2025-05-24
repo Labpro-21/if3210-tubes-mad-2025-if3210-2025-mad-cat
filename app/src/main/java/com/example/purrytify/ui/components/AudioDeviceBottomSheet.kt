@@ -135,7 +135,7 @@ fun DeviceListItem(
         Icon(
             imageVector = getDeviceIcon(device.type),
             contentDescription = null,
-            tint = if (isActive) Color(0xFF1DB954) else Color.White,
+            tint = if (isActive) Color(0xFF1DB954) else Color.Black,
             modifier = Modifier.size(24.dp)
         )
         
@@ -147,7 +147,7 @@ fun DeviceListItem(
             Text(
                 text = device.name,
                 fontSize = 16.sp,
-                color = if (isActive) Color(0xFF1DB954) else Color.White
+                color = if (isActive) Color(0xFF1DB954) else Color.Black
             )
             
             Text(

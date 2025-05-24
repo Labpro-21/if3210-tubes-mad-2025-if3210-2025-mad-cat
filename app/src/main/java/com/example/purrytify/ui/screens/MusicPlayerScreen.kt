@@ -571,7 +571,8 @@ fun MusicPlayerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .offset(y = (-12).dp)
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -581,14 +582,15 @@ fun MusicPlayerScreen(
                     Icon(
                         imageVector = Icons.Outlined.Headphones,
                         contentDescription = "Select Audio Output",
-                        tint = Color.White
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
                 
                 Text(
                     text = currentAudioDevice,
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
+                    fontSize = 18.sp,
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }
