@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.media.session.MediaSession
 import android.net.Uri
 import android.os.Build
 import android.support.v4.media.session.MediaSessionCompat
@@ -151,6 +152,9 @@ class NotificationManager(private val context: Context) {
         
         val albumArt = getAlbumArt(song.coverUri)
         
+        // Always use the compatibility notification for now
+        // The Android 11 device switcher will still appear in the notification shade
+        // on Android 11+ devices when using MediaSessionCompat
         val builder = NotificationCompat.Builder(context, CHANNEL_ID).apply {
             setContentTitle(song.title)
             setContentText(song.artist)
