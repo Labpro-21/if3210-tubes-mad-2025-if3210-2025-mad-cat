@@ -214,6 +214,8 @@ class MediaPlaybackService : Service() {
             "ACTION_STOP" -> {
                 Log.d("MediaPlaybackService", "Received ACTION_STOP, cleaning up")
                 try {
+                    audioDeviceManager?.setMediaPlayer(null)
+                    
                     mediaPlayer?.apply {
                         if (isPlaying) {
                             stop()
@@ -257,6 +259,7 @@ class MediaPlaybackService : Service() {
             currentSong = song
             
             try {
+                audioDeviceManager?.setMediaPlayer(null)
                 mediaPlayer?.release()
             } catch (e: Exception) {
                 Log.e("MediaPlaybackService", "Error releasing previous media player", e)
@@ -295,6 +298,9 @@ class MediaPlaybackService : Service() {
                 
                 mediaPlayer = player
                 isPlaying = true
+
+                // Set the MediaPlayer reference in AudioDeviceManager
+                audioDeviceManager?.setMediaPlayer(player)
 
                 updateMetadata(song)
                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -409,6 +415,8 @@ class MediaPlaybackService : Service() {
     fun stopService() {
         Log.d("MediaPlaybackService", "stopService called")
         try {
+            audioDeviceManager?.setMediaPlayer(null)
+            
             mediaPlayer?.let {
                 if (it.isPlaying) {
                     it.stop()
@@ -577,6 +585,7 @@ class MediaPlaybackService : Service() {
     
     override fun onDestroy() {
         try {
+            audioDeviceManager?.setMediaPlayer(null)
             audioDeviceManager?.cleanup()
             audioDeviceManager = null
             updateJob?.cancel()
