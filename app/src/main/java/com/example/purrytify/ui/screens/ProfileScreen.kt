@@ -56,6 +56,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.purrytify.utils.PdfExportUtil
+import com.example.purrytify.utils.CsvExportUtil
 import com.example.purrytify.ui.screens.ListeningAnalytics.MonthlyAnalytics
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -496,14 +497,136 @@ fun ProfileScreen(
                                 ) {
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    Text(
-                                        text = "Your Sound Capsule",
-                                        style = TextStyle(
-                                            color = Color.White,
-                                            fontSize = 22.sp,
-                                            fontWeight = FontWeight.Bold
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Your Sound Capsule",
+                                            style = TextStyle(
+                                                color = Color.White,
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         )
-                                    )
+                                        
+                                        // Export Button
+                                        IconButton(
+                                            onClick = {
+                                                // Show format and action options
+                                                val formatOptions = arrayOf(
+                                                    "PDF - Download", "PDF - Share", "PDF - Both",
+                                                    "CSV - Download", "CSV - Share", "CSV - Both"
+                                                )
+                                                
+                                                // Create and show the dialog
+                                                val dialog = android.app.AlertDialog.Builder(context)
+                                                    .setTitle("Export Analytics")
+                                                    .setItems(formatOptions) { _, which ->
+                                                        coroutineScope.launch {
+                                                            val topSongs = ListeningAnalytics.getAllSongListeningData()
+                                                                .take(10)
+                                                                .map { Triple(it.first, it.second.toString(), (it.third / 60).toInt()) }
+
+                                                            val topArtists = ListeningAnalytics.getAllArtistsData()
+                                                                .take(10)
+                                                            
+                                                            val success = when (which) {
+                                                                0 -> { // PDF - Download
+                                                                    PdfExportUtil.exportAnalyticsToPdf(
+                                                                        context = context,
+                                                                        username = profileData?.username ?: userEmail,
+                                                                        timeListened = formattedTimeListened,
+                                                                        topSongs = topSongs,
+                                                                        topArtists = topArtists,
+                                                                        shouldShare = false,
+                                                                        shouldDownload = true
+                                                                    )
+                                                                }
+                                                                1 -> { // PDF - Share
+                                                                    PdfExportUtil.exportAnalyticsToPdf(
+                                                                        context = context,
+                                                                        username = profileData?.username ?: userEmail,
+                                                                        timeListened = formattedTimeListened,
+                                                                        topSongs = topSongs,
+                                                                        topArtists = topArtists,
+                                                                        shouldShare = true,
+                                                                        shouldDownload = false
+                                                                    )
+                                                                }
+                                                                2 -> { // PDF - Both
+                                                                    PdfExportUtil.exportAnalyticsToPdf(
+                                                                        context = context,
+                                                                        username = profileData?.username ?: userEmail,
+                                                                        timeListened = formattedTimeListened,
+                                                                        topSongs = topSongs,
+                                                                        topArtists = topArtists,
+                                                                        shouldShare = true,
+                                                                        shouldDownload = true
+                                                                    )
+                                                                }
+                                                                3 -> { // CSV - Download
+                                                                    CsvExportUtil.exportAnalyticsToCsv(
+                                                                        context = context,
+                                                                        username = profileData?.username ?: userEmail,
+                                                                        timeListened = formattedTimeListened,
+                                                                        topSongs = topSongs,
+                                                                        topArtists = topArtists,
+                                                                        shouldShare = false,
+                                                                        shouldDownload = true
+                                                                    )
+                                                                }
+                                                                4 -> { // CSV - Share
+                                                                    CsvExportUtil.exportAnalyticsToCsv(
+                                                                        context = context,
+                                                                        username = profileData?.username ?: userEmail,
+                                                                        timeListened = formattedTimeListened,
+                                                                        topSongs = topSongs,
+                                                                        topArtists = topArtists,
+                                                                        shouldShare = true,
+                                                                        shouldDownload = false
+                                                                    )
+                                                                }
+                                                                5 -> { // CSV - Both
+                                                                    CsvExportUtil.exportAnalyticsToCsv(
+                                                                        context = context,
+                                                                        username = profileData?.username ?: userEmail,
+                                                                        timeListened = formattedTimeListened,
+                                                                        topSongs = topSongs,
+                                                                        topArtists = topArtists,
+                                                                        shouldShare = true,
+                                                                        shouldDownload = true
+                                                                    )
+                                                                }
+                                                                else -> false
+                                                            }
+
+                                                            if (!success) {
+                                                                Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    }
+                                                    .setNegativeButton("Cancel") { dialog, _ ->
+                                                        dialog.dismiss()
+                                                    }
+                                                    .create()
+                                                
+                                                dialog.show()
+                                            },
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF6CCB64).copy(alpha = 0.7f))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Download,
+                                                contentDescription = "Export Analytics",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
 
                                     Spacer(modifier = Modifier.height(16.dp))
                                       // Get all monthly analytics data
