@@ -16,9 +16,6 @@ import java.io.FileOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-/**
- * Utility class for exporting listening statistics to PDF
- */
 class PdfExporter(private val context: Context) {
 
     private val paint = Paint().apply {
@@ -49,24 +46,19 @@ class PdfExporter(private val context: Context) {
         totalTimeListened: String, 
         dailyListeningData: Map<String, Long>
     ) {
-        // Create PDF document
         val document = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
         val page = document.startPage(pageInfo)
         val canvas = page.canvas
         
-        // Draw title
         canvas.drawText(title, 50f, 50f, titlePaint)
         
-        // Draw current date
         val currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
         canvas.drawText("Generated on: $currentDate", 50f, 80f, paint)
         
-        // Draw total time listened
         canvas.drawText("Total Time Listened:", 50f, 120f, headerPaint)
         canvas.drawText(totalTimeListened, 50f, 140f, paint)
         
-        // Draw daily statistics
         canvas.drawText("Daily Listening Statistics:", 50f, 180f, headerPaint)
         
         var y = 200f
@@ -84,10 +76,8 @@ class PdfExporter(private val context: Context) {
             y += 20f
         }
         
-        // Finish page and document
         document.finishPage(page)
         
-        // Save PDF to cache
         val cacheDir = context.cacheDir
         val pdfFile = File(cacheDir, "listening_stats.pdf")
         val fos = FileOutputStream(pdfFile)
@@ -95,21 +85,18 @@ class PdfExporter(private val context: Context) {
         document.close()
         fos.close()
         
-        // Get content URI via FileProvider
         val contentUri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
             pdfFile
         )
         
-        // Create share intent
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
             putExtra(Intent.EXTRA_STREAM, contentUri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         
-        // Start share activity
         context.startActivity(Intent.createChooser(intent, "Share Listening Stats"))
     }
 }

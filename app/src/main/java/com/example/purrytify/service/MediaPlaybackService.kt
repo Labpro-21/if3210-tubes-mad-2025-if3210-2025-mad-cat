@@ -144,7 +144,6 @@ class MediaPlaybackService : Service() {
             
             notificationManager = NotificationManager(this)
 
-            // Initialize audio device manager
             audioDeviceManager = AudioDeviceManager.getInstance(this).also { manager ->
                 CoroutineScope(Dispatchers.Main).launch {
                     manager.activeDevice.collect { device ->
@@ -165,7 +164,7 @@ class MediaPlaybackService : Service() {
         timeoutCheckJob?.cancel()
         timeoutCheckJob = CoroutineScope(Dispatchers.Main).launch {
             while (true) {
-                delay(60000) // Check every minute
+                delay(60000)
                 if (!isPlaying && System.currentTimeMillis() - serviceStartTime > SERVICE_TIMEOUT) {
                     Log.d("MediaPlaybackService", "Service idle timeout reached, stopping service")
                     stopSelf()
@@ -189,7 +188,6 @@ class MediaPlaybackService : Service() {
                 if (currentSong != null) {
                     updateNotification()
                 } else {
-                    // If no current song, create a placeholder notification
                     val placeholderSong = Song(
                         title = "No music playing",
                         artist = "Purrytify",
@@ -214,6 +212,8 @@ class MediaPlaybackService : Service() {
             "ACTION_STOP" -> {
                 Log.d("MediaPlaybackService", "Received ACTION_STOP, cleaning up")
                 try {
+                    audioDeviceManager?.setMediaPlayer(null)
+                    
                     mediaPlayer?.apply {
                         if (isPlaying) {
                             stop()
@@ -257,6 +257,7 @@ class MediaPlaybackService : Service() {
             currentSong = song
             
             try {
+                audioDeviceManager?.setMediaPlayer(null)
                 mediaPlayer?.release()
             } catch (e: Exception) {
                 Log.e("MediaPlaybackService", "Error releasing previous media player", e)
@@ -295,6 +296,9 @@ class MediaPlaybackService : Service() {
                 
                 mediaPlayer = player
                 isPlaying = true
+
+                // Set the MediaPlayer reference in AudioDeviceManager
+                audioDeviceManager?.setMediaPlayer(player)
 
                 updateMetadata(song)
                 updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -343,7 +347,6 @@ class MediaPlaybackService : Service() {
                 inputStream.close()
                 
                 if (bitmap != null && currentSong?.title == song.title) {
-                    // Update notification with the loaded artwork
                     withContext(Dispatchers.Main) {
                         updateNotification()
                     }
@@ -409,6 +412,8 @@ class MediaPlaybackService : Service() {
     fun stopService() {
         Log.d("MediaPlaybackService", "stopService called")
         try {
+            audioDeviceManager?.setMediaPlayer(null)
+            
             mediaPlayer?.let {
                 if (it.isPlaying) {
                     it.stop()
@@ -577,6 +582,7 @@ class MediaPlaybackService : Service() {
     
     override fun onDestroy() {
         try {
+            audioDeviceManager?.setMediaPlayer(null)
             audioDeviceManager?.cleanup()
             audioDeviceManager = null
             updateJob?.cancel()
@@ -638,7 +644,6 @@ class MediaPlaybackService : Service() {
             intent.putExtra("error", "Audio device disconnected. Switched to internal speaker.")
             sendBroadcast(intent)
             
-            // Update notification
             updateNotification()
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error falling back to internal speaker", e)

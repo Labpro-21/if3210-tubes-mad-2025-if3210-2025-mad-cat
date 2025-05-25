@@ -26,36 +26,28 @@ object CsvExportUtil {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val fileName = "purrytify_analytics_$timestamp.csv"
 
-            // Create file for download or cache
             val csvFile: File = if (shouldDownload && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10+ - use app's external files directory
                 val appDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "Purrytify")
                 if (!appDir.exists()) appDir.mkdirs()
                 File(appDir, fileName)
             } else if (shouldDownload) {
-                // Pre-Android 10 - use public Downloads
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (!downloadsDir.exists()) downloadsDir.mkdirs()
                 File(downloadsDir, fileName)
             } else {
-                // Just for sharing - use cache
                 File(context.cacheDir, fileName)
             }
 
-            // Write CSV content
             FileWriter(csvFile).use { writer ->
-                // Header
                 writer.append("Purrytify Listening Analytics Report\n")
                 writer.append("User: $username\n")
                 writer.append("Generated: ${SimpleDateFormat("MMMM dd, yyyy 'at' HH:mm", Locale.getDefault()).format(Date())}\n")
                 writer.append("\n")
                 
-                // Listening time
                 writer.append("Total Listening Time\n")
                 writer.append("$timeListened\n")
                 writer.append("\n")
                 
-                // Top Songs
                 writer.append("Top Songs\n")
                 writer.append("Rank,Song Title,Artist,Play Count\n")
                 
@@ -69,7 +61,6 @@ object CsvExportUtil {
                 
                 writer.append("\n")
                 
-                // Top Artists
                 writer.append("Top Artists\n")
                 writer.append("Rank,Artist Name,Songs Played\n")
                 
@@ -85,7 +76,6 @@ object CsvExportUtil {
                 writer.append("Thank you for using Purrytify!\n")
             }
 
-            // Handle download and sharing
             when {
                 shouldDownload && shouldShare -> {
                     Toast.makeText(context, "CSV saved: ${csvFile.absolutePath}", Toast.LENGTH_LONG).show()

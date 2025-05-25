@@ -782,11 +782,13 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(0.7f))
+                Spacer(modifier = Modifier.height(40.dp))
+                
+                // Control buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 200.dp),
+                        .padding(bottom = 20.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -813,6 +815,7 @@ fun MusicPlayerScreen(
                             modifier = Modifier.size(32.dp)
                         )
                     }
+                    
                     IconButton(
                         onClick = { musicViewModel.togglePlayPause() },
                         modifier = Modifier
@@ -861,11 +864,11 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                // Audio device selector
+                // Audio device selector - positioned under the pause button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(bottom = 20.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -928,12 +931,8 @@ fun MusicPlayerScreen(
                     )
                 }
                 
-                Text(
-                    text = currentAudioDevice,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                // Add spacer to push remaining content down but keep controls positioned nicely
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }
