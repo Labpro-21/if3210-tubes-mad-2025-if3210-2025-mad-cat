@@ -34,7 +34,8 @@ import com.tubesmobile.purrytify.data.local.db.AppDatabase
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.local.db.entities.SongEntity
 import androidx.fragment.app.FragmentActivity
-import com.example.purrytify.ui.screens.AudioDeviceBottomSheet
+import com.example.purrytify.ui.components.AudioDeviceBottomSheet
+import com.example.purrytify.service.audio.AudioDeviceManager
 
 enum class RepeatMode {
     OFF,    // No repeat - play through playlist once
@@ -235,6 +236,15 @@ class MusicViewModel : ViewModel() {
         Log.d("MusicViewModel", "Initializing playback controls")
         this.context = context
 
+        // Initialize audio device manager and observe active device
+        val audioDeviceManager = AudioDeviceManager.getInstance(context)
+        viewModelScope.launch {
+            audioDeviceManager.activeDevice.collect { activeDevice ->
+                _currentAudioDevice.value = activeDevice?.name ?: "Speaker"
+            }
+        }
+
+        // Start and bind to the media service
         val intent = Intent(context, MediaPlaybackService::class.java)
         intent.action = "START_FOREGROUND"
 

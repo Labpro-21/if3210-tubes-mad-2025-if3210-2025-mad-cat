@@ -28,10 +28,10 @@ import java.net.URL
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import kotlinx.coroutines.flow.collect
-// Import AudioDevice related classes from the service package
-import com.example.purrytify.service.AudioDevice
-import com.example.purrytify.service.AudioDeviceManager
-import com.example.purrytify.service.AudioDeviceType
+// Import AudioDevice related classes from the data model package
+import com.example.purrytify.data.model.AudioDevice
+import com.example.purrytify.data.model.AudioDeviceType
+import com.example.purrytify.service.audio.AudioDeviceManager
 
 class MediaPlaybackService : Service() {
     private var shuffleState = false
@@ -143,8 +143,9 @@ class MediaPlaybackService : Service() {
             }
             
             notificationManager = NotificationManager(this)
-            
-            audioDeviceManager = AudioDeviceManager(this).also { manager ->
+
+            // Initialize audio device manager
+            audioDeviceManager = AudioDeviceManager.getInstance(this).also { manager ->
                 CoroutineScope(Dispatchers.Main).launch {
                     manager.activeDevice.collect { device ->
                         handleAudioDeviceChange(device)
@@ -610,28 +611,13 @@ class MediaPlaybackService : Service() {
     private fun handleAudioDeviceChange(newDevice: AudioDevice?) {
         try {
             currentAudioDevice = newDevice
-            
-            mediaPlayer?.let { player ->
-                if (player.isPlaying) {
-                    val currentPosition = player.currentPosition
-                    val wasPlaying = true
-                    
-                    player.release()
-                    mediaPlayer = MediaPlayer().apply {
-                        setDataSource(applicationContext, Uri.parse(currentSong?.uri))
-                        prepare()
-                        seekTo(currentPosition)
-                        if (wasPlaying) {
-                            start()
-                        }
-                    }
-                }
-            }
-            
+           
             val intent = Intent("com.example.purrytify.AUDIO_DEVICE_CHANGED")
             intent.putExtra("deviceName", newDevice?.name ?: "Internal Speaker")
             sendBroadcast(intent)
             updateNotification()
+            
+            Log.d("MediaPlaybackService", "Audio device changed to: ${newDevice?.name}")
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error handling audio device change", e)
             fallbackToInternalSpeaker()
@@ -643,7 +629,7 @@ class MediaPlaybackService : Service() {
             audioDeviceManager?.switchToDevice(AudioDevice(
                 id = "internal_speaker",
                 name = "Internal Speaker",
-                type = AudioDeviceType.INTERNAL_SPEAKER,
+                type = AudioDeviceType.SPEAKER,
                 isConnected = true,
                 isActive = true
             ))
@@ -651,6 +637,9 @@ class MediaPlaybackService : Service() {
             val intent = Intent("com.example.purrytify.PLAYBACK_ERROR")
             intent.putExtra("error", "Audio device disconnected. Switched to internal speaker.")
             sendBroadcast(intent)
+            
+            // Update notification
+            updateNotification()
         } catch (e: Exception) {
             Log.e("MediaPlaybackService", "Error falling back to internal speaker", e)
         }

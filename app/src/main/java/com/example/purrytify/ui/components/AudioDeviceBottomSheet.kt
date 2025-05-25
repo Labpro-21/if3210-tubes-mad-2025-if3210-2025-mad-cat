@@ -42,9 +42,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.purrytify.service.AudioDevice
-import com.example.purrytify.service.AudioDeviceManager
-import com.example.purrytify.service.AudioDeviceType
+import com.example.purrytify.data.model.AudioDevice
+import com.example.purrytify.data.model.AudioDeviceType
+import com.example.purrytify.service.audio.AudioDeviceManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,13 +57,12 @@ fun AudioDeviceBottomSheet(
     val sheetState = rememberModalBottomSheetState()
     
     var isScanning by remember { mutableStateOf(true) }
-    val deviceManager = remember { AudioDeviceManager(context) }
+    val deviceManager = remember { AudioDeviceManager.getInstance(context) }
     val devices by deviceManager.availableDevices.collectAsState()
     val activeDevice by deviceManager.activeDevice.collectAsState()
     
     LaunchedEffect(Unit) {
         deviceManager.startDeviceDiscovery()
-        // Stop scanning after a few seconds
         kotlinx.coroutines.delay(5000)
         isScanning = false
     }
@@ -104,10 +103,11 @@ fun AudioDeviceBottomSheet(
                         device = device,
                         isActive = device.id == activeDevice?.id,
                         onClick = {
-                            deviceManager.switchToDevice(device)
-                            scope.launch {
-                                kotlinx.coroutines.delay(300)
-                                onDismiss()
+                            if (deviceManager.switchToDevice(device)) {
+                                scope.launch {
+                                    kotlinx.coroutines.delay(200)
+                                    onDismiss()
+                                }
                             }
                         }
                     )
@@ -135,7 +135,7 @@ fun DeviceListItem(
         Icon(
             imageVector = getDeviceIcon(device.type),
             contentDescription = null,
-            tint = if (isActive) Color(0xFF1DB954) else Color.White,
+            tint = if (isActive) Color(0xFF1DB954) else Color.Black,
             modifier = Modifier.size(24.dp)
         )
         
@@ -147,23 +147,27 @@ fun DeviceListItem(
             Text(
                 text = device.name,
                 fontSize = 16.sp,
-                color = if (isActive) Color(0xFF1DB954) else Color.White
+                color = if (isActive) Color(0xFF1DB954) else Color.Black
             )
             
             Text(
                 text = when {
-                    isActive -> "Connected • Active"
-                    device.isConnected -> "Connected"
-                    else -> "Available"
+                    isActive -> "Active"
+                    device.isConnected -> "Available"
+                    else -> "Disconnected"
                 },
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = if (isActive) Color(0xFF1DB954) else Color.Gray
             )
         }
         
         RadioButton(
             selected = isActive,
-            onClick = null
+            onClick = null,
+            colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                selectedColor = Color(0xFF1DB954),
+                unselectedColor = Color.Gray
+            )
         )
     }
     
@@ -176,9 +180,14 @@ fun DeviceListItem(
 @Composable
 fun getDeviceIcon(type: AudioDeviceType): ImageVector {
     return when (type) {
-        AudioDeviceType.BLUETOOTH_DEVICE -> Icons.Filled.Headphones
+        AudioDeviceType.BLUETOOTH_HEADPHONES, 
+        AudioDeviceType.BLUETOOTH_HEADSET,
+        AudioDeviceType.BLUETOOTH_SPEAKER -> Icons.Filled.Headphones
+        AudioDeviceType.SPEAKER,
         AudioDeviceType.INTERNAL_SPEAKER -> Icons.Filled.Speaker
+        AudioDeviceType.WIRED_HEADPHONES,
         AudioDeviceType.WIRED_HEADSET -> Icons.Filled.Headset
-        AudioDeviceType.USB_DEVICE -> Icons.Filled.Usb
+        AudioDeviceType.USB_HEADSET -> Icons.Filled.Usb
+        else -> Icons.Filled.Speaker
     }
 }
