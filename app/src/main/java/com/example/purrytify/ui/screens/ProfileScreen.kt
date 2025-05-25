@@ -166,7 +166,6 @@ fun ProfileScreen(
     var previousSong by remember { mutableStateOf<Song?>(null) }
     
     // Analytics state values
-    val formattedTimeListened = ListeningAnalytics.formatTimeListened()
     val topSong by ListeningAnalytics.topSong.collectAsStateWithLifecycle()
     val topArtist by ListeningAnalytics.topArtist.collectAsStateWithLifecycle()
     val streakSong by ListeningAnalytics.streakSong.collectAsStateWithLifecycle()
@@ -176,6 +175,12 @@ fun ProfileScreen(
 
     // State to show reset confirmation dialog
     var showResetConfirmation by remember { mutableStateOf(false) }
+
+    val timeListened by ListeningAnalytics.timeListened.collectAsStateWithLifecycle()
+
+    val formattedTimeListened = remember(timeListened) {
+        ListeningAnalytics.formatTimeListened()
+    }
 
     // Update listened count when current song changes
     LaunchedEffect(currentSong) {
@@ -688,7 +693,6 @@ fun ProfileScreen(
                         color = Color.White
                     )
                 },
-
                 confirmButton = {
                     Button(
                         onClick = {
@@ -715,7 +719,6 @@ fun ProfileScreen(
                     ) {
                         Text("Reset")
                     }
-
                 },
                 dismissButton = {
                     Button(
@@ -729,8 +732,9 @@ fun ProfileScreen(
                 },
                 containerColor = Color(0xFF2A2A2A),
                 shape = RoundedCornerShape(16.dp)
-                )
-            }
+            )
+        }
+
         // Add confirmation dialog
         if (showResetConfirmation) {
             AlertDialog(
@@ -775,7 +779,6 @@ fun ProfileScreen(
                     ) {
                         Text("Reset")
                     }
-
                 },
                 dismissButton = {
                     Button(
@@ -1151,11 +1154,12 @@ fun MonthlyAnalytics(
                                     ),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {                                        Text(
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(
                                             if (data.streakSong != null) 
-                                                "You had a ${data.streak}-day streak with \"${data.streakSong}\""
+                                                "You had a ${data.streak}-day streak"
                                             else 
-                                                "You had a ${data.streak}-day streak",
+                                                "You don't have a streak yet",
                                             color = Color.White,
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
