@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.Bitmap.CompressFormat
 import android.graphics.Color
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -52,18 +53,32 @@ fun ShareSongDialog(
     val scope = rememberCoroutineScope()
     var qrCodeBitmap by remember { mutableStateOf<Bitmap?>(null) }
     
+    // Validate songId
+    val validSongId = songId ?: 0
+    if (validSongId <= 0) {
+        Log.w("ShareSongDialog", "Invalid song ID: $songId")
+        LaunchedEffect(Unit) {
+            Toast.makeText(context, "Cannot share this song: Invalid song ID", Toast.LENGTH_LONG).show()
+            onDismiss()
+        }
+        return
+    }
+    
     // Create deep link format for the app
-    val deepLink = "purrytify://song/${songId ?: 0}"
+    val deepLink = "purrytify://song/$validSongId"
     
     // For sharing via URL, create an HTTP URL that the backend should handle
     // This URL should redirect to the deep link when opened in a browser
-    val shareableUrl = "https://purrytify.com/open/song/${songId ?: 0}"
+    val shareableUrl = "https://purrytify.com/open/song/$validSongId"
+    
+    Log.d("ShareSongDialog", "Generated deep link: $deepLink")
+    Log.d("ShareSongDialog", "Generated shareable URL: $shareableUrl")
 
     // Generate QR code
     LaunchedEffect(deepLink) {
         scope.launch {
             qrCodeBitmap = withContext(Dispatchers.IO) {
-                generateQRCode(deepLink)
+                generateQRCode(shareableUrl)
             }
         }
     }

@@ -64,16 +64,13 @@ class NotificationManager(private val context: Context) {
     
     private fun getAlbumArt(coverUri: String): Bitmap {
         return try {
-            // Check cache first
             if (coverUri == lastLoadedUri && cachedAlbumArt != null) {
                 return cachedAlbumArt!!
             }
             
             val bitmap = when {
-                // Check if it's a URL (for online songs)
                 coverUri.startsWith("http://") || coverUri.startsWith("https://") -> {
                     try {
-                        // Create a thread to load the image
                         var resultBitmap: Bitmap? = null
                         val thread = Thread {
                             try {
@@ -88,7 +85,7 @@ class NotificationManager(private val context: Context) {
                             }
                         }
                         thread.start()
-                        thread.join(3000) // Wait max 3 seconds
+                        thread.join(3000)
                         
                         resultBitmap ?: getDefaultAlbumArt()
                     } catch (e: Exception) {
@@ -96,7 +93,6 @@ class NotificationManager(private val context: Context) {
                         getDefaultAlbumArt()
                     }
                 }
-                // Check if it's a local file
                 coverUri.isNotEmpty() && File(coverUri).exists() -> {
                     BitmapFactory.decodeFile(coverUri)
                 }
@@ -105,7 +101,6 @@ class NotificationManager(private val context: Context) {
                 }
             }
             
-            // Cache the result
             cachedAlbumArt = bitmap
             lastLoadedUri = coverUri
             bitmap
@@ -152,9 +147,6 @@ class NotificationManager(private val context: Context) {
         
         val albumArt = getAlbumArt(song.coverUri)
         
-        // Always use the compatibility notification for now
-        // The Android 11 device switcher will still appear in the notification shade
-        // on Android 11+ devices when using MediaSessionCompat
         val builder = NotificationCompat.Builder(context, CHANNEL_ID).apply {
             setContentTitle(song.title)
             setContentText(song.artist)
@@ -165,9 +157,8 @@ class NotificationManager(private val context: Context) {
             setShowWhen(false)
             setOnlyAlertOnce(true)
             
-            // Set notification as dismissible when paused
             if (!isPlaying) {
-                setAutoCancel(false)  // Don't auto-cancel on tap when paused
+                setAutoCancel(false)
             }
             
             addAction(getPreviousAction(mediaSession))
@@ -190,7 +181,6 @@ class NotificationManager(private val context: Context) {
             setColorized(true)
             color = ContextCompat.getColor(context, R.color.colorPrimary)
             priority = NotificationCompat.PRIORITY_MAX
-            // Make notification dismissible when paused
             setOngoing(isPlaying)
             setDeleteIntent(getStopAction(mediaSession))
         }
