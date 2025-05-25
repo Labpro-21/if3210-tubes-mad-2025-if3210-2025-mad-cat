@@ -15,11 +15,13 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +49,11 @@ import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import androidx.camera.core.ImageProxy
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +66,8 @@ fun QRScannerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var isScanning by remember { mutableStateOf(true) }
     var scanStatusMessage by remember { mutableStateOf("Position QR code within the frame") }
-    
+    var scannedText by remember { mutableStateOf<String?>(null) }
+
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -68,20 +76,20 @@ fun QRScannerScreen(
             ) == PackageManager.PERMISSION_GRANTED
         )
     }
-    
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasCameraPermission = isGranted
     }
-    
+
     DisposableEffect(Unit) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
         onDispose { }
     }
-    
+
     if (!hasCameraPermission) {
         Box(
             modifier = Modifier
@@ -128,7 +136,7 @@ fun QRScannerScreen(
                         .height(48.dp)
                 ) {
                     Text(
-                        "Grant Permission", 
+                        "Grant Permission",
                         fontWeight = FontWeight.Medium,
                         fontSize = 16.sp
                     )
@@ -137,7 +145,7 @@ fun QRScannerScreen(
         }
         return
     }
-    
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -147,8 +155,9 @@ fun QRScannerScreen(
             onQRCodeScanned = { qrCode ->
                 if (isScanning) {
                     isScanning = false
+                    scannedText = qrCode // Store the scanned text
                     scanStatusMessage = "Processing..."
-                    
+
                     // Parse the QR code for purrytify://song/<songId>
                     when {
                         qrCode.startsWith("purrytify://song/") -> {
@@ -165,6 +174,7 @@ fun QRScannerScreen(
                                     kotlinx.coroutines.delay(2000)
                                     isScanning = true
                                     scanStatusMessage = "Position QR code within the frame"
+                                    scannedText = null
                                 }
                             }
                         }
@@ -181,6 +191,7 @@ fun QRScannerScreen(
                                     kotlinx.coroutines.delay(2000)
                                     isScanning = true
                                     scanStatusMessage = "Position QR code within the frame"
+                                    scannedText = null
                                 }
                             }
                         }
@@ -191,22 +202,23 @@ fun QRScannerScreen(
                                 kotlinx.coroutines.delay(2000)
                                 isScanning = true
                                 scanStatusMessage = "Position QR code within the frame"
+                                scannedText = null
                             }
                         }
                     }
                 }
             }
         )
-        
+
         // Scanning overlay with animated frame
         ScanningOverlay(
             modifier = Modifier.fillMaxSize(),
             isScanning = isScanning
         )
-        
+
         // Top bar with close button
         TopAppBar(
-            title = { 
+            title = {
                 Text(
                     "Scan QR Code",
                     color = Color.White,
@@ -229,7 +241,7 @@ fun QRScannerScreen(
             ),
             modifier = Modifier.background(Color.Transparent)
         )
-        
+
         // Bottom instruction panel
         Card(
             modifier = Modifier
@@ -268,9 +280,108 @@ fun QRScannerScreen(
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
+
+                // Display scanned text if available
+                scannedText?.let { text ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider(color = Color(0xFF333333))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Scanned QR Code:",
+                        color = Color(0xFF1DB954),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                // Handle click on scanned text
+                                handleScannedTextClick(context, text)
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1A1A1A)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = text,
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 2
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Rounded.ContentCopy,
+                                contentDescription = "Copy or Open",
+                                tint = Color(0xFF1DB954),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Tap to copy or open link",
+                        color = Color(0xFF888888),
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
+}
+
+private fun handleScannedTextClick(context: Context, text: String) {
+    when {
+        text.startsWith("http://") || text.startsWith("https://") -> {
+            // Try to open URL in browser
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(text))
+                context.startActivity(intent)
+                Toast.makeText(context, "Opening link in browser", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                copyToClipboard(context, text)
+                Toast.makeText(context, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
+            }
+        }
+        text.startsWith("purrytify://") -> {
+            // Try to handle deep link
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(text))
+                intent.setPackage(context.packageName) // Ensure it opens in our app
+                context.startActivity(intent)
+                Toast.makeText(context, "Opening in Purrytify", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                copyToClipboard(context, text)
+                Toast.makeText(context, "Deep link copied to clipboard", Toast.LENGTH_SHORT).show()
+            }
+        }
+        else -> {
+            // Just copy to clipboard for other text
+            copyToClipboard(context, text)
+            Toast.makeText(context, "Text copied to clipboard", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = ClipData.newPlainText("QR Code", text)
+    clipboard.setPrimaryClip(clip)
 }
 
 @Composable
@@ -288,18 +399,18 @@ fun ScanningOverlay(
         ),
         label = "scanning_line"
     )
-    
+
     Canvas(modifier = modifier) {
         val canvasWidth = size.width
         val canvasHeight = size.height
-        
+
         // Calculate scan frame dimensions
         val frameSize = minOf(canvasWidth, canvasHeight) * 0.7f
         val frameLeft = (canvasWidth - frameSize) / 2
         val frameTop = (canvasHeight - frameSize) / 2
         val frameRight = frameLeft + frameSize
         val frameBottom = frameTop + frameSize
-        
+
         // Draw dark overlay outside the frame
         drawRect(
             color = Color.Black.copy(alpha = 0.6f),
@@ -320,12 +431,12 @@ fun ScanningOverlay(
             topLeft = Offset(frameRight, frameTop),
             size = Size(canvasWidth - frameRight, frameSize)
         )
-        
+
         // Draw frame corners
         val cornerLength = 50f
         val cornerStroke = 6f
         val cornerColor = Color(0xFF1DB954)
-        
+
         // Top-left corner
         drawLine(
             color = cornerColor,
@@ -341,7 +452,7 @@ fun ScanningOverlay(
             strokeWidth = cornerStroke,
             cap = StrokeCap.Round
         )
-        
+
         // Top-right corner
         drawLine(
             color = cornerColor,
@@ -357,7 +468,7 @@ fun ScanningOverlay(
             strokeWidth = cornerStroke,
             cap = StrokeCap.Round
         )
-        
+
         // Bottom-left corner
         drawLine(
             color = cornerColor,
@@ -373,7 +484,7 @@ fun ScanningOverlay(
             strokeWidth = cornerStroke,
             cap = StrokeCap.Round
         )
-        
+
         // Bottom-right corner
         drawLine(
             color = cornerColor,
@@ -389,7 +500,7 @@ fun ScanningOverlay(
             strokeWidth = cornerStroke,
             cap = StrokeCap.Round
         )
-        
+
         // Draw animated scanning line if scanning
         if (isScanning) {
             val lineY = frameTop + (frameSize * animatedProgress)
@@ -402,11 +513,11 @@ fun ScanningOverlay(
                 cap = StrokeCap.Round
             )
         }
-        
+
         // Draw grid lines for better alignment
         val gridColor = Color.White.copy(alpha = 0.3f)
         val gridStroke = 1f
-        
+
         // Vertical grid lines
         for (i in 1..2) {
             val x = frameLeft + (frameSize * i / 3)
@@ -417,7 +528,7 @@ fun ScanningOverlay(
                 strokeWidth = gridStroke
             )
         }
-        
+
         // Horizontal grid lines
         for (i in 1..2) {
             val y = frameTop + (frameSize * i / 3)
@@ -439,13 +550,13 @@ fun QRScanner(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    
+
     DisposableEffect(Unit) {
         onDispose {
             cameraExecutor.shutdown()
         }
     }
-    
+
     AndroidView(
         factory = { context ->
             PreviewView(context).apply {
@@ -458,16 +569,16 @@ fun QRScanner(
         modifier = Modifier.fillMaxSize(),
         update = { previewView ->
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-            
+
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                
+
                 val preview = Preview.Builder()
                     .build()
                     .also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
-                
+
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
@@ -481,9 +592,9 @@ fun QRScanner(
                             imageProxy.close()
                         }
                     }
-                
+
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-                
+
                 try {
                     cameraProvider.unbindAll()
                     cameraProvider.bindToLifecycle(
@@ -495,7 +606,7 @@ fun QRScanner(
                 } catch (exc: Exception) {
                     Log.e("QRScanner", "Use case binding failed", exc)
                 }
-                
+
             }, ContextCompat.getMainExecutor(context))
         }
     )
@@ -508,7 +619,7 @@ private fun processImage(
     val mediaImage = imageProxy.image
     if (mediaImage != null) {
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        
+
         val scanner = BarcodeScanning.getClient()
         scanner.process(image)
             .addOnSuccessListener { barcodes ->

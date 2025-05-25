@@ -78,7 +78,7 @@ fun ShareSongDialog(
     LaunchedEffect(deepLink) {
         scope.launch {
             qrCodeBitmap = withContext(Dispatchers.IO) {
-                generateQRCode(deepLink)
+                generateQRCode(shareableUrl)
             }
         }
     }
