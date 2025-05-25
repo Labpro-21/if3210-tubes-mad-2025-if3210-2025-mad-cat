@@ -64,6 +64,7 @@ import com.example.purrytify.data.preferences.UserProfileManager
 import com.example.purrytify.data.preferences.UserProfile
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.purrytify.ui.components.BottomNavBar
+import java.io.File
 
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()
@@ -994,17 +995,57 @@ fun MonthlyAnalytics(
                                             color = Color(0xFF669BEC),
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
-                                        )
+                                        )                                        
                                         Spacer(modifier = Modifier.height(10.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = null,
+                                
+                                        Box(
                                             modifier = Modifier
                                                 .size(58.dp)
-                                                .background(Color.DarkGray, shape = CircleShape)
-                                                .padding(8.dp),
-                                            tint = Color.White
-                                        )
+                                                .clip(CircleShape)
+                                                .background(Color.DarkGray),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (data.topArtistCoverUrl != null) {
+                                                val imageModel = when {
+                                                    data.topArtistCoverUrl.startsWith("http") -> {
+                                                        // For online covers
+                                                        Log.d("ProfileScreen", "Using online artist cover: ${data.topArtistCoverUrl}")
+                                                        data.topArtistCoverUrl
+                                                    }
+                                                    data.topArtistCoverUrl.isNotEmpty() && File(data.topArtistCoverUrl).exists() -> {
+                                                        // For local covers
+                                                        Log.d("ProfileScreen", "Using local artist cover: ${data.topArtistCoverUrl}")
+                                                        File(data.topArtistCoverUrl)
+                                                    }
+                                                    else -> null
+                                                }
+                                                
+                                                if (imageModel != null) {
+                                                    AsyncImage(
+                                                        model = imageModel,
+                                                        contentDescription = "Artist cover",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                } else {
+                                                    // Fallback icon when URL is invalid
+                                                    Icon(
+                                                        imageVector = Icons.Default.Person,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.padding(8.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                // Fallback icon when no cover URL
+                                                Icon(
+                                                    imageVector = Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.padding(8.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 
@@ -1046,19 +1087,59 @@ fun MonthlyAnalytics(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.height(10.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.MusicNote,
-                                            contentDescription = null,
+                                        
+                                        // Song cover image (if available)
+                                        Box(
                                             modifier = Modifier
                                                 .size(58.dp)
-                                                .background(Color.DarkGray, shape = CircleShape)
-                                                .padding(8.dp),
-                                            tint = Color.White
-                                        )
+                                                .clip(CircleShape)
+                                                .background(Color.DarkGray),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (data.topSongCoverUrl != null) {
+                                                val imageModel = when {
+                                                    data.topSongCoverUrl.startsWith("http") -> {
+                                                        // For online covers
+                                                        Log.d("ProfileScreen", "Using online song cover: ${data.topSongCoverUrl}")
+                                                        data.topSongCoverUrl
+                                                    }
+                                                    data.topSongCoverUrl.isNotEmpty() && File(data.topSongCoverUrl).exists() -> {
+                                                        // For local covers
+                                                        Log.d("ProfileScreen", "Using local song cover: ${data.topSongCoverUrl}")
+                                                        File(data.topSongCoverUrl)
+                                                    }
+                                                    else -> null
+                                                }
+                                                
+                                                if (imageModel != null) {
+                                                    AsyncImage(
+                                                        model = imageModel,
+                                                        contentDescription = "Song cover",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                } else {
+                                                    // Fallback icon when URL is invalid
+                                                    Icon(
+                                                        imageVector = Icons.Default.MusicNote,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.padding(8.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                // Fallback icon when no cover URL
+                                                Icon(
+                                                    imageVector = Icons.Default.MusicNote,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.padding(8.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
-                            }
-
+                            }                            
                             if (data.streak != null && data.streak > 0) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Card(
@@ -1070,18 +1151,46 @@ fun MonthlyAnalytics(
                                     ),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Text(
-                                            "You had a ${data.streak}-day streak",
+                                    Column(modifier = Modifier.padding(16.dp)) {                                        Text(
+                                            if (data.streakSong != null) 
+                                                "You had a ${data.streak}-day streak with \"${data.streakSong}\""
+                                            else 
+                                                "You had a ${data.streak}-day streak",
                                             color = Color.White,
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
+                                        val streakImageModel = when {
+                                            // First priority: use the specific streak song cover if available
+                                            data.streakSongCoverUrl != null -> {
+                                                Log.d("ProfileScreen", "Using streak song cover: ${data.streakSongCoverUrl}")
+                                                if (data.streakSongCoverUrl.startsWith("http")) data.streakSongCoverUrl
+                                                else if (File(data.streakSongCoverUrl).exists()) File(data.streakSongCoverUrl)
+                                                else null
+                                            }
+                                            // Second priority: top song cover
+                                            data.topSongCoverUrl != null -> {
+                                                Log.d("ProfileScreen", "Using top song cover for streak: ${data.topSongCoverUrl}")
+                                                if (data.topSongCoverUrl.startsWith("http")) data.topSongCoverUrl
+                                                else if (File(data.topSongCoverUrl).exists()) File(data.topSongCoverUrl)
+                                                else null
+                                            }
+                                            // Third priority: top artist cover
+                                            data.topArtistCoverUrl != null -> {
+                                                Log.d("ProfileScreen", "Using top artist cover for streak: ${data.topArtistCoverUrl}")
+                                                if (data.topArtistCoverUrl.startsWith("http")) data.topArtistCoverUrl
+                                                else if (File(data.topArtistCoverUrl).exists()) File(data.topArtistCoverUrl)
+                                                else null
+                                            }
+                                            // Last resort: try to get a cover for the streak song or top song
+                                            else -> ListeningAnalytics.getSongCoverUrl(
+                                                data.streakSong ?: data.topSong ?: "", data.topArtist ?: ""
+                                            )
+                                        }
+                                        
                                         AsyncImage(
-                                            model = ListeningAnalytics.getSongCoverUrl(
-                                                data.topSong ?: "", data.topArtist ?: ""
-                                            ),
+                                            model = streakImageModel,
                                             contentDescription = "Streak Song Cover",
                                             modifier = Modifier
                                                 .fillMaxWidth()

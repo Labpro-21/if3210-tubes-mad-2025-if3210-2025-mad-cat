@@ -72,11 +72,20 @@ class TokenManager(context: Context) {
 
     fun getRefreshToken(): String? {
         return sharedPrefs.getString("refreshToken", null)
-    }
-
+    }    
+    
     fun clearTokens() {
-        Log.d(TAG, "Clearing all tokens")
-        sharedPrefs.edit().clear().apply()
+        Log.d(TAG, "Clearing authentication tokens only")
+        val editor = sharedPrefs.edit()
+        editor.remove("jwt_token")
+        editor.remove("refreshToken")
+        val email = getEmail()
+        editor.apply()
+        
+        // After tokens are cleared, re-save the email for reference
+        if (email != null) {
+            saveEmail(email)
+        }
     }
 
     fun hasToken(): Boolean {
