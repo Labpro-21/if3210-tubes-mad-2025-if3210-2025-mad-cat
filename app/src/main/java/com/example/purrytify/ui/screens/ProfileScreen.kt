@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -93,6 +95,25 @@ object ListenedSongsTracker {
         val tokenManager = TokenManager(context)
         val joined = userListenedSongsMap[email]?.joinToString("|") ?: ""
         tokenManager.saveString("listened_songs_$email", joined)
+    }
+    
+    fun getListenedSongs(email: String): List<Song> {
+        return userListenedSongsMap[email]?.map { songKey ->
+            val parts = songKey.split("_")
+            val title = parts.getOrNull(0) ?: ""
+            val artist = parts.getOrNull(1) ?: ""
+            val coverUri = parts.getOrNull(2) ?: ""
+            val uri = parts.getOrNull(3) ?: ""
+            val duration = parts.getOrNull(4) ?: "0"
+            
+            Song(
+                title = title,
+                artist = artist,
+                coverUri = coverUri,
+                uri = uri,
+                duration = duration
+            )
+        } ?: emptyList()
     }
 }
 
@@ -252,12 +273,6 @@ fun ProfileScreen(
             }
         }
     }
-
-    val gradientColors = listOf(
-        Color(0xFF095256),
-        Color(0xFF121212),
-        Color(0xFF000000)
-    )
 
     Box(
         modifier = Modifier
@@ -442,7 +457,6 @@ fun ProfileScreen(
                                         label = "LIKED"
                                     )
 
-                                    // Listened Stat - Tracks unique songs played
                                     StatItem(
                                         count = listenedCount,
                                         label = "LISTENED"
@@ -454,8 +468,7 @@ fun ProfileScreen(
                                 // Analytics section
                                 Column(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
+                                        .fillMaxWidth(),
                                     horizontalAlignment = Alignment.Start
                                 ) {
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -470,202 +483,31 @@ fun ProfileScreen(
                                     )
 
                                     Spacer(modifier = Modifier.height(16.dp))
-
-                                    ListeningAnalytics.getMonthlyAnalytics().toList()
-                                        .sortedByDescending { (month, _) ->
-                                            LocalDate.parse("01 $month 2025", DateTimeFormatter.ofPattern("dd MMMM yyyy")).monthValue
-                                        }
-                                        .filter { (month, _) ->
-                                            LocalDate.parse("01 $month 2025", DateTimeFormatter.ofPattern("dd MMMM yyyy"))
-                                                .isBefore(LocalDate.of(2025, 6, 1))
-                                        }
-                                        .forEach { (month, data) ->
-                                            val date = LocalDate.parse("01 $month 2025", DateTimeFormatter.ofPattern("dd MMMM yyyy"))
-                                            val formattedMonthYear = date.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-
-                                        Text(
-                                            text = formattedMonthYear,
-                                            style = TextStyle(
-                                                color = Color.White,
-                                                fontSize = 20.sp,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        )
-
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { navController.navigate("time_listened") },
-                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Column(modifier = Modifier.padding(16.dp)) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text("Time listened", color = Color.Gray, fontSize = 14.sp)
-                                                    Icon(
-                                                        imageVector = Icons.Default.ArrowForward,
-                                                        contentDescription = null,
-                                                        tint = Color.White.copy(alpha = 0.7f),
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                                Text(
-                                                    text = data.timeListened ?: "No Data",
-                                                    color = Color(0xFF00FF7F),
-                                                    fontSize = 28.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        Row(modifier = Modifier.fillMaxWidth()) {
-                                            Card(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .padding(end = 4.dp)
-                                                    .clickable { navController.navigate("top_artists") },
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(16.dp),
-                                                    horizontalAlignment = Alignment.Start
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text("Top artist", color = Color.Gray, fontSize = 14.sp)
-                                                        Icon(
-                                                            imageVector = Icons.Default.ArrowForward,
-                                                            contentDescription = null,
-                                                            tint = Color.White.copy(alpha = 0.7f),
-                                                            modifier = Modifier.size(24.dp)
-                                                        )
-                                                    }
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(
-                                                        text = data.topArtist ?: "None yet",
-                                                        color = Color(0xFF669BEC),
-                                                        fontSize = 16.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Spacer(modifier = Modifier.height(10.dp))
-                                                    Icon(
-                                                        imageVector = Icons.Default.Person,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .size(58.dp)
-                                                            .background(Color.DarkGray, shape = CircleShape)
-                                                            .padding(8.dp),
-                                                        tint = Color.White
-                                                    )
-                                                }
-                                            }
-
-                                            Card(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .padding(start = 4.dp)
-                                                    .clickable { navController.navigate("top_songs") },
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(16.dp),
-                                                    horizontalAlignment = Alignment.Start
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text("Top song", color = Color.Gray, fontSize = 14.sp)
-                                                        Icon(
-                                                            imageVector = Icons.Default.ArrowForward,
-                                                            contentDescription = null,
-                                                            tint = Color.White.copy(alpha = 0.7f),
-                                                            modifier = Modifier.size(24.dp)
-                                                        )
-                                                    }
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(
-                                                        text = data.topSong ?: "None yet",
-                                                        color = Color(0xFFF8E747),
-                                                        fontSize = 16.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Spacer(modifier = Modifier.height(10.dp))
-                                                    Icon(
-                                                        imageVector = Icons.Default.MusicNote,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .size(58.dp)
-                                                            .background(Color.DarkGray, shape = CircleShape)
-                                                            .padding(8.dp),
-                                                        tint = Color.White
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        if (data.streak != null && data.streak > 0) {
-                                            Spacer(modifier = Modifier.height(12.dp))
-                                            Card(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ) {
-                                                Column(modifier = Modifier.padding(16.dp)) {
-                                                    Text("You had a ${data.streak}-day streak", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                                    AsyncImage(
-                                                        model = ListeningAnalytics.getSongCoverUrl(data.topSong ?: "", data.topArtist ?: ""),
-                                                        contentDescription = "Streak Song Cover",
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(150.dp)
-                                                            .clip(RoundedCornerShape(8.dp)),
-                                                        contentScale = ContentScale.Crop
-                                                    )
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(
-                                                        text = "You played consistently during this month. Keep it up!",
-                                                        color = Color.Gray,
-                                                        fontSize = 14.sp
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(20.dp))
-                                    }
+                                      // Get all monthly analytics data
+                                    val monthlyData = ListeningAnalytics.getMonthlyAnalytics()
+                                      MonthlyAnalytics(
+                                        analyticsData = monthlyData,
+                                        navController = navController  // Pass the parent navController
+                                    )
                                 }
 
                                 Spacer(modifier = Modifier.height(24.dp))
 
-                                // Buttons
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    IconButton(
-                                        onClick = { showResetConfirmation = true }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Reset Data",
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
+//                                // Buttons
+//                                Row(
+//                                    modifier = Modifier.fillMaxWidth(),
+//                                    horizontalArrangement = Arrangement.SpaceBetween
+//                                ) {
+//                                    IconButton(
+//                                        onClick = { showResetConfirmation = true }
+//                                    ) {
+//                                        Icon(
+//                                            imageVector = Icons.Default.Refresh,
+//                                            contentDescription = "Reset Data",
+//                                            tint = Color.White
+//                                        )
+//                                    }
+//                                }
                             }
                         }
                     }
@@ -682,66 +524,66 @@ fun ProfileScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
 
-        // Add confirmation dialog
-        if (showResetConfirmation) {
-            AlertDialog(
-                onDismissRequest = { showResetConfirmation = false },
-                title = {
-                    Text(
-                        text = "Reset Data",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
-                        color = Color.White
-                    )
-                },
-
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            coroutineScope.launch {
-                                // Reset analytics data
-                                ListeningAnalytics.resetAllData(context, userEmail)
-
-                                val tokenManager = TokenManager(context)
-                                tokenManager.saveString("listened_songs_$userEmail", "")
-                                ListenedSongsTracker.loadListenedSongs(userEmail, context)
-                                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
-
-                                showAnalytics = false
-                                delay(100)
-                                showAnalytics = true
-
-                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
-                            }
-                            showResetConfirmation = false
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE53935)
-                        )
-                    ) {
-                        Text("Reset")
-                    }
-
-                },
-                dismissButton = {
-                    Button(
-                        onClick = { showResetConfirmation = false },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF424242)
-                        )
-                    ) {
-                        Text("Cancel")
-                    }
-                },
-                containerColor = Color(0xFF2A2A2A),
-                shape = RoundedCornerShape(16.dp)
-                )
-            }
+//        // Add confirmation dialog
+//        if (showResetConfirmation) {
+//            AlertDialog(
+//                onDismissRequest = { showResetConfirmation = false },
+//                title = {
+//                    Text(
+//                        text = "Reset Data",
+//                        color = Color.White,
+//                        fontWeight = FontWeight.Bold
+//                    )
+//                },
+//                text = {
+//                    Text(
+//                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
+//                        color = Color.White
+//                    )
+//                },
+//
+//                confirmButton = {
+//                    Button(
+//                        onClick = {
+//                            coroutineScope.launch {
+//                                // Reset analytics data
+//                                ListeningAnalytics.resetAllData(context, userEmail)
+//
+//                                val tokenManager = TokenManager(context)
+//                                tokenManager.saveString("listened_songs_$userEmail", "")
+//                                ListenedSongsTracker.loadListenedSongs(userEmail, context)
+//                                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+//
+//                                showAnalytics = false
+//                                delay(100)
+//                                showAnalytics = true
+//
+//                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
+//                            }
+//                            showResetConfirmation = false
+//                        },
+//                        colors = ButtonDefaults.buttonColors(
+//                            containerColor = Color(0xFFE53935)
+//                        )
+//                    ) {
+//                        Text("Reset")
+//                    }
+//
+//                },
+//                dismissButton = {
+//                    Button(
+//                        onClick = { showResetConfirmation = false },
+//                        colors = ButtonDefaults.buttonColors(
+//                            containerColor = Color(0xFF424242)
+//                        )
+//                    ) {
+//                        Text("Cancel")
+//                    }
+//                },
+//                containerColor = Color(0xFF2A2A2A),
+//                shape = RoundedCornerShape(16.dp)
+//                )
+//            }
         }
     }
 
@@ -769,57 +611,287 @@ fun StatItem(count: Int, label: String) {
 }
 
 @Composable
-fun MonthlyListeningAnalytics(
+fun MonthlyAnalytics(
     analyticsData: Map<String, MonthlyAnalytics>,
-    onMonthSelected: (String) -> Unit
+    navController: NavController
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        analyticsData.forEach { (month, data) ->
-            var isExpanded by remember { mutableStateOf(false) }
+    // Current month and year
+    val now = LocalDate.now()
+    val currentMonth = now.month.name.lowercase().replaceFirstChar { it.uppercase() }
+    val currentYear = now.year
+    val currentMonthValue = now.monthValue
 
-            // Dropdown for each month
+    val monthValues = mapOf(
+        "January" to 1, "February" to 2, "March" to 3, "April" to 4,
+        "May" to 5, "June" to 6, "July" to 7, "August" to 8,
+        "September" to 9, "October" to 10, "November" to 11, "December" to 12
+    )
+
+    val availableMonths = listOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ).filter { month ->
+        monthValues[month]!! <= currentMonthValue
+    }.reversed()
+
+    val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
+
+    LaunchedEffect(currentMonth) {
+        expandedStates[currentMonth] = true
+    }
+
+    var selectedMonth by remember { mutableStateOf(currentMonth) }
+    
+    Column(modifier = Modifier.fillMaxWidth()) {
+        availableMonths.forEach { month ->
+            val isCurrentMonth = month == currentMonth
+            val isSelected = month == selectedMonth
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .clickable { isExpanded = !isExpanded },
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                shape = RoundedCornerShape(12.dp)
+                    .clickable {
+                        if (!isCurrentMonth) {
+                            expandedStates[month] = !(expandedStates[month] ?: false)
+                            
+                            if (!isSelected) {
+                                selectedMonth = month
+                            } else {
+                                selectedMonth = currentMonth
+                            }
+                        }
+                    },
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = month,
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = month,
+                                color = Color.White,
+                                fontSize = if (isSelected || isCurrentMonth) 18.sp else 16.sp,
+                                fontWeight = FontWeight.Normal
+                            )
 
-                    if (isExpanded) {
-                        if (data.timeListened == null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Text(
+                                text = currentYear.toString(),
+                                color = Color.LightGray,
+                                fontSize = if (isSelected || isCurrentMonth) 18.sp else 16.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+
+                        if (!isCurrentMonth) {
+                            Icon(
+                                imageVector = if (expandedStates[month] == true)
+                                    Icons.Default.KeyboardArrowUp
+                                else
+                                    Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Expand",
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    if (isCurrentMonth || expandedStates[month] == true) {
+                        val data = analyticsData[month]
+
+                        if (data?.timeListened == null) {
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "No Data Available",
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
                                 textAlign = TextAlign.Center
                             )
                         } else {
-                            Text(
-                                text = "Time Listened: ${data.timeListened}",
-                                color = Color(0xFF00FF7F),
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "Top Song: ${data.topSong ?: "None"}",
-                                color = Color(0xFFF8E747),
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "Top Artist: ${data.topArtist ?: "None"}",
-                                color = Color(0xFF669BEC),
-                                fontSize = 14.sp
-                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Time listened card
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { navController.navigate("time_listened") },
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Time listened", color = Color.Gray, fontSize = 14.sp)
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowForward,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = data.timeListened,
+                                        color = Color(0xFF00FF7F),
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Top artist and song row
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                // Top artist card
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 4.dp)
+                                        .clickable { navController.navigate("top_artists") },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(
+                                            0xFF2A2A2A
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Top artist", color = Color.Gray, fontSize = 14.sp)
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowForward,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = data.topArtist ?: "None yet",
+                                            color = Color(0xFF669BEC),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(58.dp)
+                                                .background(Color.DarkGray, shape = CircleShape)
+                                                .padding(8.dp),
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+
+                                // Top song card
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(start = 4.dp)
+                                        .clickable { navController.navigate("top_songs") },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(
+                                            0xFF2A2A2A
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Top song", color = Color.Gray, fontSize = 14.sp)
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowForward,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = data.topSong ?: "None yet",
+                                            color = Color(0xFFF8E747),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.MusicNote,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(58.dp)
+                                                .background(Color.DarkGray, shape = CircleShape)
+                                                .padding(8.dp),
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (data.streak != null && data.streak > 0) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(
+                                            0xFF2A2A2A
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(
+                                            "You had a ${data.streak}-day streak",
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        AsyncImage(
+                                            model = ListeningAnalytics.getSongCoverUrl(
+                                                data.topSong ?: "", data.topArtist ?: ""
+                                            ),
+                                            contentDescription = "Streak Song Cover",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(150.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "You played consistently during this month. Keep it up!",
+                                            color = Color.Gray,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

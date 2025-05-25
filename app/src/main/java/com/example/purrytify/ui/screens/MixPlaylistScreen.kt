@@ -1,5 +1,7 @@
 package com.example.purrytify.ui.screens
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +9,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,10 +27,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.io.File
@@ -37,6 +45,52 @@ import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.preferences.UserProfileManager
 import com.example.purrytify.data.PlayHistoryTracker
+import com.example.purrytify.ui.dialogs.ShareSongDialog
+import com.example.purrytify.ui.dialogs.SongOptionsDialog
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.time.LocalDate
+
+object MixStorageHelper {
+    private const val PREF_NAME = "mix_playlist_pref"
+
+    fun saveMixPlaylist(context: Context, mixName: String, songs: List<Song>) {
+        val sharedPrefs = EncryptedSharedPreferences.create(
+            PREF_NAME, MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+            context, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        val editor = sharedPrefs.edit()
+        val json = Gson().toJson(songs)
+        val today = LocalDate.now().toString()
+        val currentTime = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+        editor.putString("${mixName}_songs", json)
+        editor.putString("${mixName}_lastUpdated", today)
+        editor.putString("${mixName}_lastUpdatedTime", currentTime)
+        editor.apply()
+    }    fun loadMixPlaylist(context: Context, mixName: String): Pair<List<Song>?, String?> {
+        val sharedPrefs = EncryptedSharedPreferences.create(
+            PREF_NAME, MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+            context, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        val lastUpdated = sharedPrefs.getString("${mixName}_lastUpdated", null)
+        val lastUpdatedTime = sharedPrefs.getString("${mixName}_lastUpdatedTime", null)
+        val today = LocalDate.now().toString()
+        
+        val songs = if (lastUpdated == today) {
+            val json = sharedPrefs.getString("${mixName}_songs", null)
+            json?.let {
+                val type = object : TypeToken<List<Song>>() {}.type
+                Gson().fromJson<List<Song>>(it, type)
+            }
+        } else {
+            null
+        }
+        
+        return Pair(songs, lastUpdatedTime)
+    }
+}
 
 @Composable
 fun MixPlaylistScreen(
@@ -61,6 +115,12 @@ fun MixPlaylistScreen(
     val userProfile = userProfileManager.getUserProfile(userEmail)
     val userCountryCode = userProfile?.country ?: "ID"
     val scope = rememberCoroutineScope()
+    val savedMixData = remember {
+        MixStorageHelper.loadMixPlaylist(context, mixName)
+    }
+    
+    val savedMix = savedMixData.first
+    val lastUpdatedTime = savedMixData.second
 
     val allSongs = songViewModel.allSongs.collectAsState(initial = emptyList())
     val likedSongs = songViewModel.likedSongs.collectAsState(initial = emptyList())
@@ -104,63 +164,60 @@ fun MixPlaylistScreen(
     }
 
     // Create the mix songs based on the mix name
-    val mixSongs = remember(mixName, allSongs.value, likedSongs.value, recentlyPlayedSongs, globalSongs, countrySongs) {
-        when (mixName) {
-            "Your Daily Mix" -> {
-                // Daily Mix of songs user hasn't heard yet (15 songs)
-                // Filter out songs that user has already listened to
-                val alreadyListenedTitles = recentlyPlayedSongs.map { "${it.title}_${it.artist}" }.toSet()
-                
-                // Combine and filter global and country songs
-                val unheardGlobalSongs = globalSongs
-                    .filter { song -> 
-                        !alreadyListenedTitles.contains("${song.title}_${song.artist}")
-                    }
-                    .take(8) // Take up to 8 global songs
-                    
-                val unheardCountrySongs = countrySongs
-                    .filter { song -> 
-                        !alreadyListenedTitles.contains("${song.title}_${song.artist}") &&
-                        // Also ensure no duplicates with global songs already selected
-                        !unheardGlobalSongs.any { it.title == song.title && it.artist == song.artist }
-                    }
-                    .take(7) // Take up to 7 country songs
-                    
-                // Combine both lists to get 15 songs total
-                val combinedList = (unheardGlobalSongs + unheardCountrySongs).take(15)
-                
-                // If we don't have enough unheard songs, supplement with random songs from library
-                if (combinedList.size < 15) {
-                    val additionalSongs = allSongs.value
-                        .filter { song -> 
-                            // Avoid duplicates
+    val mixSongs = remember(savedMix, mixName, allSongs.value, likedSongs.value, recentlyPlayedSongs, globalSongs, countrySongs) {
+        if (savedMix != null) {
+            savedMix
+        } else {
+            val generatedMix = when (mixName) {
+                "Your Daily Mix" -> {
+                    val alreadyListenedTitles =
+                        recentlyPlayedSongs.map { "${it.title}_${it.artist}" }.toSet()
+
+                    val unheardGlobalSongs = globalSongs
+                        .filter { song -> !alreadyListenedTitles.contains("${song.title}_${song.artist}") }
+                        .take(8)
+
+                    val unheardCountrySongs = countrySongs
+                        .filter { song ->
                             !alreadyListenedTitles.contains("${song.title}_${song.artist}") &&
-                            !combinedList.any { it.title == song.title && it.artist == song.artist }
+                                    !unheardGlobalSongs.any { it.title == song.title && it.artist == song.artist }
                         }
-                        .shuffled()
-                        .take(15 - combinedList.size)
-                        
-                    combinedList + additionalSongs
-                } else {
-                    combinedList
+                        .take(7)
+
+                    val combinedList = (unheardGlobalSongs + unheardCountrySongs).take(15)
+
+                    if (combinedList.size < 15) {
+                        val additionalSongs = allSongs.value
+                            .filter { song ->
+                                !alreadyListenedTitles.contains("${song.title}_${song.artist}") &&
+                                        !combinedList.any { it.title == song.title && it.artist == song.artist }
+                            }
+                            .shuffled()
+                            .take(15 - combinedList.size)
+
+                        combinedList + additionalSongs
+                    } else {
+                        combinedList
+                    }
                 }
-            }
-            "Favorites Mix" -> {
-                // Favorites mix based on liked songs plus frequently played
-                val favoritesMix = likedSongs.value.take(7).toMutableList()
-                if (favoritesMix.size < 7) {
-                    val additionalSongs = recentlyPlayedSongs
-                        .filter { song -> 
-                            !favoritesMix.any { it.title == song.title && it.artist == song.artist }
-                        }
-                        .take(7 - favoritesMix.size)
-                    favoritesMix.addAll(additionalSongs)
+                "Favorites Mix" -> {
+                    val favoritesMix = likedSongs.value.take(7).toMutableList()
+                    if (favoritesMix.size < 7) {
+                        val additionalSongs = recentlyPlayedSongs
+                            .filter { song -> !favoritesMix.any { it.title == song.title && it.artist == song.artist } }
+                            .take(7 - favoritesMix.size)
+                        favoritesMix.addAll(additionalSongs)
+                    }
+                    favoritesMix.shuffled()
                 }
-                favoritesMix.shuffled()
+                else -> emptyList()
             }
-            else -> emptyList()
+
+            MixStorageHelper.saveMixPlaylist(context, mixName, generatedMix)
+            generatedMix
         }
     }
+
 
     val bgColorTop = when (mixName) {
         "Your Daily Mix" -> Color(0xFF1DB954)
@@ -263,9 +320,7 @@ fun MixPlaylistScreen(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Playlist description
+                        Spacer(modifier = Modifier.height(4.dp))                        // Playlist description
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -273,7 +328,8 @@ fun MixPlaylistScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Made for you • ${mixSongs.size} songs",
+                                text = "Made for you • ${mixSongs.size} songs" + 
+                                      (lastUpdatedTime?.let { " • Updated at $it" } ?: ""),
                                 style = TextStyle(
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 14.sp
@@ -288,9 +344,13 @@ fun MixPlaylistScreen(
                         Button(
                             onClick = {
                                 scope.launch {
-                                    if (mixSongs.isNotEmpty()) {
-                                        musicViewModel.setOnlinePlaylist(mixSongs, "mix_${mixName}")
-                                        musicViewModel.playSong(mixSongs.first(), context)
+                                    if (mixSongs.isNotEmpty()) {                                        musicViewModel.setOnlinePlaylist(mixSongs, "mix_${mixName}")
+                                        musicViewModel.playSong(
+                                            mixSongs.first(), 
+                                            context, 
+                                            fromOnlinePlaylist = true,
+                                            onlineType = "mix_${mixName}"
+                                        )
                                         onNavigateToPlayer()
                                     }
                                 }
@@ -317,7 +377,12 @@ fun MixPlaylistScreen(
                     onClick = {
                         scope.launch {
                             musicViewModel.setOnlinePlaylist(mixSongs, "mix_${mixName}")
-                            musicViewModel.playSong(song, context)
+                            musicViewModel.playSong(
+                                song,
+                                context,
+                                fromOnlinePlaylist = true,
+                                onlineType = "mix_${mixName}"
+                            )
                             onNavigateToPlayer()
                         }
                     },
@@ -345,7 +410,6 @@ fun MixPlaylistScreen(
                 }
             }
         }
-
         BottomNavBar(
             navController = navController,
             musicViewModel = musicViewModel,
@@ -364,9 +428,24 @@ fun SongListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val musicViewModel: MusicViewModel = viewModel()
+
+    var isDownloaded by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var showOptionsDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(song) {
+        isDownloaded = musicViewModel.isSongDownloaded(song, context)
+    }
+    
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .background(
+                if (isDownloaded) Color(0xFF1DB954).copy(alpha = 0.1f) else Color.Transparent
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -455,7 +534,94 @@ fun SongListItem(
             style = TextStyle(
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 16.sp
+            ),
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        // Download button
+        IconButton(
+            onClick = {
+                if (!isDownloaded && !isDownloading) {
+                    isDownloading = true
+                    musicViewModel.downloadSong(
+                        song = song,
+                        context = context,
+                        onSuccess = {
+                            isDownloaded = true
+                            isDownloading = false
+                            Toast.makeText(context, "Download completed: ${song.title}", Toast.LENGTH_SHORT).show()
+                        },
+                        onError = { error ->
+                            isDownloading = false
+                            if (error == "Song already downloaded") {
+                                Toast.makeText(context, "Song already downloaded", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Download failed: $error", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
+            },
+            enabled = !isDownloaded && !isDownloading
+        ) {
+            when {
+                isDownloaded -> Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Downloaded",
+                    tint = Color(0xFF1DB954)
+                )
+                isDownloading -> CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color(0xFF1DB954),
+                    strokeWidth = 2.dp
+                )
+                else -> Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download",
+                    tint = Color.White
+                )
+            }
+        }
+
+        // Options button (three dots)
+        IconButton(
+            onClick = { showOptionsDialog = true },
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
             )
+        }
+    }
+    // Show options dialog
+    if (showOptionsDialog) {
+        SongOptionsDialog(
+            song = song,
+            isOnlineSong = true,
+            onShareClick = {
+                showShareDialog = true
+            },
+            onEditClick = {
+                // Not available for online songs
+            },
+            onDeleteClick = {
+                // Not available for online songs
+            },
+            onDismiss = { showOptionsDialog = false }
+        )
+    }    
+    
+    // Show share dialog
+    if (showShareDialog) {
+        ShareSongDialog(
+            songId = null,
+            songTitle = song.title,
+            songArtist = song.artist,
+            songUrl = song.uri,
+            onDismiss = { showShareDialog = false }
         )
     }
 }

@@ -39,8 +39,6 @@ fun TopArtistsScreen(
 ) {
     val artistData = remember { ListeningAnalytics.getAllArtistsData() }
     val artistCount = artistData.size
-    val context = LocalContext.current
-    var showResetConfirmation by remember { mutableStateOf(false) }
 
     val gradientColors = listOf(Color(0xFF000000), Color(0xFF1B1B1B))
 
@@ -115,6 +113,8 @@ fun TopArtistsScreen(
                         playCount = playCount,
                         songCount = songsByArtist.size
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Divider(
                         color = Color.DarkGray.copy(alpha = 0.3f),
