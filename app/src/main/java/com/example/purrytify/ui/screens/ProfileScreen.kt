@@ -62,6 +62,7 @@ import java.time.format.DateTimeFormatter
 import com.example.purrytify.data.preferences.UserProfileManager
 import com.example.purrytify.data.preferences.UserProfile
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.purrytify.ui.components.BottomNavBar
 
 object ListenedSongsTracker {
     private val userListenedSongsMap = mutableMapOf<String, MutableSet<String>>()

@@ -3,6 +3,7 @@ package com.example.purrytify.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,41 +45,45 @@ fun ChartsSection(
             modifier = Modifier.padding(bottom = 16.dp)
         )
         
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.height(180.dp)
         ) {
             // Top 50 Global Card
-            ChartCard(
-                title = "Top 50",
-                subtitle = "GLOBAL",
-                onClick = onGlobalClick,
-                gradientColors = listOf(
-                    Color(0xFF5FADC2),
-                    Color(0xFF3C5C9C)
-                ),
-                modifier = Modifier.weight(1f)
-            )
+            item {
+                ChartCard(
+                    title = "Top 50",
+                    subtitle = "GLOBAL",
+                    onClick = onGlobalClick,
+                    gradientColors = listOf(
+                        Color(0xFF5FADC2),
+                        Color(0xFF3C5C9C)
+                    ),
+                    modifier = Modifier.width(130.dp)
+                )
+            }
             
             // Top Country Card
-            ChartCard(
-                title = if (isCountrySupported) chartTitle else "Not Available",
-                subtitle = countryName.uppercase(),
-                onClick = if (isCountrySupported) onCountryClick else null,
-                gradientColors = if (isCountrySupported) {
-                    listOf(
-                        Color(0xFFE16970),
-                        Color(0xFFB73C46)
-                    )
-                } else {
-                    listOf(
-                        Color(0xFF666666),
-                        Color(0xFF333333)
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                enabled = isCountrySupported
-            )
+            item {
+                ChartCard(
+                    title = if (isCountrySupported) chartTitle else "Not Available",
+                    subtitle = countryName.uppercase(),
+                    onClick = if (isCountrySupported) onCountryClick else null,
+                    gradientColors = if (isCountrySupported) {
+                        listOf(
+                            Color(0xFFE16970),
+                            Color(0xFFB73C46)
+                        )
+                    } else {
+                        listOf(
+                            Color(0xFF666666),
+                            Color(0xFF333333)
+                        )
+                    },
+                    modifier = Modifier.width(130.dp),
+                    enabled = isCountrySupported
+                )
+            }
         }
         
         if (!isCountrySupported) {
@@ -104,8 +109,8 @@ fun ChartCard(
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(1f) // Make it square
-            .clip(RoundedCornerShape(8.dp))
+            .size(130.dp) // Fixed size like TopMixes
+            .clip(RoundedCornerShape(4.dp)) // Smaller corner radius like TopMixes
             .then(
                 if (enabled && onClick != null) {
                     Modifier.clickable { onClick() }

@@ -45,6 +45,7 @@ import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.preferences.UserProfileManager
 import com.example.purrytify.data.PlayHistoryTracker
+import com.example.purrytify.ui.components.BottomNavBar
 import com.example.purrytify.ui.dialogs.ShareSongDialog
 import com.example.purrytify.ui.dialogs.SongOptionsDialog
 import com.google.gson.Gson

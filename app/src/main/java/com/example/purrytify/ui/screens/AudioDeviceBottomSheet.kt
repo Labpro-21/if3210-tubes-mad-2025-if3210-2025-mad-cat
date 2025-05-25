@@ -36,7 +36,7 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        deviceManager = AudioDeviceManager(requireContext())
+        deviceManager = AudioDeviceManager.getInstance(requireContext())
         deviceRecyclerView = view.findViewById(R.id.deviceRecyclerView)
         scanningProgress = view.findViewById(R.id.scanningProgress)
 
