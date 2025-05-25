@@ -782,13 +782,13 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(0.7f))
+                Spacer(modifier = Modifier.height(40.dp))
                 
                 // Control buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                        .padding(bottom = 20.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -868,7 +868,7 @@ fun MusicPlayerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp),
+                        .padding(bottom = 20.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -889,6 +889,9 @@ fun MusicPlayerScreen(
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
+                
+                // Add spacer to push remaining content down but keep controls positioned nicely
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }
