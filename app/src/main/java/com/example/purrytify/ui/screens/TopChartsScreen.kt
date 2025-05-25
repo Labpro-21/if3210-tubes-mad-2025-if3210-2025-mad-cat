@@ -38,7 +38,7 @@ import com.example.purrytify.data.model.OnlineSong
 import com.example.purrytify.ui.viewmodel.HomeViewModel
 import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
 import com.example.purrytify.ui.viewmodel.MusicViewModel
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.dialogs.SongOptionsDialog
 import com.example.purrytify.ui.dialogs.ShareSongDialog
 import com.example.purrytify.ui.viewmodel.SongViewModel
@@ -112,37 +112,44 @@ fun TopChartsScreen(
         }
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { /* Empty title, we'll use custom header */ },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        },
-        containerColor = Color(0xFF121212)
-    ) { paddingValues ->
-        Box(
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "home",
+        onMiniPlayerClick = onNavigateToPlayer
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .background(Color(0xFF121212))
         ) {
+            // Top bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+            }
+            
             when {
                 isLoading.value -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = Color(0xFF1DB954)
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF1DB954)
+                        )
+                    }
                 }
                 errorMessage != null -> {
                     Column(
@@ -175,23 +182,25 @@ fun TopChartsScreen(
                     }
                 }
                 songs.value.isEmpty() -> {
-                    Text(
-                        text = "No songs available",
-                        color = Color.Gray,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No songs available",
+                            color = Color.Gray
+                        )
+                    }
                 }
                 else -> {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(headerGradient),
-                        contentPadding = PaddingValues(bottom = 90.dp) // Extra padding for mini player
+                        contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         // Header with cover image
                         item {
-                            Spacer(modifier = Modifier.height(48.dp)) // Space for the TopAppBar
-                            
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -270,15 +279,6 @@ fun TopChartsScreen(
                     }
                 }
             }
-            
-            BottomNavBar(
-                navController = navController,
-                musicViewModel = musicViewModel,
-                songViewModel = songViewModel,
-                currentRoute = "home",
-                onMiniPlayerClick = onNavigateToPlayer,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
         }
     }
 }
