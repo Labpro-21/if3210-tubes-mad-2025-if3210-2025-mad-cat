@@ -58,16 +58,13 @@ fun HomeScreen(
     val tokenManager = remember { TokenManager(context) }
     val userProfileManager = remember { UserProfileManager(context) }
     val userEmail = tokenManager.getEmail() ?: ""
-    
-    // Track navigation state to refresh profile when returning from EditProfileScreen
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    
-    // State for user profile
+
     var userProfile by remember { mutableStateOf<UserProfile?>(null) }
     var userCountryCode by remember { mutableStateOf("ID") }
-    
-    // Fetch fresh profile data when navigating to home or returning from edit screen
+
     LaunchedEffect(currentRoute) {
         if (currentRoute == "home" || currentRoute == null) {
             try {
@@ -484,8 +481,6 @@ fun TopMixesSection(
     val mixOneName = "Your Daily Mix"
     val mixTwoName = "Favorites Mix"
     
-    android.util.Log.d("TopMixesSection", "Using country code: $userCountryCode")
-    
     // Daily Mix: Fetch global and country top songs
     val globalTopSongs = homeViewModel.globalTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
     val countryTopSongs = homeViewModel.countryTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
@@ -493,7 +488,6 @@ fun TopMixesSection(
     LaunchedEffect(userCountryCode) {
         Log.d("TopMixesSection", "Country code changed to: $userCountryCode, fetching new songs")
         homeViewModel.fetchGlobalTopSongs()
-        // Make sure we use the latest country code
         homeViewModel.fetchCountryTopSongs(userCountryCode)
     }
 

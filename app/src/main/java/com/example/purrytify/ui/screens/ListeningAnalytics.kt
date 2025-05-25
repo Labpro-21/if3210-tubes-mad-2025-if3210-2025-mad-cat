@@ -161,13 +161,18 @@ object ListeningAnalytics {
 
         startPlaybackTracking(musicViewModel, context, email)
     }    fun getSongCoverUrl(title: String, artist: String): String? {
-        val songKey = "${title}_${artist}"
-        val coverUrl = songCoverUrls[songKey]
+        // Cari berdasarkan title dan artist di semua songKey yang ada
+        val matchingSongKey = songCoverUrls.keys.find { key ->
+            val parts = key.split("_")
+            parts.size >= 3 && parts[1] == title && parts[2] == artist
+        }
+        
+        val coverUrl = matchingSongKey?.let { songCoverUrls[it] }
         
         if (coverUrl != null) {
-            Log.d("ListeningAnalytics", "Found cover URL for $songKey: $coverUrl")
+            Log.d("ListeningAnalytics", "Found cover URL for $title by $artist: $coverUrl")
         } else {
-            Log.d("ListeningAnalytics", "No cover URL found for $songKey")
+            Log.d("ListeningAnalytics", "No cover URL found for $title by $artist")
         }
         
         return coverUrl
@@ -571,17 +576,25 @@ object ListeningAnalytics {
     fun getAllArtistsData(): List<Pair<String, Int>> {
         val currentMonth = getCurrentMonthKey()
         val monthArtistCounts = artistPlayCountsByMonth[currentMonth] ?: mutableMapOf()
-
-        return monthArtistCounts.map { (artist, count) ->
-            Pair(artist, count)
-        }.sortedByDescending { it.second } // Sort by play count
+        return monthArtistCounts.map { (artist, playCount) ->
+            val uniqueSongs = songPlayCounts.keys
+                .filter { songKey ->
+                    val parts = songKey.split("_")
+                    parts.size >= 3 && parts[2] == artist
+                }
+                .toSet()
+            
+            val uniqueSongCount = uniqueSongs.size
+            
+            Log.d("ListeningAnalytics", "Artist: $artist, Play count: $playCount, Unique song count: $uniqueSongCount")
+            Pair(artist, uniqueSongCount)
+        }.sortedByDescending { it.second }
     }
 
     fun getArtistCoverUrl(artist: String): String? {
         val songKeys = songPlayCounts.keys.filter {
             val parts = it.split("_")
-            val songArtist = parts.getOrNull(1) ?: ""
-            songArtist == artist
+            parts.size >= 3 && parts[2] == artist
         }
         
         val possibleCovers = songKeys.mapNotNull { songKey -> 
@@ -606,8 +619,6 @@ object ListeningAnalytics {
     fun getDailyListeningData(): Map<String, Long> {
         val today = LocalDate.now()
         val result = mutableMapOf<String, Long>()
-
-        // Get data for the last 7 days
         for (i in 0..6) {
             val date = today.minusDays(i.toLong())
             val dateStr = date.format(DateTimeFormatter.ISO_DATE)
@@ -683,7 +694,6 @@ object ListeningAnalytics {
                     }
 
                     val endTime = System.currentTimeMillis()
-                    val actualListenedSeconds = (endTime - startTime) / 1000
 
                     sessionStartTime = 0
 
@@ -736,12 +746,10 @@ object ListeningAnalytics {
         songStreakDays.clear()
         songCoverUrls.clear()
 
-        // Reset the StateFlow objects explicitly to empty values
         _topSong.value = Triple("", 0, 0L)
         _topArtist.value = Pair("", 0)
         _streakSong.value = Triple("", "", 0)
 
-        // Clear the last played song key to ensure next play is counted as new
         _lastPlayedSongKey = null
 
         lastLoadDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
@@ -757,13 +765,11 @@ object ListeningAnalytics {
         tokenManager.saveString("${email}_last_played", "")
         tokenManager.saveString("${email}_cover_urls", "")
 
-        // Ensure UI gets updated immediately after reset
         updateTopSongAndArtist()
         updateStreakSong()
 
         Log.d("ListeningAnalytics", "All data reset!")
-    }    // Get all songs by a specific artist for the current month
-
+    }
     fun getSongsByArtist(artist: String): List<String> {
         val currentMonth = getCurrentMonthKey()
         val monthArtists = artistPlayCountsByMonth[currentMonth]?.keys ?: emptySet()
@@ -810,24 +816,24 @@ object ListeningAnalytics {
                 date.monthValue == month
             }.maxByOrNull { it.value }
 
-            val topSong = topSongData?.key?.split("_")?.getOrNull(1) // Skip email, ambil title
+            val topSong = topSongData?.key?.split("_")?.getOrNull(1)
             val topSongCoverUrl = topSongData?.key?.let { key -> 
                 val parts = key.split("_")
                 if (parts.size >= 3) {
-                    getSongCoverUrl(parts[1], parts[2]) // title, artist
+                    getSongCoverUrl(parts[1], parts[2])
                 } else null
             }
 
             val monthKey = "${currentYear}-${month.toString().padStart(2, '0')}"
             val monthArtistCounts = artistPlayCountsByMonth[monthKey] ?: mutableMapOf()
             val topArtist = monthArtistCounts.maxByOrNull { it.value }?.key
-            val topArtistCoverUrl = topArtist?.let { getArtistCoverUrl(it) }            // Get streak data consistently sorted by both streak value and song key
+            val topArtistCoverUrl = topArtist?.let { getArtistCoverUrl(it) }
             val streakEntries = songStreakDays.filterKeys {
                 val date = songLastPlayed[it] ?: return@filterKeys false
                 date.monthValue == month
             }.entries.sortedWith(
                 compareByDescending<Map.Entry<String, Int>> { it.value }
-                .thenBy { it.key } // Secondary sort by song key for consistency
+                .thenBy { it.key }
             )
             
             // Get the streak value and song details
@@ -859,54 +865,12 @@ object ListeningAnalytics {
     }   
 
     fun resetLastLoadedEmail() {
-        // Make sure we save any pending analytics data before resetting
         if (lastLoadedEmail != null && lastContext != null) {
             Log.d("ListeningAnalytics", "Saving analytics data before logout for: $lastLoadedEmail")
             saveToPreferences(lastContext!!, lastLoadedEmail!!)
         }
-        
-        // Reset tracking variable but keep the data in memory
+
         lastLoadedEmail = null
         Log.d("ListeningAnalytics", "Reset lastLoadedEmail to force reload on next login")
-    }
-
-    // Get top song cover URL
-    fun getTopSongCoverUrl(): String? {
-        val topSongs = getAllSongPlayData()
-        if (topSongs.isNotEmpty()) {
-            val topSong = topSongs.first() // First item is the most played song
-            val title = topSong.first
-            val artist = topSong.second
-            val coverUrl = topSong.fourth
-            
-            Log.d("ListeningAnalytics", "Top Song Cover URL for $title by $artist: $coverUrl")
-            return coverUrl
-        }
-        return null
-    }
-    
-    // Get top artist cover URL
-    fun getTopArtistCoverUrl(): String? {
-        val topArtists = getAllArtistsData()
-        if (topArtists.isNotEmpty()) {
-            val topArtist = topArtists.first().first // First artist is the most played one
-            return getArtistCoverUrl(topArtist)
-        }
-        return null
-    }
-
-    fun getStreakSongInfo(email: String): Triple<String, String, Int> {
-        val userStreaks = songStreakDays.filterKeys { it.startsWith("${email}_") }
-        
-        val maxStreak = userStreaks.maxByOrNull { it.value }
-        
-        if (maxStreak != null) {
-            val parts = maxStreak.key.split("_")
-            val songTitle = parts.getOrNull(1) ?: ""
-            val artistName = parts.getOrNull(2) ?: "Unknown"
-            return Triple(songTitle, artistName, maxStreak.value)
-        }
-        
-        return Triple("", "", 0)
     }
 }
