@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,7 @@ import coil.compose.AsyncImage
 import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
+import java.io.File
 
 @Composable
 fun TopSongsScreen(
@@ -91,6 +93,39 @@ fun TopSongsScreen(
             LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(songPlayData.take(4)) { index, (title, artist, playCount, coverUrl) ->
                     TopSongItemStyled(index + 1, title, artist, playCount, coverUrl.toString())
+                }
+            }
+
+            // Bottom navigation for analytics
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                listOf(
+                    "Listening Time" to "time_listened",
+                    "Top Songs" to null,
+                    "Top Artists" to "top_artists"
+                ).forEach { (label, route) ->
+                    val isActive = route == null
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isActive) Color(0xFF1DB954) else Color(0xFF1E1E1E))
+                            .clickable(enabled = !isActive) { route?.let { navController.navigate(it) } }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isActive) Color.Black else Color.White
+                        )
+                    }
+                    if (label != "Top Artists") Spacer(modifier = Modifier.width(8.dp))
                 }
             }
         }
@@ -173,15 +208,46 @@ fun TopSongItemStyled(index: Int, title: String, artist: String, playCount: Int,
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            AsyncImage(
-                model = coverUrl,
-                contentDescription = null,
+            // Song cover image using the same logic as HomeScreen
+            val imageModel = when {
+                coverUrl.startsWith("http://") || coverUrl.startsWith("https://") -> {
+                    // For online songs with URLs
+                    coverUrl
+                }
+                coverUrl.isNotEmpty() && File(coverUrl).exists() -> {
+                    // For local songs with file paths
+                    File(coverUrl)
+                }
+                else -> {
+                    // No image available
+                    null
+                }
+            }
+
+            Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.DarkGray),
-                contentScale = ContentScale.Crop
-            )
+                    .background(Color(0xFF2A2A2A))
+            ) {
+                if (imageModel != null) {
+                    AsyncImage(
+                        model = imageModel,
+                        contentDescription = title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(32.dp)
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
