@@ -208,7 +208,6 @@ class AudioDeviceManager private constructor(private val context: Context) {
         val currentDevice = matchingDevice ?: devices.firstOrNull { it.type == AudioDeviceType.SPEAKER }
         _activeDevice.value = currentDevice
 
-        // Update active state in devices list
         _availableDevices.value = devices.map { device ->
             device.copy(isActive = device.id == currentDevice?.id)
         }
@@ -237,25 +236,17 @@ class AudioDeviceManager private constructor(private val context: Context) {
                     val wasPlaying = mediaPlayer?.isPlaying ?: false
                     Log.d("AudioDeviceManager", "MediaPlayer is currently playing: $wasPlaying")
                     
-                    // For external devices, we need to be more aggressive about the switch
                     if (wasPlaying) {
-                        // Save current position
                         val currentPosition = mediaPlayer?.currentPosition ?: 0
                         
-                        // Set the preferred device first
                         mediaPlayer?.setPreferredDevice(targetDevice)
-                        
-                        // Force the switch by pausing and resuming
                         mediaPlayer?.pause()
-                        
-                        // Use a very short delay and then resume
                         serviceScope.launch {
-                            delay(50) // Shorter delay for better user experience
+                            delay(50)
                             
                             try {
                                 mediaPlayer?.start()
                                 
-                                // Check if we need to restore position
                                 val newPosition = mediaPlayer?.currentPosition ?: 0
                                 if (abs(newPosition - currentPosition) > 100) {
                                     mediaPlayer?.seekTo(currentPosition)
@@ -267,14 +258,12 @@ class AudioDeviceManager private constructor(private val context: Context) {
                             }
                         }
                     } else {
-                        // If not playing, just set the preferred device
                         mediaPlayer?.setPreferredDevice(targetDevice)
                         Log.d("AudioDeviceManager", "Device set for next playback")
                     }
                     
                     _activeDevice.value = device
                     
-                    // Update active state in devices list
                     _availableDevices.value = _availableDevices.value.map { d ->
                         d.copy(isActive = d.id == device.id)
                     }
@@ -302,14 +291,10 @@ class AudioDeviceManager private constructor(private val context: Context) {
             val wasPlaying = mediaPlayer?.isPlaying ?: false
             Log.d("AudioDeviceManager", "MediaPlayer is currently playing: $wasPlaying")
             
-            // Clear preferred device to route to default (speaker)
             mediaPlayer?.setPreferredDevice(null)
-            
-            // Ensure speaker settings are correct
             audioManager.isSpeakerphoneOn = true
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             
-            // Disable Bluetooth audio
             try {
                 audioManager.stopBluetoothSco()
                 audioManager.isBluetoothScoOn = false
@@ -319,8 +304,6 @@ class AudioDeviceManager private constructor(private val context: Context) {
             
             val speakerDevice = _availableDevices.value.firstOrNull { it.type == AudioDeviceType.SPEAKER }
             _activeDevice.value = speakerDevice
-            
-            // Update active state in devices list
             _availableDevices.value = _availableDevices.value.map { device ->
                 device.copy(isActive = device.type == AudioDeviceType.SPEAKER)
             }
@@ -358,7 +341,6 @@ class AudioDeviceManager private constructor(private val context: Context) {
     }
     
     fun abandonAudioFocus() {
-        // Implementation if needed
     }
     
     fun clearError() {

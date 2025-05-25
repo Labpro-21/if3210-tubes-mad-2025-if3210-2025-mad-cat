@@ -208,16 +208,11 @@ class TokenManager(private val context: Context) {
         }
     }
 
-    /**
-     * Force clear all preferences and reset encryption if there are persistent issues
-     * This method should be used as a last resort for troubleshooting
-     */
     fun forceReset() {
         try {
             Log.w(TAG, "Force resetting all preferences")
             clearCorruptedPreferences()
             
-            // Also clear the fallback preferences
             val fallbackPrefs = context.getSharedPreferences("purrytify_token_prefs_fallback", Context.MODE_PRIVATE)
             fallbackPrefs.edit().clear().apply()
             

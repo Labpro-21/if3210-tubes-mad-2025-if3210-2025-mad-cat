@@ -28,10 +28,8 @@ object MixStorageHelper {
         val data = MixData(getToday(), songs, now.toString())
         file.writeText(gson.toJson(data))
         
-        // Store update time in memory
         updateTimes[mixName] = now
         
-        // Also save to preferences for persistence
         val sharedPrefs = context.getSharedPreferences("mix_preferences", Context.MODE_PRIVATE)
         sharedPrefs.edit().putString("${mixName}_update_time", now.toString()).apply()
         
@@ -52,14 +50,11 @@ object MixStorageHelper {
             return null
         }
         
-        // Check if date matches today's date
         if (mixData.date == getToday()) {
-            // Load update time
             try {
                 if (mixData.updateTime != null) {
                     updateTimes[mixName] = LocalDateTime.parse(mixData.updateTime)
                 } else {
-                    // If no update time in file, try to load from preferences
                     val sharedPrefs = context.getSharedPreferences("mix_preferences", Context.MODE_PRIVATE)
                     val timeString = sharedPrefs.getString("${mixName}_update_time", null)
                     if (timeString != null) {

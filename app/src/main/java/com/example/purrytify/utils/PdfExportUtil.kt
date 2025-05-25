@@ -39,19 +39,15 @@ object PdfExportUtil {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val fileName = "purrytify_analytics_$timestamp.pdf"
 
-            // Create file for download or cache
             val pdfFile: File = if (shouldDownload && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10+ - use app's external files directory
                 val appDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "Purrytify")
                 if (!appDir.exists()) appDir.mkdirs()
                 File(appDir, fileName)
             } else if (shouldDownload) {
-                // Pre-Android 10 - use public Downloads
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (!downloadsDir.exists()) downloadsDir.mkdirs()
                 File(downloadsDir, fileName)
             } else {
-                // Just for sharing - use cache
                 File(context.cacheDir, fileName)
             }
 
@@ -60,13 +56,11 @@ object PdfExportUtil {
 
             document.open()
 
-            // Set document properties
             document.addCreationDate()
             document.addAuthor("Purrytify")
             document.addCreator("Purrytify Music App")
             document.addTitle("Listening Analytics for $username")
 
-            // App logo
             try {
                 val logoStream = context.resources.openRawResource(R.drawable.purrytify_logo)
                 val image = Image.getInstance(logoStream.readBytes())
@@ -75,13 +69,11 @@ object PdfExportUtil {
                 document.add(image)
                 logoStream.close()
             } catch (e: Exception) {
-                // Fallback - just add text logo if image fails
                 val logoText = Paragraph("🎵 PURRYTIFY", TITLE_FONT)
                 logoText.alignment = Element.ALIGN_CENTER
                 document.add(logoText)
             }
 
-            // Document Title
             val title = Paragraph("Listening Analytics Report", TITLE_FONT)
             title.alignment = Element.ALIGN_CENTER
             title.spacingAfter = 15f
@@ -104,7 +96,6 @@ object PdfExportUtil {
 
             document.add(Paragraph("\n"))
 
-            // Listening time section
             val timeSection = Paragraph("📊 Total Listening Time", HEADER_FONT)
             timeSection.alignment = Element.ALIGN_LEFT
             timeSection.spacingAfter = 10f
@@ -115,7 +106,6 @@ object PdfExportUtil {
             timeValue.spacingAfter = 25f
             document.add(timeValue)
 
-            // Top Songs section
             val songsSection = Paragraph("🎵 Your Top Songs", HEADER_FONT)
             songsSection.alignment = Element.ALIGN_LEFT
             songsSection.spacingAfter = 15f
@@ -142,7 +132,6 @@ object PdfExportUtil {
                 document.add(songsTable)
             }
 
-            // Top Artists section
             val artistsSection = Paragraph("🎤 Your Top Artists", HEADER_FONT)
             artistsSection.alignment = Element.ALIGN_LEFT
             artistsSection.spacingAfter = 15f
@@ -169,7 +158,6 @@ object PdfExportUtil {
                 document.add(artistsTable)
             }
 
-            // Footer
             document.add(Paragraph("\n"))
             document.add(Paragraph("Thank you for using Purrytify! 🐱🎵", SUB_FONT).apply {
                 alignment = Element.ALIGN_CENTER
@@ -177,7 +165,6 @@ object PdfExportUtil {
 
             document.close()
 
-            // Handle download and sharing
             when {
                 shouldDownload && shouldShare -> {
                     Toast.makeText(context, "PDF saved: ${pdfFile.absolutePath}", Toast.LENGTH_LONG).show()

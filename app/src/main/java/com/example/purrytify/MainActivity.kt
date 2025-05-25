@@ -96,12 +96,10 @@ class MainActivity : ComponentActivity() {
                     var startDestination by remember { mutableStateOf("splash") }
                     var goToPlayerAfterSplash by remember { mutableStateOf(shouldNavigateToPlayer) }
                     val context = LocalContext.current
-                    // Handle deep link navigation
                     LaunchedEffect(deepLinkSongId, navController.currentBackStackEntry?.destination?.route) {
                         if (deepLinkNavigationPending && deepLinkSongId != null) {
                             Log.d(TAG, "Processing deep link navigation for song ID: $deepLinkSongId")
                             
-                            // Wait for navigation to be ready (not on splash screen)
                             val currentRoute = navController.currentBackStackEntry?.destination?.route
                             if (currentRoute == "splash") {
                                 return@LaunchedEffect
@@ -123,18 +121,15 @@ class MainActivity : ComponentActivity() {
                                             duration = onlineSong.duration
                                         )
                                         
-                                        // Set up the playlist and play the song
                                         val deepLinkPlaylist = listOf(song)
                                         musicViewModel.setOnlinePlaylist(deepLinkPlaylist, "deeplink")
                                         
-                                        // Navigate to player first
                                         navController.navigate("player") {
                                             launchSingleTop = true
                                             popUpTo("home") { inclusive = false }
                                         }
                                         
-                                        // Then start playing the song
-                                        delay(300) // Small delay to ensure navigation completes
+                                        delay(300)
                                         musicViewModel.playSong(
                                             song, 
                                             context, 
@@ -235,11 +230,9 @@ class MainActivity : ComponentActivity() {
                                                             duration = onlineSong.duration
                                                         )
                                                         
-                                                        // Set up playlist for the scanned song
                                                         val scannedPlaylist = listOf(song)
                                                         musicViewModel.setOnlinePlaylist(scannedPlaylist, "qr_scanned")
                                                         
-                                                        // Navigate to player and play the song
                                                         navController.navigate("player") {
                                                             launchSingleTop = true
                                                         }
