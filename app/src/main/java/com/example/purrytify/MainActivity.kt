@@ -45,6 +45,8 @@ import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import com.example.purrytify.data.worker.TokenAutoRefreshWorker
+import com.example.purrytify.service.auth.TokenRefreshService
+import com.example.purrytify.data.preferences.TokenManager
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
@@ -75,6 +77,12 @@ class MainActivity : ComponentActivity() {
         }
         
         RetrofitClient.initialize(applicationContext)
+        
+        val tokenManager = TokenManager(applicationContext)
+        if (tokenManager.hasToken()) {
+            startTokenRefreshService()
+        }
+        
         startTokenAutoRefreshWorker()
         runOneTimeTokenRefresh()
 
@@ -373,9 +381,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startTokenAutoRefreshWorker() {
+        // Set constraints to ensure the worker runs even when the app is in background
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+            
         val workRequest = PeriodicWorkRequestBuilder<TokenAutoRefreshWorker>(
-            4, TimeUnit.MINUTES
+            4, TimeUnit.MINUTES  // Check every 4 minutes (JWT expires in 5 minutes)
         ).setInitialDelay(30, TimeUnit.SECONDS)
+         .setConstraints(constraints)
          .build()
 
         WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
@@ -383,6 +397,8 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
+        
+        Log.d(TAG, "Token auto-refresh worker scheduled")
     }
 
     fun extendSession() {
@@ -401,5 +417,17 @@ class MainActivity : ComponentActivity() {
             .build()
 
         WorkManager.getInstance(applicationContext).enqueue(oneTimeRequest)
+    }
+    
+    private fun startTokenRefreshService() {
+        val intent = Intent(this, TokenRefreshService::class.java)
+        startService(intent)
+        Log.d(TAG, "Started TokenRefreshService")
+    }
+    
+    private fun stopTokenRefreshService() {
+        val intent = Intent(this, TokenRefreshService::class.java)
+        stopService(intent)
+        Log.d(TAG, "Stopped TokenRefreshService")
     }
 }

@@ -1,6 +1,7 @@
 package com.example.purrytify.ui.screens
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
@@ -43,6 +44,7 @@ import com.example.purrytify.ui.screens.ListeningAnalytics
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
 import com.example.purrytify.ui.viewmodel.SongViewModel
+import com.example.purrytify.service.auth.TokenRefreshService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -271,6 +273,11 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                                                 ListenedSongsTracker.loadListenedSongs(email, context)
                                                 
                                                 Log.d("LoginScreen", "Successfully loaded user analytics data for $email")
+                                                
+                                                // Start the token refresh service
+                                                val tokenRefreshIntent = Intent(context, TokenRefreshService::class.java)
+                                                context.startService(tokenRefreshIntent)
+                                                Log.d("LoginScreen", "Started TokenRefreshService")
                                                 
                                                 navController.navigate("home") {
                                                     popUpTo("login") { inclusive = true }

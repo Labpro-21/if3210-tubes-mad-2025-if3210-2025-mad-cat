@@ -31,6 +31,8 @@ import com.example.purrytify.MainActivity
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 import com.example.purrytify.ui.screens.ListeningAnalytics
+import com.example.purrytify.service.auth.TokenRefreshService
+import android.content.Intent
 
 fun Context.findActivity(): Activity? {
     var context = this
@@ -161,6 +163,10 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                                 
                                 val intent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
                                 context.stopService(intent)
+                                
+                                val tokenRefreshIntent = Intent(context, TokenRefreshService::class.java)
+                                context.stopService(tokenRefreshIntent)
+                                Log.d("SettingsScreen", "Stopped TokenRefreshService")
 
                                 val email = tokenManager.getEmail()
                                 if (email != null) {

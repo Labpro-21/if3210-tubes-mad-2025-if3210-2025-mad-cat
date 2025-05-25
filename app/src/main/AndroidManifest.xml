@@ -85,6 +85,12 @@
             </intent-filter>
         </service>
         
+        <!-- Token Refresh Service -->
+        <service
+            android:name=".service.auth.TokenRefreshService"
+            android:enabled="true"
+            android:exported="false" />
+        
         <!-- Registering broadcast receiver for media buttons -->
         <receiver 
             android:name="androidx.media.session.MediaButtonReceiver" 

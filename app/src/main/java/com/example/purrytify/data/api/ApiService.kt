@@ -39,8 +39,8 @@ interface ApiService {
     @POST("api/refresh-token")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<RefreshTokenResponse>
 
-    @GET("api/profile")
-    suspend fun verifyToken(): Response<Any>
+    @GET("api/verify-token")
+    suspend fun verifyToken(@Header("Authorization") authHeader: String): Response<Any>
     
     @Multipart
     @PATCH("api/profile")

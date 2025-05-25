@@ -869,50 +869,9 @@ fun MusicPlayerScreen(
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
-
-                IconButton(
-                    onClick = { musicViewModel.toggleRepeatMode() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = when (repeatMode) {
-                            RepeatMode.OFF -> Icons.Rounded.Repeat
-                            RepeatMode.ALL -> Icons.Rounded.Repeat
-                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                        },
-                        contentDescription = "Repeat",
-                        tint = when (repeatMode) {
-                            RepeatMode.OFF -> Color.White
-                            RepeatMode.ALL -> Color(0xFF1DB954)
-                            RepeatMode.ONE -> Color(0xFF1DB954)
-                        },
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
             }
 
-            // Audio device selector
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = (-11).dp)
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { musicViewModel.showAudioDeviceSelector() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Headphones,
-                        contentDescription = "Select Audio Output",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-            }
+
         }
     }
     if (showMenu) {
