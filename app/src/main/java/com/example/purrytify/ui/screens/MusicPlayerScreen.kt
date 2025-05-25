@@ -912,7 +912,7 @@ fun MusicPlayerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(y = (-12).dp)
+                    .offset(y = (-11).dp)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
