@@ -52,6 +52,9 @@ import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.preferences.UserProfile
 import com.example.purrytify.data.preferences.UserProfileManager
+import com.example.purrytify.ui.utils.isLandscape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -141,7 +144,12 @@ fun EditProfileScreen(
         Color(0xFF095256),
         Color(0xFF121212)
     )
+    
+    val isLandscapeMode = isLandscape()
+    val scrollState = rememberScrollState()
 
+    
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -156,7 +164,8 @@ fun EditProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .verticalScroll(scrollState)
+                .padding(if (isLandscapeMode) 16.dp else 24.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -182,19 +191,19 @@ fun EditProfileScreen(
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
+            
+            Spacer(modifier = Modifier.height(if (isLandscapeMode) 16.dp else 32.dp))
+            
             // Profile Image Section
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 24.dp),
+                    .padding(bottom = if (isLandscapeMode) 16.dp else 24.dp),
                 contentAlignment = Alignment.BottomEnd
             ) {
                 Box(
                     modifier = Modifier
-                        .size(150.dp)
+                        .size(if (isLandscapeMode) 120.dp else 150.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF6CCB64))
                         .clickable { showPhotoOptions = true }
@@ -232,7 +241,7 @@ fun EditProfileScreen(
                 IconButton(
                     onClick = { showPhotoOptions = true },
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(if (isLandscapeMode) 32.dp else 40.dp)
                         .clip(CircleShape)
                         .background(Color.White)
                 ) {
@@ -240,13 +249,14 @@ fun EditProfileScreen(
                         imageVector = Icons.Default.PhotoCamera,
                         contentDescription = "Change Photo",
                         tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(if (isLandscapeMode) 16.dp else 20.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
+            
+            Spacer(modifier = Modifier.height(if (isLandscapeMode) 12.dp else 16.dp))
+            
             Text(
                 text = "Location",
                 style = TextStyle(
@@ -260,13 +270,13 @@ fun EditProfileScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = if (isLandscapeMode) 12.dp else 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp)
+                        .height(if (isLandscapeMode) 48.dp else 56.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.DarkGray.copy(alpha = 0.5f))
                         .padding(horizontal = 16.dp),
@@ -308,7 +318,7 @@ fun EditProfileScreen(
                         }
                     },
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(if (isLandscapeMode) 48.dp else 56.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF095256))
                 ) {
@@ -319,61 +329,119 @@ fun EditProfileScreen(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = {
-                        // Launch the Google Maps activity for location selection
-                        val intent = Intent(context, MapLocationPickerActivity::class.java)
-                        mapsLauncher.launch(intent)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF095256)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp)
-                ) {
-                    Text(
-                        text = "Use Google Maps",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
+            
+            Spacer(modifier = Modifier.height(if (isLandscapeMode) 16.dp else 24.dp))
+            
+            if (isLandscapeMode) {
+                // In landscape, stack buttons vertically to save horizontal space
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, MapLocationPickerActivity::class.java)
+                            mapsLauncher.launch(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF095256)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = "Use Google Maps",
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         )
-                    )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, CountrySelectionActivity::class.java).apply {
+                                putExtra("current_country_code", location)
+                            }
+                            mapsLauncher.launch(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF095256)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = "Select From List",
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = {
-                        val intent = Intent(context, CountrySelectionActivity::class.java).apply {
-                            putExtra("current_country_code", location)
-                        }
-                        mapsLauncher.launch(intent)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF095256)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp)
-                ) {
-                    Text(
-                        text = "Select From List",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
+            } else {
+                // In portrait, keep buttons side by side
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, MapLocationPickerActivity::class.java)
+                            mapsLauncher.launch(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF095256)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                    ) {
+                        Text(
+                            text = "Use Google Maps",
+                            style = TextStyle(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         )
-                    )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, CountrySelectionActivity::class.java).apply {
+                                putExtra("current_country_code", location)
+                            }
+                            mapsLauncher.launch(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF095256)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                    ) {
+                        Text(
+                            text = "Select From List",
+                            style = TextStyle(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            
+            Spacer(modifier = Modifier.height(if (isLandscapeMode) 16.dp else 0.dp))
+            if (!isLandscapeMode) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
             Button(
                 onClick = {
@@ -399,12 +467,12 @@ fun EditProfileScreen(
                 },
                 enabled = !isUploading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6CCB64) // Green color
+                    containerColor = Color(0xFF6CCB64)
                 ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(if (isLandscapeMode) 48.dp else 56.dp)
             ) {
                 if (isUploading) {
                     CircularProgressIndicator(
@@ -420,6 +488,11 @@ fun EditProfileScreen(
                         )
                     )
                 }
+            }
+            
+            // Add bottom padding for landscape mode
+            if (isLandscapeMode) {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
 

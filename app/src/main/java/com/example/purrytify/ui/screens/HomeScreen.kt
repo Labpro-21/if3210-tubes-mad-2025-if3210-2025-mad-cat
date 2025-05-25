@@ -28,7 +28,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
 import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.data.PlayHistoryTracker
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -149,10 +149,12 @@ fun HomeScreen(
         songViewModel.logDatabaseContents()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF121212))
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "home",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -161,7 +163,9 @@ fun HomeScreen(
             )
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF121212)),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 item {
@@ -323,15 +327,6 @@ fun HomeScreen(
                 }
             }
         }
-
-        BottomNavBar(
-            navController = navController,
-            musicViewModel = musicViewModel,
-            songViewModel = songViewModel,
-            currentRoute = "home",
-            onMiniPlayerClick = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 

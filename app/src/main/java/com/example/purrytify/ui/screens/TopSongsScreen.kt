@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
 
@@ -45,13 +45,17 @@ fun TopSongsScreen(
 
     val gradientColors = listOf(Color(0xFF000000), Color(0xFF1B1B1B))
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(colors = gradientColors))
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "top_songs",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(colors = gradientColors))
         ) {
             TopBar(navController)
 
@@ -90,15 +94,6 @@ fun TopSongsScreen(
                 }
             }
         }
-
-        BottomNavBar(
-            navController = navController,
-            musicViewModel = musicViewModel,
-            songViewModel = songViewModel,
-            currentRoute = "top_songs",
-            onMiniPlayerClick = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 

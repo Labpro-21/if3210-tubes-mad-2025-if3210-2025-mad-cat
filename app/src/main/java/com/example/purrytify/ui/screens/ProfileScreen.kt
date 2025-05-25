@@ -46,7 +46,7 @@ import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.network.ConnectivityObserver
 import com.example.purrytify.data.network.NetworkConnectivityObserver
 import com.example.purrytify.data.preferences.TokenManager
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
@@ -273,7 +273,6 @@ fun ProfileScreen(
             }
         }
     }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -286,9 +285,32 @@ fun ProfileScreen(
                     )
                 )
             )
+    )
+    val gradientColors = listOf(
+        Color(0xFF095256),
+        Color(0xFF121212),
+        Color(0xFF000000)
+    )
+
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "profile",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color(0xFF095256),
+                            0.25f to Color(0xFF121212),
+                            1.0f to Color.Black
+                        )
+                    )
+                )
         ) {
             Box(
                 modifier = Modifier
@@ -584,6 +606,66 @@ fun ProfileScreen(
 //                shape = RoundedCornerShape(16.dp)
 //                )
 //            }
+        // Add confirmation dialog
+        if (showResetConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmation = false },
+                title = {
+                    Text(
+                        text = "Reset Data",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
+                        color = Color.White
+                    )
+                },
+
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                // Reset analytics data
+                                ListeningAnalytics.resetAllData(context, userEmail)
+
+                                val tokenManager = TokenManager(context)
+                                tokenManager.saveString("listened_songs_$userEmail", "")
+                                ListenedSongsTracker.loadListenedSongs(userEmail, context)
+                                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+
+                                showAnalytics = false
+                                delay(100)
+                                showAnalytics = true
+
+                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
+                            }
+                            showResetConfirmation = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE53935)
+                        )
+                    ) {
+                        Text("Reset")
+                    }
+
+                },
+                dismissButton = {
+                    Button(
+                        onClick = { showResetConfirmation = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF424242)
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+                },
+                containerColor = Color(0xFF2A2A2A),
+                shape = RoundedCornerShape(16.dp)
+                )
+            }
         }
     }
 
