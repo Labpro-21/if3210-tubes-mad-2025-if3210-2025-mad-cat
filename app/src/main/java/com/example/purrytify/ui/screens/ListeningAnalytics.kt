@@ -281,6 +281,16 @@ object ListeningAnalytics {
         }
         tokenManager.saveString("${email}_cover_urls", coverUrlData)
 
+        // Save Sound Capsule data
+        val topSongsData = getAllSongPlayData().joinToString("|") { "${it.first}:${it.second}:${it.third}:${it.fourth}" }
+        tokenManager.saveString("${email}_sound_capsule_top_songs", topSongsData)
+
+        val topArtistsData = getAllArtistsData().joinToString("|") { "${it.first}:${it.second}" }
+        tokenManager.saveString("${email}_sound_capsule_top_artists", topArtistsData)
+
+        val timeListenedData = _timeListened.value.toString()
+        tokenManager.saveString("${email}_sound_capsule_time_listened", timeListenedData)
+
         Log.d("ListeningAnalytics", "Saved ${songCoverUrls.size} cover URLs to preferences")
         
         // Log some examples for debugging
@@ -428,6 +438,38 @@ object ListeningAnalytics {
                 songCoverUrls[songKey] = coverUrl
                 Log.d("ListeningAnalytics", "Loaded cover URL for $songKey: $coverUrl")
             }
+        }
+
+        // Load Sound Capsule data
+        val topSongsData = tokenManager.getString("${email}_sound_capsule_top_songs")
+        topSongsData?.split("|")?.forEach {
+            val parts = it.split(":")
+            if (parts.size == 4) {
+                val title = parts[0]
+                val artist = parts[1]
+                val playCount = parts[2].toIntOrNull() ?: 0
+                val coverUrl = parts[3]
+                songPlayCounts["${title}_${artist}"] = playCount
+                songCoverUrls["${title}_${artist}"] = coverUrl
+            }
+        }
+
+        val topArtistsData = tokenManager.getString("${email}_sound_capsule_top_artists")
+        topArtistsData?.split("|")?.forEach {
+            val parts = it.split(":")
+            if (parts.size == 2) {
+                val artist = parts[0]
+                val playCount = parts[1].toIntOrNull() ?: 0
+                val currentMonth = getCurrentMonthKey()
+                val monthMap = artistPlayCountsByMonth.getOrDefault(currentMonth, mutableMapOf())
+                monthMap[artist] = playCount
+                artistPlayCountsByMonth[currentMonth] = monthMap
+            }
+        }
+
+        val timeListenedData = tokenManager.getString("${email}_sound_capsule_time_listened")
+        timeListenedData?.toLongOrNull()?.let {
+            _timeListened.value = it
         }
 
         // Update derived values
