@@ -75,11 +75,9 @@ fun TopChartsScreen(
     
     val errorMessage by homeViewModel.errorMessage.collectAsStateWithLifecycle()
     
-    // Determine chart title and drawable resource
     val chartTitle = if (chartType == "global") "Top 50 Global" else "Top 10 ${countryName ?: chartType}"
     val coverDrawableId = if (chartType == "global") R.drawable.top50global else R.drawable.top50indonesia
     
-    // Header gradient colors - using a darker green to black gradient like in the screenshot
     val headerGradient = remember {
         Brush.verticalGradient(
             colors = listOf(Color(0xFF1DB954), Color(0xFF0E5C27), Color(0xFF121212)),
@@ -92,12 +90,10 @@ fun TopChartsScreen(
         if (chartType == "global") {
             homeViewModel.fetchGlobalTopSongs()
         } else {
-            // Make sure we're fetching with the correct country code
             homeViewModel.fetchCountryTopSongs(chartType)
         }
     }
     
-    // Convert online songs to local Song format and set the playlist
     LaunchedEffect(songs.value) {
         if (songs.value.isNotEmpty()) {
             val mappedSongs = songs.value.map { onlineSong ->
@@ -125,7 +121,6 @@ fun TopChartsScreen(
                 .fillMaxSize()
                 .background(Color(0xFF121212))
         ) {
-            // Top bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -200,14 +195,12 @@ fun TopChartsScreen(
                             .background(headerGradient),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
-                        // Header with cover image
                         item {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp)
                             ) {
-                                // Cover image
                                 Box(
                                     modifier = Modifier
                                         .size(160.dp)
@@ -224,7 +217,6 @@ fun TopChartsScreen(
                                 
                                 Spacer(modifier = Modifier.height(24.dp))
                                 
-                                // Chart title
                                 Text(
                                     text = chartTitle,
                                     style = TextStyle(
@@ -236,7 +228,6 @@ fun TopChartsScreen(
                                 
                                 Spacer(modifier = Modifier.height(8.dp))
                                 
-                                // Description
                                 Text(
                                     text = "Most played songs on Purrytify",
                                     style = TextStyle(
@@ -257,13 +248,12 @@ fun TopChartsScreen(
                                 context = context,
                                 onClick = {
                                     scope.launch {
-                                        // Convert OnlineSong to Song for playback
                                         val mappedSong = Song(
                                             title = song.title,
                                             artist = song.artist,
                                             coverUri = song.artworkUrl,
                                             uri = song.audioUrl,
-                                            duration = song.duration // Keep the original mm:ss format
+                                            duration = song.duration
                                         )
                                         musicViewModel.playSong(
                                             mappedSong, 
@@ -292,13 +282,11 @@ fun TrendingSongItem(
     context: android.content.Context,
     onClick: () -> Unit
 ) {
-    // Check if the song is already downloaded
     var isDownloaded by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
     var showOptionsDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     
-    // Convert OnlineSong to Song for checking download status
     val localSong = remember(song) {
         Song(
             title = song.title,
@@ -323,7 +311,6 @@ fun TrendingSongItem(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Rank number with download indicator
         Box(
             modifier = Modifier.width(30.dp)
         ) {
@@ -349,7 +336,6 @@ fun TrendingSongItem(
         
         Spacer(modifier = Modifier.width(16.dp))
         
-        // Album artwork
         Box(
             modifier = Modifier
                 .size(50.dp)
@@ -366,7 +352,6 @@ fun TrendingSongItem(
         
         Spacer(modifier = Modifier.width(16.dp))
         
-        // Song info
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -387,7 +372,6 @@ fun TrendingSongItem(
             )
         }
         
-        // Duration
         Text(
             text = song.duration,
             color = Color.Gray,
@@ -396,7 +380,6 @@ fun TrendingSongItem(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        // Download button
         IconButton(
             onClick = {
                 if (!isDownloaded && !isDownloading) {
@@ -441,7 +424,6 @@ fun TrendingSongItem(
             }
         }
         
-        // Options button (three dots)
         IconButton(
             onClick = { showOptionsDialog = true },
             modifier = Modifier.size(40.dp)
@@ -455,7 +437,6 @@ fun TrendingSongItem(
         }
     }
     
-    // Show options dialog
     if (showOptionsDialog) {
         SongOptionsDialog(
             song = localSong,
@@ -464,16 +445,13 @@ fun TrendingSongItem(
                 showShareDialog = true
             },
             onEditClick = {
-                // Not available for online songs
             },
             onDeleteClick = {
-                // Not available for online songs
             },
             onDismiss = { showOptionsDialog = false }
         )
     }
     
-    // Show share dialog
     if (showShareDialog) {
         ShareSongDialog(
             songId = song.id,

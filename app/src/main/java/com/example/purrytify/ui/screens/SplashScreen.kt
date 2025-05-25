@@ -41,7 +41,6 @@ fun SplashScreen(
         navController.navigate("login") {
             popUpTo("splash") { inclusive = true }
         }
-        // Signal that navigation is complete
         onNavigationComplete()
     }
 }

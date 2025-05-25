@@ -149,16 +149,14 @@ fun QRScannerScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Camera preview
         QRScanner(
             isScanning = isScanning,
             onQRCodeScanned = { qrCode ->
                 if (isScanning) {
                     isScanning = false
-                    scannedText = qrCode // Store the scanned text
+                    scannedText = qrCode
                     scanStatusMessage = "Processing..."
 
-                    // Parse the QR code for purrytify://song/<songId>
                     when {
                         qrCode.startsWith("purrytify://song/") -> {
                             val songIdString = qrCode.removePrefix("purrytify://song/")
@@ -169,7 +167,6 @@ fun QRScannerScreen(
                             } else {
                                 scanStatusMessage = "Invalid QR code format"
                                 Toast.makeText(context, "Invalid QR code format", Toast.LENGTH_SHORT).show()
-                                // Reset scanning after a delay
                                 scope.launch {
                                     kotlinx.coroutines.delay(2000)
                                     isScanning = true
@@ -210,13 +207,11 @@ fun QRScannerScreen(
             }
         )
 
-        // Scanning overlay with animated frame
         ScanningOverlay(
             modifier = Modifier.fillMaxSize(),
             isScanning = isScanning
         )
 
-        // Top bar with close button
         TopAppBar(
             title = {
                 Text(
@@ -242,7 +237,6 @@ fun QRScannerScreen(
             modifier = Modifier.background(Color.Transparent)
         )
 
-        // Bottom instruction panel
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -281,7 +275,6 @@ fun QRScannerScreen(
                     textAlign = TextAlign.Center
                 )
 
-                // Display scanned text if available
                 scannedText?.let { text ->
                     Spacer(modifier = Modifier.height(16.dp))
                     Divider(color = Color(0xFF333333))
@@ -300,7 +293,6 @@ fun QRScannerScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                // Handle click on scanned text
                                 handleScannedTextClick(context, text)
                             },
                         colors = CardDefaults.cardColors(
@@ -348,7 +340,6 @@ fun QRScannerScreen(
 private fun handleScannedTextClick(context: Context, text: String) {
     when {
         text.startsWith("http://") || text.startsWith("https://") -> {
-            // Try to open URL in browser
             try {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(text))
                 context.startActivity(intent)
@@ -359,7 +350,6 @@ private fun handleScannedTextClick(context: Context, text: String) {
             }
         }
         text.startsWith("purrytify://") -> {
-            // Try to handle deep link
             try {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(text))
                 intent.setPackage(context.packageName) // Ensure it opens in our app
@@ -371,7 +361,6 @@ private fun handleScannedTextClick(context: Context, text: String) {
             }
         }
         else -> {
-            // Just copy to clipboard for other text
             copyToClipboard(context, text)
             Toast.makeText(context, "Text copied to clipboard", Toast.LENGTH_SHORT).show()
         }
@@ -404,14 +393,12 @@ fun ScanningOverlay(
         val canvasWidth = size.width
         val canvasHeight = size.height
 
-        // Calculate scan frame dimensions
         val frameSize = minOf(canvasWidth, canvasHeight) * 0.7f
         val frameLeft = (canvasWidth - frameSize) / 2
         val frameTop = (canvasHeight - frameSize) / 2
         val frameRight = frameLeft + frameSize
         val frameBottom = frameTop + frameSize
 
-        // Draw dark overlay outside the frame
         drawRect(
             color = Color.Black.copy(alpha = 0.6f),
             size = Size(canvasWidth, frameTop)
@@ -432,12 +419,10 @@ fun ScanningOverlay(
             size = Size(canvasWidth - frameRight, frameSize)
         )
 
-        // Draw frame corners
         val cornerLength = 50f
         val cornerStroke = 6f
         val cornerColor = Color(0xFF1DB954)
 
-        // Top-left corner
         drawLine(
             color = cornerColor,
             start = Offset(frameLeft, frameTop + cornerLength),
@@ -453,7 +438,6 @@ fun ScanningOverlay(
             cap = StrokeCap.Round
         )
 
-        // Top-right corner
         drawLine(
             color = cornerColor,
             start = Offset(frameRight - cornerLength, frameTop),
@@ -469,7 +453,6 @@ fun ScanningOverlay(
             cap = StrokeCap.Round
         )
 
-        // Bottom-left corner
         drawLine(
             color = cornerColor,
             start = Offset(frameLeft, frameBottom - cornerLength),
@@ -485,7 +468,6 @@ fun ScanningOverlay(
             cap = StrokeCap.Round
         )
 
-        // Bottom-right corner
         drawLine(
             color = cornerColor,
             start = Offset(frameRight - cornerLength, frameBottom),
@@ -501,7 +483,6 @@ fun ScanningOverlay(
             cap = StrokeCap.Round
         )
 
-        // Draw animated scanning line if scanning
         if (isScanning) {
             val lineY = frameTop + (frameSize * animatedProgress)
             drawLine(
@@ -514,11 +495,9 @@ fun ScanningOverlay(
             )
         }
 
-        // Draw grid lines for better alignment
         val gridColor = Color.White.copy(alpha = 0.3f)
         val gridStroke = 1f
 
-        // Vertical grid lines
         for (i in 1..2) {
             val x = frameLeft + (frameSize * i / 3)
             drawLine(
@@ -529,7 +508,6 @@ fun ScanningOverlay(
             )
         }
 
-        // Horizontal grid lines
         for (i in 1..2) {
             val y = frameTop + (frameSize * i / 3)
             drawLine(
@@ -626,7 +604,7 @@ private fun processImage(
                 for (barcode in barcodes) {
                     barcode.rawValue?.let { value ->
                         onQRCodeFound(value)
-                        return@addOnSuccessListener // Only process the first valid QR code
+                        return@addOnSuccessListener
                     }
                 }
             }

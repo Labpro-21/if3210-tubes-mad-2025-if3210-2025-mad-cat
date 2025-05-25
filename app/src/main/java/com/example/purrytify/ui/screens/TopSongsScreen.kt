@@ -97,7 +97,6 @@ fun TopSongsScreen(
                 }
             }
 
-            // Bottom navigation for analytics
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -207,20 +206,17 @@ fun TopSongItemStyled(index: Int, title: String, artist: String, playCount: Int,
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))            // Song cover image using the same logic as HomeScreen
+            Spacer(modifier = Modifier.width(12.dp))
             val imageModel = when {
                 coverUrl.startsWith("http://") || coverUrl.startsWith("https://") -> {
-                    // For online songs with URLs
                     Log.d("TopSongsScreen", "Using online cover URL: $coverUrl")
                     coverUrl
                 }
                 coverUrl.isNotEmpty() && File(coverUrl).exists() -> {
-                    // For local songs with file paths
                     Log.d("TopSongsScreen", "Using local cover file: $coverUrl")
                     File(coverUrl)
                 }
                 else -> {
-                    // No image available
                     Log.d("TopSongsScreen", "No valid cover found for: $title by $artist (URL was: $coverUrl)")
                     null
                 }

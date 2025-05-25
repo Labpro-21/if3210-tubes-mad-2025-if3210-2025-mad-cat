@@ -216,17 +216,14 @@ fun TopArtistItem(index: Int, artist: String, playCount: Int, songCount: Int, co
         
         val imageModel = when {
             coverUrl != null && (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) -> {
-                // For online songs with URLs
                 Log.d("TopArtistsScreen", "Using online cover URL for $artist: $coverUrl")
                 coverUrl
             }
             coverUrl != null && coverUrl.isNotEmpty() && File(coverUrl).exists() -> {
-                // For local songs with file paths
                 Log.d("TopArtistsScreen", "Using local cover file for $artist: $coverUrl")
                 File(coverUrl)
             }
             else -> {
-                // No image available
                 Log.d("TopArtistsScreen", "No valid cover found for artist: $artist")
                 null
             }
@@ -247,7 +244,6 @@ fun TopArtistItem(index: Int, artist: String, playCount: Int, songCount: Int, co
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
                 )
             } else {
-                // Fallback icon when no cover is available
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,

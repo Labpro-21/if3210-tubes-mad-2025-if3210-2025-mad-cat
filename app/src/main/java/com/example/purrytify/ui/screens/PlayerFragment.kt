@@ -28,7 +28,6 @@ class PlayerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Setup audio device selection
         view.findViewById<ImageButton>(R.id.audioDeviceButton).setOnClickListener {
             musicViewModel.showAudioDeviceSelector()
         }

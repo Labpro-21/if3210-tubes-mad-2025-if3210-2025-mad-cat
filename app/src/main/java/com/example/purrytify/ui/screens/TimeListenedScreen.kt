@@ -46,15 +46,12 @@ fun TimeListenedScreen(
     val context = LocalContext.current
     val email = "13522126@std.stei.itb.ac.id"
     
-    // Start listening time tracking when screen is shown
     LaunchedEffect(Unit) {
-        // Make sure we're tracking playback when this screen is shown
         if (musicViewModel.isPlaying.value) {
             ListeningAnalytics.startPlaybackTracking(musicViewModel, context, email)
         }
     }
     
-    // Listen for playback state changes to start/stop tracking
     val isPlaying by musicViewModel.isPlaying.collectAsStateWithLifecycle()
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
@@ -67,20 +64,16 @@ fun TimeListenedScreen(
         }
     }
     
-    // Collect real-time time listened data
     val timeListened by ListeningAnalytics.timeListened.collectAsStateWithLifecycle()
     val formattedTimeListened = ListeningAnalytics.formatTimeListened()
     
-    // Use a key to force remember to recalculate whenever we want a refresh
     var refreshTrigger by remember { mutableStateOf(0) }
     
-    // Update daily listening data every second when playing
     val currentTimeMillis = System.currentTimeMillis()
     val dailyListeningData = remember(timeListened, refreshTrigger) { 
         ListeningAnalytics.getDailyListeningData() 
     }
 
-    // State for reset confirmation dialog
     var showResetConfirmation by remember { mutableStateOf(false) }
 
     val gradientColors = listOf(
@@ -133,7 +126,6 @@ fun TimeListenedScreen(
                 )
             }
 
-            // Total listening time card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -177,7 +169,6 @@ fun TimeListenedScreen(
                 }
             }
 
-            // Chart title
             Text(
                 text = "Daily Listening Activity",
                 style = TextStyle(
@@ -188,7 +179,6 @@ fun TimeListenedScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            // Listening time chart
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -204,19 +194,16 @@ fun TimeListenedScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    // Chart area
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
                     ) {
-                        // Line chart for daily listening time
                         ListeningTimeChart(dailyListeningData)
                     }
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // X-axis labels (dates)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -225,7 +212,6 @@ fun TimeListenedScreen(
                             LocalDate.parse(it, DateTimeFormatter.ISO_DATE)
                         }
                         
-                        // We'll show only first, middle and last date for clarity
                         if (sortedDates.isNotEmpty()) {
                             val first = sortedDates.first()
                             val last = sortedDates.last()
@@ -258,13 +244,11 @@ fun TimeListenedScreen(
                 }
             }
 
-            // Daily stats cards
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             ) {
-                // Today's listening time card
                 val todayDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
                 val todayMinutes = dailyListeningData[todayDate] ?: 0
                 
@@ -276,7 +260,6 @@ fun TimeListenedScreen(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Yesterday's listening time card
                 val yesterdayDate = LocalDate.now().minusDays(1).format(DateTimeFormatter.ISO_DATE)
                 val yesterdayMinutes = dailyListeningData[yesterdayDate] ?: 0
                 
@@ -288,7 +271,6 @@ fun TimeListenedScreen(
             }
         }
 
-        // Bottom navigation tabs
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -417,33 +399,27 @@ fun DailyStatCard(title: String, minutes: Long, color: Color) {
 
 @Composable
 fun ListeningTimeChart(dailyData: Map<String, Long>) {
-    // Sort data by date
     val sortedData = dailyData.entries
         .sortedBy { LocalDate.parse(it.key, DateTimeFormatter.ISO_DATE) }
         .map { it.value }
     
     if (sortedData.isEmpty()) return
     
-    // Find max value for scaling
     val maxValue = sortedData.maxOrNull() ?: 1L
     
-    // Use Material 3 styling
     val primaryColor = Color(0xFF1DB954)
     val chartLineColor = primaryColor
     val gradientStartColor = Color(0x401DB954)
     val gradientEndColor = Color(0x001DB954)
     
-    // Create points for line chart
     val points = sortedData.mapIndexed { index, value ->
         value.toFloat() / maxValue.toFloat()
     }
     
-    // Draw Material 3 based chart
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // Material 3 Line Chart using Surface
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = Color.Transparent
@@ -452,7 +428,6 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
             val pointSpacing = remember { 1f / (pointCount - 1) }
             
             Box(modifier = Modifier.fillMaxSize()) {
-                // Line chart implementation
                 androidx.compose.foundation.Canvas(
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -462,7 +437,6 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                     val path = Path()
                     val chartPoints = mutableListOf<Offset>()
                     
-                    // Draw line chart with Material 3 styling
                     points.forEachIndexed { index, normalizedValue ->
                         val x = (index * (width / (points.size - 1)))
                         val y = height - (height * normalizedValue)
@@ -476,7 +450,6 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                             path.lineTo(point.x, point.y)
                         }
                         
-                        // Draw point markers with Material 3 styling
                         drawCircle(
                             color = chartLineColor,
                             radius = 6f,
@@ -484,7 +457,6 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                         )
                     }
                     
-                    // Draw line with Material 3 styling
                     drawPath(
                         path = path,
                         color = chartLineColor,
@@ -494,12 +466,9 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                         )
                     )
                     
-                    // Draw area under the line using Material 3 gradient
                     val fillPath = Path().apply {
-                        // Start from bottom-left
                         moveTo(0f, height)
                         
-                        // Add all line points
                         chartPoints.forEachIndexed { index, offset ->
                             if (index == 0) {
                                 lineTo(offset.x, offset.y)
@@ -508,12 +477,10 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                             }
                         }
                         
-                        // Complete the path to bottom-right
                         lineTo(width, height)
                         close()
                     }
                     
-                    // Draw gradient fill with Material 3 styling
                     drawPath(
                         path = fillPath,
                         brush = Brush.verticalGradient(
@@ -527,7 +494,6 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                     )
                 }
                 
-                // Draw labels for each point
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -535,7 +501,6 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
                         .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Only rendering invisible placeholders as actual labels are rendered outside
                     repeat(pointCount) {
                         Box(modifier = Modifier.size(4.dp)) {}
                     }
@@ -545,13 +510,11 @@ fun ListeningTimeChart(dailyData: Map<String, Long>) {
     }
 }
 
-// Format date to "May 21" format
 private fun formatDateLabel(isoDate: String): String {
     val date = LocalDate.parse(isoDate, DateTimeFormatter.ISO_DATE)
     return date.format(DateTimeFormatter.ofPattern("MMM d"))
 }
 
-// Format minutes to "2h 30m" format
 private fun formatMinutes(minutes: Long): String {
     val hours = minutes / 60
     val mins = minutes % 60

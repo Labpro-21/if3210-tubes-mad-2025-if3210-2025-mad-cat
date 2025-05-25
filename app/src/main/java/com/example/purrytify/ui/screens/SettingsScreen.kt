@@ -32,7 +32,6 @@ import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 import com.example.purrytify.ui.screens.ListeningAnalytics
 
-// Extension function to find Activity from Context
 fun Context.findActivity(): Activity? {
     var context = this
     while (context is ContextWrapper) {
@@ -51,11 +50,10 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
     val coroutineScope = rememberCoroutineScope()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // Create a modern gradient background
     val gradientColors = listOf(
-        Color(0xFF075053), // Dark teal top color
-        Color(0xFF052728), // Medium teal
-        Color(0xFF121212)  // Dark bottom color (near black)
+        Color(0xFF075053),
+        Color(0xFF052728),
+        Color(0xFF121212)
     )
 
     Box(
@@ -72,7 +70,6 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Modern Top Bar
             TopAppBar(
                 title = {
                     Text(
@@ -107,20 +104,17 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Settings items
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             ) {
-                // Logout option
                 ModernSettingItem(
                     title = "Logout",
                     icon = Icons.Default.ExitToApp,
                     onClick = { showLogoutDialog = true }
                 )
 
-                // Version information
                 Spacer(modifier = Modifier.height(32.dp))
                 Text(
                     text = "App Version 1.0.0",
@@ -135,7 +129,6 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
             }
         }
 
-        // Modern Logout dialog
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
@@ -158,18 +151,14 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                     Button(
                         onClick = {
                             coroutineScope.launch {
-                                // Stop music playback and release the service
                                 musicViewModel.stopAndClearCurrentSong()
                                 
-                                // Send stop action to the media service
                                 val stopIntent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
                                 stopIntent.action = "ACTION_STOP"
                                 context.startService(stopIntent)
                                 
-                                // Small delay to ensure the stop action is processed
                                 kotlinx.coroutines.delay(100)
                                 
-                                // Stop the media service completely
                                 val intent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
                                 context.stopService(intent)
 
@@ -181,10 +170,8 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                                     Log.d("SettingsScreen", "No email found for current user during logout")
                                 }
                                 
-                                // Clear token to ensure complete logout
                                 tokenManager.clearTokens()
 
-                                // Navigate to login screen
                                 navController.navigate("login") {
                                     popUpTo("home") { inclusive = true }
                                 }
@@ -238,7 +225,6 @@ fun ModernSettingItem(
             .padding(vertical = 16.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon in a circular background
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -266,7 +252,6 @@ fun ModernSettingItem(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Circular chevron icon
         Box(
             modifier = Modifier
                 .size(32.dp)
