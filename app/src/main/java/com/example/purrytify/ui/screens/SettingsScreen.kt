@@ -3,6 +3,7 @@ package com.example.purrytify.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -172,7 +173,13 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                                 val intent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
                                 context.stopService(intent)
 
-                                ListeningAnalytics.resetLastLoadedEmail()
+                                val email = tokenManager.getEmail()
+                                if (email != null) {
+                                    Log.d("SettingsScreen", "Saving data for user $email before logout")
+                                    ListeningAnalytics.resetLastLoadedEmail()
+                                } else {
+                                    Log.d("SettingsScreen", "No email found for current user during logout")
+                                }
                                 
                                 // Clear token to ensure complete logout
                                 tokenManager.clearTokens()

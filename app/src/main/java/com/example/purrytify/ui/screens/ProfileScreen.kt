@@ -526,7 +526,7 @@ fun ProfileScreen(
                                                     .setTitle("Export Analytics")
                                                     .setItems(formatOptions) { _, which ->
                                                         coroutineScope.launch {
-                                                            val topSongs = ListeningAnalytics.getAllSongListeningData()
+                                                            val topSongs = ListeningAnalytics.getAllSongPlayData()
                                                                 .take(10)
                                                                 .map { Triple(it.first, it.second.toString(), (it.third / 60).toInt()) }
 
@@ -640,21 +640,21 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(24.dp))
 
-//                                // Buttons
-//                                Row(
-//                                    modifier = Modifier.fillMaxWidth(),
-//                                    horizontalArrangement = Arrangement.SpaceBetween
-//                                ) {
-//                                    IconButton(
-//                                        onClick = { showResetConfirmation = true }
-//                                    ) {
-//                                        Icon(
-//                                            imageVector = Icons.Default.Refresh,
-//                                            contentDescription = "Reset Data",
-//                                            tint = Color.White
-//                                        )
-//                                    }
-//                                }
+                                // Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    IconButton(
+                                        onClick = { showResetConfirmation = true }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Reset Data",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -671,66 +671,66 @@ fun ProfileScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
 
-//        // Add confirmation dialog
-//        if (showResetConfirmation) {
-//            AlertDialog(
-//                onDismissRequest = { showResetConfirmation = false },
-//                title = {
-//                    Text(
-//                        text = "Reset Data",
-//                        color = Color.White,
-//                        fontWeight = FontWeight.Bold
-//                    )
-//                },
-//                text = {
-//                    Text(
-//                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
-//                        color = Color.White
-//                    )
-//                },
-//
-//                confirmButton = {
-//                    Button(
-//                        onClick = {
-//                            coroutineScope.launch {
-//                                // Reset analytics data
-//                                ListeningAnalytics.resetAllData(context, userEmail)
-//
-//                                val tokenManager = TokenManager(context)
-//                                tokenManager.saveString("listened_songs_$userEmail", "")
-//                                ListenedSongsTracker.loadListenedSongs(userEmail, context)
-//                                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
-//
-//                                showAnalytics = false
-//                                delay(100)
-//                                showAnalytics = true
-//
-//                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
-//                            }
-//                            showResetConfirmation = false
-//                        },
-//                        colors = ButtonDefaults.buttonColors(
-//                            containerColor = Color(0xFFE53935)
-//                        )
-//                    ) {
-//                        Text("Reset")
-//                    }
-//
-//                },
-//                dismissButton = {
-//                    Button(
-//                        onClick = { showResetConfirmation = false },
-//                        colors = ButtonDefaults.buttonColors(
-//                            containerColor = Color(0xFF424242)
-//                        )
-//                    ) {
-//                        Text("Cancel")
-//                    }
-//                },
-//                containerColor = Color(0xFF2A2A2A),
-//                shape = RoundedCornerShape(16.dp)
-//                )
-//            }
+        // Add confirmation dialog
+        if (showResetConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmation = false },
+                title = {
+                    Text(
+                        text = "Reset Data",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Are you sure you want to reset all listening statistics? This action cannot be undone.",
+                        color = Color.White
+                    )
+                },
+
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                // Reset analytics data
+                                ListeningAnalytics.resetAllData(context, userEmail)
+
+                                val tokenManager = TokenManager(context)
+                                tokenManager.saveString("listened_songs_$userEmail", "")
+                                ListenedSongsTracker.loadListenedSongs(userEmail, context)
+                                listenedCount = ListenedSongsTracker.getListenedCount(userEmail)
+
+                                showAnalytics = false
+                                delay(100)
+                                showAnalytics = true
+
+                                Toast.makeText(context, "Listening statistics reset", Toast.LENGTH_SHORT).show()
+                            }
+                            showResetConfirmation = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE53935)
+                        )
+                    ) {
+                        Text("Reset")
+                    }
+
+                },
+                dismissButton = {
+                    Button(
+                        onClick = { showResetConfirmation = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF424242)
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+                },
+                containerColor = Color(0xFF2A2A2A),
+                shape = RoundedCornerShape(16.dp)
+                )
+            }
         // Add confirmation dialog
         if (showResetConfirmation) {
             AlertDialog(

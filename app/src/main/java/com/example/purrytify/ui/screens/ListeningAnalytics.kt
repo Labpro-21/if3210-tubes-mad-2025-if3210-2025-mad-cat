@@ -129,10 +129,12 @@ object ListeningAnalytics {
 
         Log.d("ListeningAnalytics", "New song play: $songKey - count now ${currentPlayCount + 1}")
 
-        logTopSongsByPlayCount()
-
-        // Update top song and artist
+        logTopSongsByPlayCount()       
         updateTopSongAndArtist()
+        
+        // Log the current top song for verification
+        val (topSongTitle, topSongCount, topSongDuration) = _topSong.value
+        Log.d("ListeningAnalytics", "Current top song after update: $topSongTitle (played $topSongCount times)")
 
         // Update streak
         val today = LocalDate.now()
@@ -169,24 +171,23 @@ object ListeningAnalytics {
         }
         
         return coverUrl
-    }
-
-    private fun updateTopSongAndArtist() {
-        val topSongByDuration = songListeningDurations.maxByOrNull { it.value }
-
-        if (topSongByDuration != null) {
-            val (songKey, duration) = topSongByDuration
-            val count = songPlayCounts[songKey] ?: 0
-            val songTitle = songKey.split("_").first()
-            _topSong.value = Triple(songTitle, count, duration)
-        } else if (songPlayCounts.isNotEmpty()) {
-            // Fallback to play counts if no listening durations
+    }    private fun updateTopSongAndArtist() {
+        // Prioritize play counts first to immediately reflect newly played songs
+        if (songPlayCounts.isNotEmpty()) {
             val topSongByPlayCount = songPlayCounts.maxByOrNull { it.value }
             topSongByPlayCount?.let { (songKey, count) ->
                 val duration = songListeningDurations[songKey] ?: 0L
                 val songTitle = songKey.split("_").first()
                 _topSong.value = Triple(songTitle, count, duration)
+                Log.d("ListeningAnalytics", "Updated top song to: $songTitle (played $count times, listened for ${formatDuration(duration)})")
             }
+        } else if (songListeningDurations.isNotEmpty()) {
+            // Fallback to durations if somehow we have durations but no play counts
+            val topSongByDuration = songListeningDurations.maxByOrNull { it.value }
+            val (songKey, duration) = topSongByDuration!!
+            val count = songPlayCounts[songKey] ?: 0
+            val songTitle = songKey.split("_").first()
+            _topSong.value = Triple(songTitle, count, duration)
         }        
 
         val currentMonth = getCurrentMonthKey()
@@ -488,14 +489,14 @@ object ListeningAnalytics {
         }.trim()
     }
 
-    // Get all song listening durations
     fun getAllSongListeningData(): List<Triple<String, Int, Long>> {
         return songListeningDurations.map { (songKey, duration) ->
             val title = songKey.split("_").firstOrNull() ?: songKey
             val count = songPlayCounts[songKey] ?: 0
             Triple(title, count, duration)
         }.sortedByDescending { it.third }
-    }    // Modify getAllSongPlayData to include cover URLs
+    }    
+
     fun getAllSongPlayData(): List<Quad<String, String, Int, String?>> {
         return songPlayCounts.map { (songKey, count) ->
             val parts = songKey.split("_")
