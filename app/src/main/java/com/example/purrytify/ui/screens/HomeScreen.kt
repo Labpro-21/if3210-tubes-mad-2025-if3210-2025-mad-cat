@@ -58,16 +58,11 @@ fun HomeScreen(
     val tokenManager = remember { TokenManager(context) }
     val userProfileManager = remember { UserProfileManager(context) }
     val userEmail = tokenManager.getEmail() ?: ""
-    
-    // Track navigation state to refresh profile when returning from EditProfileScreen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    
-    // State for user profile
     var userProfile by remember { mutableStateOf<UserProfile?>(null) }
     var userCountryCode by remember { mutableStateOf("ID") }
     
-    // Fetch fresh profile data when navigating to home or returning from edit screen
     LaunchedEffect(currentRoute) {
         if (currentRoute == "home" || currentRoute == null) {
             try {
@@ -90,7 +85,6 @@ fun HomeScreen(
                 }
             } catch (e: Exception) {
                 Log.e("HomeScreen", "Error fetching profile", e)
-                // Fall back to local cache if network fails
                 userProfile = userProfileManager.getUserProfile(userEmail)
                 userCountryCode = userProfile?.country ?: "ID"
             }
@@ -99,7 +93,6 @@ fun HomeScreen(
     
     val userCountryName = homeViewModel.getSupportedCountries()[userCountryCode] ?: "Indonesia"
 
-    // Log the country code being used
     LaunchedEffect(userCountryCode) {
         Log.d("HomeScreen", "Current user country code: $userCountryCode for user: $userEmail")
     }
@@ -202,7 +195,6 @@ fun HomeScreen(
                     }
                 }
                 
-                // Charts section
                 item {
                     ChartsSection(
                         onGlobalClick = {
@@ -218,7 +210,6 @@ fun HomeScreen(
                     )
                 }
 
-                // Top Mixes section
                 item {
                     TopMixesSection(
                         likedSongs = allSongs.value,
@@ -339,15 +330,12 @@ fun NewSongItem(song: Song, onClick: () -> Unit) {
     ) {
         val imageModel = when {
             song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
-                // For online songs with URLs
                 song.coverUri
             }
             song.coverUri.isNotEmpty() && File(song.coverUri).exists() -> {
-                // For local songs with file paths
                 File(song.coverUri)
             }
             else -> {
-                // Fallback placeholder
                 "https://example.com/placeholder.jpg"
             }
         }
@@ -402,15 +390,12 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
     ) {
         val imageModel = when {
             song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
-                // For online songs
                 song.coverUri
             }
             song.coverUri.isNotEmpty() && File(song.coverUri).exists() -> {
-                // For local songs with file paths
                 File(song.coverUri)
             }
             else -> {
-                // Fallback placeholder
                 null
             }
         }
@@ -476,28 +461,23 @@ fun TopMixesSection(
     userCountryCode: String,
     onPlaylistClick: (String) -> Unit
 ) {
-    // Get context and view models
     val context = LocalContext.current
     val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(context))
     
-    // Mix names
     val mixOneName = "Your Daily Mix"
     val mixTwoName = "Favorites Mix"
     
     android.util.Log.d("TopMixesSection", "Using country code: $userCountryCode")
     
-    // Daily Mix: Fetch global and country top songs
     val globalTopSongs = homeViewModel.globalTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
     val countryTopSongs = homeViewModel.countryTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
 
     LaunchedEffect(userCountryCode) {
         Log.d("TopMixesSection", "Country code changed to: $userCountryCode, fetching new songs")
         homeViewModel.fetchGlobalTopSongs()
-        // Make sure we use the latest country code
         homeViewModel.fetchCountryTopSongs(userCountryCode)
     }
 
-    // Convert online songs to local
     val globalSongs = remember(globalTopSongs) {
         globalTopSongs.map { onlineSong ->
             Song(
@@ -522,7 +502,6 @@ fun TopMixesSection(
         }
     }
     
-    // Daily mix (15 songs max)
     val dailyMixSongs = remember(globalSongs, countrySongs, recentlyPlayedSongs) {
         val alreadyListenedTitles = recentlyPlayedSongs.map { "${it.title}_${it.artist}" }.toSet()
         val unheardGlobalSongs = globalSongs
@@ -552,7 +531,6 @@ fun TopMixesSection(
         }
     }
                         
-    // Favorites Mix: combination of liked songs and frequently played songs
     val favoritesSongs = likedSongs.take(7).toMutableList()
     if (favoritesSongs.size < 7) {
         val additionalSongs = recentlyPlayedSongs.shuffled()
@@ -576,7 +554,6 @@ fun TopMixesSection(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.height(180.dp)
         ) {
-            // Daily Mix Item
             item {
                 PlaylistItem(
                     name = mixOneName,
@@ -587,7 +564,6 @@ fun TopMixesSection(
                 )
             }
             
-            // Favorites Mix Item
             item {
                 PlaylistItem(
                     name = mixTwoName,

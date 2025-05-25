@@ -63,7 +63,6 @@ fun CountrySelectionScreen(
     onCountrySelected: (String) -> Unit,
     onCancel: () -> Unit
 ) {
-    // List of common countries
     val commonCountries = listOf(
         "ID" to "Indonesia",
         "US" to "United States",

@@ -194,7 +194,6 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(if (isLandscapeMode) 16.dp else 32.dp))
             
-            // Profile Image Section
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -385,7 +384,6 @@ fun EditProfileScreen(
                 }
 
             } else {
-                // In portrait, keep buttons side by side
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = {
@@ -490,7 +488,6 @@ fun EditProfileScreen(
                 }
             }
             
-            // Add bottom padding for landscape mode
             if (isLandscapeMode) {
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -644,9 +641,6 @@ private fun createImageUri(context: Context): Uri? {
     return context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
 }
 
-/**
- * Gets current location and determines the country code
- */
 private fun getCurrentLocation(
     context: Context,
     fusedLocationClient: FusedLocationProviderClient,
@@ -669,18 +663,15 @@ private fun getCurrentLocation(
                 }
             }.addOnFailureListener { exception ->
                 Log.e("EditProfileScreen", "Location error", exception)
-                onLocationDetected("ID") // Default to Indonesia
+                onLocationDetected("ID")
             }
         }
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Location permission error", e)
-        onLocationDetected("ID") // Default to Indonesia
+        onLocationDetected("ID")
     }
 }
 
-/**
- * Gets country code from coordinates using Geocoder
- */
 private fun getCountryCodeFromCoordinates(
     context: Context,
     latitude: Double,
@@ -695,7 +686,7 @@ private fun getCountryCodeFromCoordinates(
                     val countryCode = addresses[0].countryCode ?: "ID"
                     onCountryCodeReceived(countryCode)
                 } else {
-                    onCountryCodeReceived("ID") // Default to Indonesia
+                    onCountryCodeReceived("ID")
                 }
             }
         } else {
@@ -705,18 +696,15 @@ private fun getCountryCodeFromCoordinates(
                 val countryCode = addresses[0].countryCode ?: "ID"
                 onCountryCodeReceived(countryCode)
             } else {
-                onCountryCodeReceived("ID") // Default to Indonesia
+                onCountryCodeReceived("ID")
             }
         }
     } catch (e: Exception) {
         Log.e("EditProfileScreen", "Geocoder error", e)
-        onCountryCodeReceived("ID") // Default to Indonesia
+        onCountryCodeReceived("ID")
     }
 }
 
-/**
- * Gets country name from ISO 3166-1 alpha-2 code
- */
 private fun getCountryNameFromCode(context: Context, countryCode: String): String? {
     return try {
         val locale = Locale("", countryCode)
@@ -726,9 +714,6 @@ private fun getCountryNameFromCode(context: Context, countryCode: String): Strin
     }
 }
 
-/**
- * Uploads profile data to server
- */
 private suspend fun updateProfile(
     context: Context,
     location: String,
@@ -737,10 +722,8 @@ private suspend fun updateProfile(
     onError: (String) -> Unit
 ) {
     try {
-        // Create location part
         val locationPart = location.toRequestBody("text/plain".toMediaTypeOrNull())
 
-        // Create image part if available
         val imagePart = imageUri?.let { uri ->
             val inputStream = context.contentResolver.openInputStream(uri)
             val file = File(context.cacheDir, "profile_image.jpg")
@@ -754,26 +737,22 @@ private suspend fun updateProfile(
             MultipartBody.Part.createFormData("profilePhoto", file.name, requestFile)
         }
 
-        // Make API call
         val response = RetrofitClient.apiService.updateProfile(
             location = locationPart,
             profilePhoto = imagePart
         )
 
         if (response.isSuccessful) {
-            // CRITICAL FIX: Update local user profile immediately after successful server update
             val tokenManager = TokenManager(context)
             val userEmail = tokenManager.getEmail() ?: ""
             val userProfileManager = UserProfileManager(context)
 
-            // Get the current profile and update it with the new location
             val currentProfile = userProfileManager.getUserProfile(userEmail)
             if (currentProfile != null) {
                 val updatedProfile = currentProfile.copy(country = location)
                 userProfileManager.saveUserProfile(updatedProfile)
                 Log.d("EditProfileScreen", "Updated local profile with country: $location")
             } else {
-                // Create a new profile if it doesn't exist
                 val newProfile = UserProfile(
                     email = userEmail,
                     name = "",

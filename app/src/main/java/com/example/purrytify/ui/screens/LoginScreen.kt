@@ -83,7 +83,6 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
         if (!isOnline) {
             ErrorScreen(pageName = "Login")
         } else {
-            // Album art collage background
             Image(
                 painter = painterResource(id = R.drawable.purrytify_login_top),
                 contentDescription = "Album Art Collage",
@@ -131,7 +130,6 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                     modifier = Modifier.padding(bottom = 40.dp)
                 )
 
-                // Email field
                 Text(
                     text = "Email",
                     style = TextStyle(
@@ -166,7 +164,6 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                     shape = RoundedCornerShape(8.dp)
                 )
 
-                // Password field
                 Text(
                     text = "Password",
                     style = TextStyle(
@@ -211,7 +208,6 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                     shape = RoundedCornerShape(8.dp)
                 )
 
-                // Login button
                 Button(
                     onClick = {
                         if (email.isNotBlank() && password.isNotBlank()) {
@@ -349,10 +345,8 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                     }
                 }
 
-                // Bottom spacer
                 Spacer(modifier = Modifier.height(50.dp))
 
-                // Bottom handle
                 Box(
                     modifier = Modifier
                         .padding(bottom = 16.dp)
@@ -364,7 +358,6 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Animated Error Popup
             AnimatedVisibility(
                 visible = showErrorPopup,
                 enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),

@@ -103,7 +103,6 @@ fun LibraryScreen(
     var selectedLibraryMode by remember { mutableStateOf("All") }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Update the SongViewModel with current user email when screen loads
     LaunchedEffect(Unit) {
         val tokenManager = TokenManager(context)
         val currentEmail = tokenManager.getEmail() ?: "guest@example.com"
@@ -1346,7 +1345,6 @@ fun LibrarySongItem(
         }
     }
     
-    // Show options dialog
     if (showOptionsDialog) {
         SongOptionsDialog(
             song = song,
@@ -1364,7 +1362,6 @@ fun LibrarySongItem(
         )
     }
     
-    // Show share dialog
     if (showShareDialog) {
         ShareSongDialog(
             songId = currentSongId,
@@ -1375,7 +1372,6 @@ fun LibrarySongItem(
         )
     }
     
-    // Delete confirmation
     if (showDeleteConfirmation) {
         ModalBottomSheet(
             onDismissRequest = { showDeleteConfirmation = false },

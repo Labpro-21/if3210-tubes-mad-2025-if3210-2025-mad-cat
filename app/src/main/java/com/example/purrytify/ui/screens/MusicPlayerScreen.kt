@@ -85,17 +85,13 @@ fun MusicPlayerScreen(
 
     LaunchedEffect(currentSong) {
         currentSong?.let { song ->
-            // For online songs, try to extract ID from URL if pattern matches
             val songId = if (song.uri.startsWith("http")) {
-                // Extract id from the artwork URL pattern if possible
-                // Pattern: https://storage.googleapis.com/mad-public-bucket/cover/{title}.png
-                -1 // For now, just use -1 for online songs
+                -1
             } else {
                 songViewModel.getSongId(song.title, song.artist)
             }
             currentSongId.value = songId
 
-            // Don't check liked status for online songs
             isSongLiked = if (songId == -1) false else songViewModel.isSongLiked(songId)
         }
     }
@@ -311,13 +307,11 @@ fun MusicPlayerScreen(
         val isLandscapeMode = isLandscape()
         
         if (isLandscapeMode) {
-            // Landscape layout: Image on left, content on right
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                // Left side - Album cover
                 Column(
                     modifier = Modifier
                         .weight(0.4f)
@@ -348,13 +342,11 @@ fun MusicPlayerScreen(
                 
                 Spacer(modifier = Modifier.width(32.dp))
                 
-                // Right side - Controls and info
                 Column(
                     modifier = Modifier
                         .weight(0.6f)
                         .fillMaxHeight()
                 ) {
-                    // Top bar with back and menu buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -381,7 +373,6 @@ fun MusicPlayerScreen(
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     
-                    // Song info
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.Start
@@ -458,7 +449,6 @@ fun MusicPlayerScreen(
                     
                     Spacer(modifier = Modifier.height(32.dp))
                     
-                    // Progress slider
                     Column(
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -494,7 +484,6 @@ fun MusicPlayerScreen(
                     
                     Spacer(modifier = Modifier.weight(1f))
                     
-                    // Control buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -574,7 +563,6 @@ fun MusicPlayerScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Audio device selector
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
@@ -600,7 +588,6 @@ fun MusicPlayerScreen(
                 }
             }
         } else {
-            // Portrait layout: Original vertical layout
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -698,7 +685,6 @@ fun MusicPlayerScreen(
                         IconButton(
                             onClick = {
                                 scope.launch {
-                                    // Don't allow liking online songs (they're not in the local database)
                                     if (currentSongId.value == -1) {
                                         Toast.makeText(context, "Cannot like online songs", Toast.LENGTH_SHORT).show()
                                         return@launch
@@ -739,19 +725,16 @@ fun MusicPlayerScreen(
                 Column(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Log values for debugging
                     LaunchedEffect(currentPosition, duration) {
                         if (duration > 0) {
                             Log.d("MusicPlayerScreen", "Position: $currentPosition, Duration: $duration, Progress: ${currentPosition.toFloat() / duration}")
                         }
                     }
                     
-                    // Add some debugging for when the song changes
                     LaunchedEffect(currentSong) {
                         Log.d("MusicPlayerScreen", "Song changed: ${currentSong?.title}, Duration: $duration")
                     }
 
-                    // Ensure duration is at least 1 to avoid division by zero
                     val safeDuration = duration.coerceAtLeast(1)
                     
                     Slider(
@@ -783,8 +766,6 @@ fun MusicPlayerScreen(
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
-                
-                // Control buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -864,7 +845,6 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                // Audio device selector - positioned under the pause button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -890,7 +870,6 @@ fun MusicPlayerScreen(
                     )
                 }
                 
-                // Add spacer to push remaining content down but keep controls positioned nicely
                 Spacer(modifier = Modifier.weight(1f))
             }
         }
@@ -923,7 +902,6 @@ fun MusicPlayerScreen(
                 Column(
                     modifier = Modifier.padding(8.dp)
                 ) {
-                    // Share Song option
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -954,7 +932,6 @@ fun MusicPlayerScreen(
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
                     
-                    // Edit Song option
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1457,19 +1434,17 @@ fun MusicPlayerScreen(
         }
     }
     
-    // Show share dialog
     if (showShareDialog && currentSong != null) {
         val isOnlineSong = currentSong!!.uri.startsWith("http")
         ShareSongDialog(
             songId = if (isOnlineSong) currentOnlineSongId else currentSongId.value,
             songTitle = currentSong!!.title,
             songArtist = currentSong!!.artist,
-            songUrl = null, // We always use deep links, not direct URLs
+            songUrl = null,
             onDismiss = { showShareDialog = false }
         )
     }
 
-    // Show audio device selector
     if (showAudioDeviceSelector) {
         AudioDeviceBottomSheet(
             onDismiss = { musicViewModel.dismissAudioDeviceSelector() }
@@ -1477,7 +1452,6 @@ fun MusicPlayerScreen(
     }
 }
 
-// Convert duration string (mm:ss) to milliseconds
 fun parseDurationToMillis(duration: String): Long {
     return try {
         val parts = duration.split(":")

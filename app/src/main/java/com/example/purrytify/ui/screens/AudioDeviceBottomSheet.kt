@@ -53,23 +53,19 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
         }
         deviceRecyclerView.adapter = deviceAdapter
 
-        // Observe available devices
         viewLifecycleOwner.lifecycleScope.launch {
             deviceManager.availableDevices.collectLatest { devices ->
-                // Filter to only show connected devices and the speaker
-                val filteredDevices = devices.filter { 
+                val filteredDevices = devices.filter {
                     it.isConnected || it.type == AudioDeviceType.SPEAKER 
                 }
                 deviceAdapter.submitList(filteredDevices)
                 
-                // Hide scanning progress once we have devices
                 if (filteredDevices.isNotEmpty()) {
                     scanningProgress.visibility = View.GONE
                 }
             }
         }
 
-        // Observe active device
         viewLifecycleOwner.lifecycleScope.launch {
             deviceManager.activeDevice.collectLatest { activeDevice ->
                 deviceAdapter.setActiveDevice(activeDevice)
@@ -128,7 +124,6 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
                 deviceName.text = device.name
                 deviceSelected.isChecked = isActive
 
-                // Set icon based on device type
                 deviceIcon.setImageResource(when (device.type) {
                     AudioDeviceType.BLUETOOTH_HEADPHONES, 
                     AudioDeviceType.BLUETOOTH_HEADSET,
@@ -141,11 +136,9 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
                     else -> R.drawable.ic_speaker
                 })
 
-                // Set status text based on actual device state
                 deviceStatus.text = when {
                     isActive -> "Active"
                     device.isConnected -> {
-                        // Always show speaker as available
                         if (device.type == AudioDeviceType.SPEAKER) {
                             "Available"
                         } else {
@@ -155,7 +148,6 @@ class AudioDeviceBottomSheet : BottomSheetDialogFragment() {
                     else -> "Disconnected"
                 }
                 
-                // Set status color based on status
                 deviceStatus.setTextColor(
                     itemView.context.getColor(
                         if (isActive) R.color.colorPrimary else R.color.colorOnSurfaceVariant

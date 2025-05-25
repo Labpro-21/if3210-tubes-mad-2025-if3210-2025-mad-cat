@@ -101,7 +101,6 @@ fun MixPlaylistScreen(
     songViewModel: SongViewModel = viewModel(),
     onNavigateToPlayer: () -> Unit
 ) {
-    // Get the appropriate description based on mix name
     val mixDescription = when (mixName) {
         "Your Daily Mix" -> "Fresh tunes worth giving a chance to"
         "Favorites Mix" -> "Songs you love and might love next"
@@ -129,17 +128,14 @@ fun MixPlaylistScreen(
         PlayHistoryTracker.getRecentlyPlayedSongs(userEmail, tokenManager)
     }
     
-    // Fetch global and country songs for Daily Mix
     val globalTopSongs = homeViewModel.globalTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
     val countryTopSongs = homeViewModel.countryTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
     
-    // Fetch the data when component mounts
     LaunchedEffect(Unit) {
         homeViewModel.fetchGlobalTopSongs()
         homeViewModel.fetchCountryTopSongs(userCountryCode)
     }
     
-    // Convert online songs to local format
     val globalSongs = remember(globalTopSongs) {
         globalTopSongs.map { onlineSong ->
             Song(
@@ -164,7 +160,6 @@ fun MixPlaylistScreen(
         }
     }
 
-    // Create the mix songs based on the mix name
     val mixSongs = remember(savedMix, mixName, allSongs.value, likedSongs.value, recentlyPlayedSongs, globalSongs, countrySongs) {
         if (savedMix != null) {
             savedMix
@@ -249,7 +244,6 @@ fun MixPlaylistScreen(
                 .background(Color(0xFF121212)),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
-            // Header
             item {
                 Box(
                     modifier = Modifier
@@ -262,7 +256,6 @@ fun MixPlaylistScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        // Back button
                         IconButton(
                             onClick = { navController.popBackStack() },
                             modifier = Modifier.padding(8.dp)
@@ -276,7 +269,6 @@ fun MixPlaylistScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
                         
-                        // Cover image
                         Box(
                             modifier = Modifier
                                 .size(200.dp)
@@ -303,7 +295,6 @@ fun MixPlaylistScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Mix name and description
                         Text(
                             text = mixName,
                             style = TextStyle(
@@ -314,7 +305,6 @@ fun MixPlaylistScreen(
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
 
-                        // Add description under the mix name
                         Text(
                             text = mixDescription,
                             style = TextStyle(
@@ -345,7 +335,6 @@ fun MixPlaylistScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Play button
                         Button(
                             onClick = {
                                 scope.launch {
@@ -395,7 +384,6 @@ fun MixPlaylistScreen(
                 )
             }
 
-            // Empty state
             if (mixSongs.isEmpty()) {
                 item {
                     Box(
@@ -456,7 +444,6 @@ fun SongListItem(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Index number
         Text(
             text = "$index",
             style = TextStyle(
@@ -534,7 +521,6 @@ fun SongListItem(
             )
         }
 
-        // Duration
         Text(
             text = formatDuration(song.duration),
             style = TextStyle(
@@ -544,7 +530,6 @@ fun SongListItem(
             modifier = Modifier.padding(horizontal = 8.dp)
         )
 
-        // Download button
         IconButton(
             onClick = {
                 if (!isDownloaded && !isDownloading) {
@@ -589,7 +574,6 @@ fun SongListItem(
             }
         }
 
-        // Options button (three dots)
         IconButton(
             onClick = { showOptionsDialog = true },
             modifier = Modifier.size(40.dp)
@@ -602,7 +586,6 @@ fun SongListItem(
             )
         }
     }
-    // Show options dialog
     if (showOptionsDialog) {
         SongOptionsDialog(
             song = song,
@@ -611,16 +594,13 @@ fun SongListItem(
                 showShareDialog = true
             },
             onEditClick = {
-                // Not available for online songs
             },
             onDeleteClick = {
-                // Not available for online songs
             },
             onDismiss = { showOptionsDialog = false }
         )
     }    
     
-    // Show share dialog
     if (showShareDialog) {
         ShareSongDialog(
             songId = null,
