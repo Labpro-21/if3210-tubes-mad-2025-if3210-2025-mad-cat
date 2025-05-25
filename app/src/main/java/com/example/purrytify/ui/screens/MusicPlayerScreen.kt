@@ -783,10 +783,12 @@ fun MusicPlayerScreen(
                 }
 
                 Spacer(modifier = Modifier.weight(0.7f))
+                
+                // Control buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 200.dp),
+                        .padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -813,6 +815,7 @@ fun MusicPlayerScreen(
                             modifier = Modifier.size(32.dp)
                         )
                     }
+                    
                     IconButton(
                         onClick = { musicViewModel.togglePlayPause() },
                         modifier = Modifier
@@ -861,11 +864,11 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                // Audio device selector
+                // Audio device selector - positioned under the pause button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(bottom = 24.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -886,54 +889,6 @@ fun MusicPlayerScreen(
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
-
-                IconButton(
-                    onClick = { musicViewModel.toggleRepeatMode() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = when (repeatMode) {
-                            RepeatMode.OFF -> Icons.Rounded.Repeat
-                            RepeatMode.ALL -> Icons.Rounded.Repeat
-                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                        },
-                        contentDescription = "Repeat",
-                        tint = when (repeatMode) {
-                            RepeatMode.OFF -> Color.White
-                            RepeatMode.ALL -> Color(0xFF1DB954)
-                            RepeatMode.ONE -> Color(0xFF1DB954)
-                        },
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            // Audio device selector
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = (-12).dp)
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { musicViewModel.showAudioDeviceSelector() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Headphones,
-                        contentDescription = "Select Audio Output",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                
-                Text(
-                    text = currentAudioDevice,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
             }
         }
     }
