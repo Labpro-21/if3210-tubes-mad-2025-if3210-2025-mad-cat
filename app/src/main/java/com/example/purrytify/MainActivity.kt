@@ -96,9 +96,16 @@ class MainActivity : ComponentActivity() {
                     var startDestination by remember { mutableStateOf("splash") }
                     var goToPlayerAfterSplash by remember { mutableStateOf(shouldNavigateToPlayer) }
                     val context = LocalContext.current
-                    LaunchedEffect(navController) {
+                    // Handle deep link navigation
+                    LaunchedEffect(deepLinkSongId, navController.currentBackStackEntry?.destination?.route) {
                         if (deepLinkNavigationPending && deepLinkSongId != null) {
                             Log.d(TAG, "Processing deep link navigation for song ID: $deepLinkSongId")
+                            
+                            // Wait for navigation to be ready (not on splash screen)
+                            val currentRoute = navController.currentBackStackEntry?.destination?.route
+                            if (currentRoute == "splash") {
+                                return@LaunchedEffect
+                            }
                             
                             try {
                                 val trendingApi = RetrofitClient.getInstance(context).create(TrendingApiService::class.java)
@@ -116,19 +123,19 @@ class MainActivity : ComponentActivity() {
                                             duration = onlineSong.duration
                                         )
                                         
+                                        // Set up the playlist and play the song
                                         val deepLinkPlaylist = listOf(song)
                                         musicViewModel.setOnlinePlaylist(deepLinkPlaylist, "deeplink")
-                                        delay(500)
                                         
-                                        if (navController.currentBackStackEntry?.destination?.route != "player") {
-                                            navController.navigate("player") {
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
+                                        // Navigate to player first
+                                        navController.navigate("player") {
+                                            launchSingleTop = true
+                                            popUpTo("home") { inclusive = false }
                                         }
                                         
-                                        delay(100)
-                                        musicViewModel.loadSongWithoutPlaying(
+                                        // Then start playing the song
+                                        delay(300) // Small delay to ensure navigation completes
+                                        musicViewModel.playSong(
                                             song, 
                                             context, 
                                             fromOnlinePlaylist = true, 
@@ -138,6 +145,7 @@ class MainActivity : ComponentActivity() {
                                         
                                         deepLinkNavigationPending = false
                                         deepLinkSongId = null
+                                        Log.d(TAG, "Deep link navigation completed successfully")
                                     }
                                 } else {
                                     Log.e(TAG, "Failed to fetch song: ${response.code()}")
@@ -226,9 +234,28 @@ class MainActivity : ComponentActivity() {
                                                             uri = onlineSong.audioUrl,
                                                             duration = onlineSong.duration
                                                         )
-                                                        musicViewModel.playSong(song, context, fromOnlinePlaylist = true, onlineType = "", onlineSongId = onlineSong.id)
-                                                        navController.navigate("player")
+                                                        
+                                                        // Set up playlist for the scanned song
+                                                        val scannedPlaylist = listOf(song)
+                                                        musicViewModel.setOnlinePlaylist(scannedPlaylist, "qr_scanned")
+                                                        
+                                                        // Navigate to player and play the song
+                                                        navController.navigate("player") {
+                                                            launchSingleTop = true
+                                                        }
+                                                        
+                                                        musicViewModel.playSong(
+                                                            song, 
+                                                            context, 
+                                                            fromOnlinePlaylist = true, 
+                                                            onlineType = "qr_scanned", 
+                                                            onlineSongId = onlineSong.id
+                                                        )
+                                                        
+                                                        Log.d(TAG, "QR scanned song loaded: ${song.title}")
                                                     }
+                                                } else {
+                                                    Log.e(TAG, "Failed to fetch song from QR: ${response.code()}")
                                                 }
                                             } catch (e: Exception) {
                                                 Log.e(TAG, "Error fetching song from QR scan", e)
@@ -313,22 +340,28 @@ class MainActivity : ComponentActivity() {
     
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data
+        Log.d(TAG, "handleIntent called with data: $data")
+        
         if (data != null) {
             var songId: Int? = null
             
             when {
                 data.scheme == "purrytify" && data.host == "song" -> {
                     songId = data.lastPathSegment?.toIntOrNull()
+                    Log.d(TAG, "Deep link scheme detected: purrytify://song/$songId")
                 }
                 data.scheme == "https" && data.host == "purrytify.com" && data.path?.startsWith("/open/song") == true -> {
                     songId = data.lastPathSegment?.toIntOrNull()
+                    Log.d(TAG, "HTTPS link detected: ${data}")
                 }
             }
             
-            if (songId != null) {
-                Log.d(TAG, "Handling deep link for song ID: $songId")
+            if (songId != null && songId > 0) {
+                Log.d(TAG, "Valid song ID found: $songId. Setting up deep link navigation.")
                 deepLinkSongId = songId
                 deepLinkNavigationPending = true
+            } else {
+                Log.w(TAG, "Invalid or missing song ID in deep link: $data")
             }
         }
     }
