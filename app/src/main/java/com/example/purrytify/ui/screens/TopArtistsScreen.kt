@@ -1,6 +1,8 @@
 package com.example.purrytify.ui.screens
 
 import android.annotation.SuppressLint
+import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +11,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,9 +29,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import com.example.purrytify.R
 import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
+import java.io.File
 
 @Composable
 fun TopArtistsScreen(
@@ -111,13 +117,15 @@ fun TopArtistsScreen(
                     .padding(bottom = 56.dp)
             ) {
                 itemsIndexed(artistData) { index, (artist, playCount) ->
-                    val songsByArtist = ListeningAnalytics.getSongsByArtist(artist)
-
+                    val songsByArtist = ListeningAnalytics.getSongsByArtist(artist)                    // Get a random cover URL for this artist (if available)
+                    val artistCoverUrl = ListeningAnalytics.getArtistCoverUrl(artist)
+                    
                     TopArtistItem(
                         index = index + 1,
                         artist = artist,
                         playCount = playCount,
-                        songCount = songsByArtist.size
+                        songCount = songsByArtist.size,
+                        coverUrl = artistCoverUrl
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -168,7 +176,7 @@ fun TopArtistsScreen(
 
 @SuppressLint("DefaultLocale")
 @Composable
-fun TopArtistItem(index: Int, artist: String, playCount: Int, songCount: Int) {
+fun TopArtistItem(index: Int, artist: String, playCount: Int, songCount: Int, coverUrl: String?) {
     Spacer(modifier = Modifier.height(12.dp))
 
     Row(
@@ -205,17 +213,49 @@ fun TopArtistItem(index: Int, artist: String, playCount: Int, songCount: Int) {
                 overflow = TextOverflow.Ellipsis
             )
         }
-
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = null,
-            tint = Color.Gray,
+        
+        val imageModel = when {
+            coverUrl != null && (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) -> {
+                // For online songs with URLs
+                Log.d("TopArtistsScreen", "Using online cover URL for $artist: $coverUrl")
+                coverUrl
+            }
+            coverUrl != null && coverUrl.isNotEmpty() && File(coverUrl).exists() -> {
+                // For local songs with file paths
+                Log.d("TopArtistsScreen", "Using local cover file for $artist: $coverUrl")
+                File(coverUrl)
+            }
+            else -> {
+                // No image available
+                Log.d("TopArtistsScreen", "No valid cover found for artist: $artist")
+                null
+            }
+        }
+        
+        Box(
             modifier = Modifier
                 .size(64.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF2A2A2A))
-                .padding(8.dp)
-        )
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF2A2A2A)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (imageModel != null) {
+                AsyncImage(
+                    model = imageModel,
+                    contentDescription = "Artist cover",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            } else {
+                // Fallback icon when no cover is available
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
