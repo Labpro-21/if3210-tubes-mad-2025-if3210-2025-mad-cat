@@ -59,6 +59,9 @@ import com.example.purrytify.ui.dialogs.SongOptionsDialog
 import com.example.purrytify.ui.dialogs.ShareSongDialog
 import androidx.compose.material.icons.filled.MoreVert
 import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.ui.utils.isLandscape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 data class Song(
     val title: String,
@@ -474,6 +477,9 @@ fun LibraryScreen(
     }
 
     if (showUploadDialog) {
+        val isLandscapeMode = isLandscape()
+        val scrollState = rememberScrollState()
+        
         ModalBottomSheet(
             onDismissRequest = {
                 if (!isUploading) {
@@ -509,7 +515,11 @@ fun LibraryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .verticalScroll(scrollState)
+                    .padding(
+                        horizontal = if (isLandscapeMode) 16.dp else 24.dp,
+                        vertical = if (isLandscapeMode) 12.dp else 16.dp
+                    )
                     .navigationBarsPadding()
                     .imePadding()
             ) {
@@ -517,10 +527,10 @@ fun LibraryScreen(
                     text = "Upload Song",
                     style = TextStyle(
                         color = Color.White,
-                        fontSize = 22.sp,
+                        fontSize = if (isLandscapeMode) 20.sp else 22.sp,
                         fontWeight = FontWeight.Bold
                     ),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = if (isLandscapeMode) 12.dp else 16.dp)
                 )
 
                 Row(
@@ -533,7 +543,7 @@ fun LibraryScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(120.dp)
+                                .size(if (isLandscapeMode) 100.dp else 120.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF2A2A2A))
                                 .clickable { imagePickerLauncher.launch("image/*") }
@@ -571,11 +581,11 @@ fun LibraryScreen(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(if (isLandscapeMode) 6.dp else 8.dp))
                         Text(
                             text = "Cover Art",
                             color = Color(0xFFCCCCCC),
-                            fontSize = 12.sp
+                            fontSize = if (isLandscapeMode) 11.sp else 12.sp
                         )
                     }
 
@@ -585,7 +595,7 @@ fun LibraryScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(120.dp)
+                                .size(if (isLandscapeMode) 100.dp else 120.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF2A2A2A))
                                 .clickable { audioPickerLauncher.launch("audio/*") }
@@ -630,23 +640,23 @@ fun LibraryScreen(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(if (isLandscapeMode) 6.dp else 8.dp))
                         Text(
                             text = "Audio File",
                             color = Color(0xFFCCCCCC),
-                            fontSize = 12.sp
+                            fontSize = if (isLandscapeMode) 11.sp else 12.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(if (isLandscapeMode) 16.dp else 24.dp))
 
                 Text(
                     text = "Title",
                     color = Color(0xFFCCCCCC),
-                    fontSize = 14.sp,
+                    fontSize = if (isLandscapeMode) 13.sp else 14.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = if (isLandscapeMode) 6.dp else 8.dp)
                 )
 
                 OutlinedTextField(
@@ -703,7 +713,7 @@ fun LibraryScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(if (isLandscapeMode) 16.dp else 24.dp))
 
                 // Action Buttons
                 Row(
@@ -831,13 +841,16 @@ fun LibraryScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(if (isLandscapeMode) 12.dp else 16.dp))
             }
         }
     }
 
     // Edit song dialog
     if (showEditDialog && selectedSongForEdit != null) {
+        val isLandscapeModeEdit = isLandscape()
+        val scrollStateEdit = rememberScrollState()
+        
         val editImagePickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
@@ -902,7 +915,11 @@ fun LibraryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .verticalScroll(scrollStateEdit)
+                    .padding(
+                        horizontal = if (isLandscapeModeEdit) 16.dp else 24.dp,
+                        vertical = if (isLandscapeModeEdit) 12.dp else 16.dp
+                    )
                     .navigationBarsPadding()
                     .imePadding()
             ) {
