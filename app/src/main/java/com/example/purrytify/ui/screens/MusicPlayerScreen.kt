@@ -55,6 +55,7 @@ import kotlin.math.floor
 import com.example.purrytify.ui.dialogs.ShareSongDialog
 import com.example.purrytify.data.model.OnlineSong
 import com.example.purrytify.ui.components.AudioDeviceBottomSheet
+import com.example.purrytify.ui.utils.isLandscape
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -307,290 +308,584 @@ fun MusicPlayerScreen(
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        val isLandscapeMode = isLandscape()
+        
+        if (isLandscapeMode) {
+            // Landscape layout: Image on left, content on right
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 32.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                IconButton(
-                    onClick = onBackClick
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { showMenu = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = "Options",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Box(
-                modifier = Modifier
-                    .size(280.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.DarkGray)
-            ) {
-                val imageModel = when {
-                    currentSong!!.coverUri.startsWith("http") -> currentSong!!.coverUri // Online song URL
-                    currentSong!!.coverUri.isNotEmpty() -> File(currentSong!!.coverUri) // Local file
-                    else -> "https://example.com/placeholder.jpg" // Placeholder
-                }
-                
-                AsyncImage(
-                    model = imageModel,
-                    contentDescription = "Album Cover",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Left side - Album cover
+                Column(
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .onGloballyPositioned { coordinates ->
-                                containerWidth.value = coordinates.size.width
-                            }
+                            .size(240.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.DarkGray)
+                    ) {
+                        val imageModel = when {
+                            currentSong!!.coverUri.startsWith("http") -> currentSong!!.coverUri
+                            currentSong!!.coverUri.isNotEmpty() -> File(currentSong!!.coverUri)
+                            else -> "https://example.com/placeholder.jpg"
+                        }
+                        
+                        AsyncImage(
+                            model = imageModel,
+                            contentDescription = "Album Cover",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(32.dp))
+                
+                // Right side - Controls and info
+                Column(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight()
+                ) {
+                    // Top bar with back and menu buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = "Back",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = "Options",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // Song info
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start
                     ) {
                         Row(
-                            modifier = Modifier
-                                .horizontalScroll(scrollState)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = currentSong!!.title,
-                                color = Color.White,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                modifier = Modifier.onGloballyPositioned { coordinates ->
-                                    songTitleWidth.value = coordinates.size.width
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .onGloballyPositioned { coordinates ->
+                                        containerWidth.value = coordinates.size.width
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.horizontalScroll(scrollState)
+                                ) {
+                                    Text(
+                                        text = currentSong!!.title,
+                                        color = Color.White,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                                            songTitleWidth.value = coordinates.size.width
+                                        }
+                                    )
+                                    if (songTitleWidth.value > containerWidth.value) {
+                                        Spacer(modifier = Modifier.width(32.dp))
+                                    }
                                 }
-                            )
-                            if (songTitleWidth.value > containerWidth.value) {
-                                Spacer(modifier = Modifier.width(32.dp))
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        if (currentSongId.value == -1) {
+                                            Toast.makeText(context, "Cannot like online songs", Toast.LENGTH_SHORT).show()
+                                            return@launch
+                                        }
+                                        
+                                        if (isSongLiked) {
+                                            songViewModel.unlikeSong(currentSongId.value)
+                                            isSongLiked = false
+                                            Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            songViewModel.likeSong(currentSongId.value)
+                                            isSongLiked = true
+                                            Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isSongLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                    contentDescription = if (isSongLiked) "Unlike" else "Like",
+                                    tint = if (isSongLiked) Color(0xFFE91E63) else Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
                         }
+
+                        Text(
+                            text = currentSong!!.artist,
+                            color = Color(0xFFCCCCCC),
+                            fontSize = 16.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(32.dp))
+                    
+                    // Progress slider
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val safeDuration = duration.coerceAtLeast(1)
+                        
+                        Slider(
+                            value = currentPosition.toFloat().coerceIn(0f, safeDuration.toFloat()),
+                            onValueChange = { musicViewModel.seekTo(it.toInt()) },
+                            valueRange = 0f..safeDuration.toFloat(),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color.White,
+                                activeTrackColor = Color.White,
+                                inactiveTrackColor = Color(0x40FFFFFF)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = formatDuration(currentPosition),
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = formatDuration(safeDuration),
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.weight(1f))
+                    
+                    // Control buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { musicViewModel.toggleShuffle() },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Shuffle,
+                                contentDescription = "Shuffle",
+                                tint = if (isShuffleOn) Color(0xFF1DB954) else Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { musicViewModel.playPrevious() },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipPrevious,
+                                contentDescription = "Previous",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        
+                        IconButton(
+                            onClick = { musicViewModel.togglePlayPause() },
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                tint = Color.Black,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { musicViewModel.playNext() },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipNext,
+                                contentDescription = "Next",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { musicViewModel.toggleRepeatMode() },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = when (repeatMode) {
+                                    RepeatMode.OFF -> Icons.Rounded.Repeat
+                                    RepeatMode.ALL -> Icons.Rounded.Repeat
+                                    RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                                },
+                                contentDescription = "Repeat",
+                                tint = when (repeatMode) {
+                                    RepeatMode.OFF -> Color.White
+                                    RepeatMode.ALL -> Color(0xFF1DB954)
+                                    RepeatMode.ONE -> Color(0xFF1DB954)
+                                },
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Audio device selector
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { musicViewModel.showAudioDeviceSelector() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Headphones,
+                                contentDescription = "Select Audio Output",
+                                tint = Color.White
+                            )
+                        }
+                        
+                        Text(
+                            text = currentAudioDevice,
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+            }
+        } else {
+            // Portrait layout: Original vertical layout
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 32.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onBackClick
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
 
                     IconButton(
-                        onClick = {
-                            scope.launch {
-                                // Don't allow liking online songs (they're not in the local database)
-                                if (currentSongId.value == -1) {
-                                    Toast.makeText(context, "Cannot like online songs", Toast.LENGTH_SHORT).show()
-                                    return@launch
-                                }
-                                
-                                if (isSongLiked) {
-                                    songViewModel.unlikeSong(currentSongId.value)
-                                    isSongLiked = false
-                                    Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    songViewModel.likeSong(currentSongId.value)
-                                    isSongLiked = true
-                                    Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        },
-                        modifier = Modifier.size(40.dp)
+                        onClick = { showMenu = true }
                     ) {
                         Icon(
-                            imageVector = if (isSongLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = if (isSongLiked) "Unlike" else "Like",
-                            tint = if (isSongLiked) Color(0xFFE91E63) else Color.White,
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = "Options",
+                            tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                 }
 
-                Text(
-                    text = currentSong!!.artist,
-                    color = Color(0xFFCCCCCC),
-                    fontSize = 16.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+                Spacer(modifier = Modifier.height(32.dp))
+                Box(
+                    modifier = Modifier
+                        .size(280.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.DarkGray)
+                ) {
+                    val imageModel = when {
+                        currentSong!!.coverUri.startsWith("http") -> currentSong!!.coverUri // Online song URL
+                        currentSong!!.coverUri.isNotEmpty() -> File(currentSong!!.coverUri) // Local file
+                        else -> "https://example.com/placeholder.jpg" // Placeholder
+                    }
+                    
+                    AsyncImage(
+                        model = imageModel,
+                        contentDescription = "Album Cover",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // Log values for debugging
-                LaunchedEffect(currentPosition, duration) {
-                    if (duration > 0) {
-                        Log.d("MusicPlayerScreen", "Position: $currentPosition, Duration: $duration, Progress: ${currentPosition.toFloat() / duration}")
+                Spacer(modifier = Modifier.height(32.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .onGloballyPositioned { coordinates ->
+                                    containerWidth.value = coordinates.size.width
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .horizontalScroll(scrollState)
+                            ) {
+                                Text(
+                                    text = currentSong!!.title,
+                                    color = Color.White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    modifier = Modifier.onGloballyPositioned { coordinates ->
+                                        songTitleWidth.value = coordinates.size.width
+                                    }
+                                )
+                                if (songTitleWidth.value > containerWidth.value) {
+                                    Spacer(modifier = Modifier.width(32.dp))
+                                }
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    // Don't allow liking online songs (they're not in the local database)
+                                    if (currentSongId.value == -1) {
+                                        Toast.makeText(context, "Cannot like online songs", Toast.LENGTH_SHORT).show()
+                                        return@launch
+                                    }
+                                    
+                                    if (isSongLiked) {
+                                        songViewModel.unlikeSong(currentSongId.value)
+                                        isSongLiked = false
+                                        Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        songViewModel.likeSong(currentSongId.value)
+                                        isSongLiked = true
+                                        Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSongLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = if (isSongLiked) "Unlike" else "Like",
+                                tint = if (isSongLiked) Color(0xFFE91E63) else Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = currentSong!!.artist,
+                        color = Color(0xFFCCCCCC),
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Log values for debugging
+                    LaunchedEffect(currentPosition, duration) {
+                        if (duration > 0) {
+                            Log.d("MusicPlayerScreen", "Position: $currentPosition, Duration: $duration, Progress: ${currentPosition.toFloat() / duration}")
+                        }
+                    }
+                    
+                    // Add some debugging for when the song changes
+                    LaunchedEffect(currentSong) {
+                        Log.d("MusicPlayerScreen", "Song changed: ${currentSong?.title}, Duration: $duration")
+                    }
+
+                    // Ensure duration is at least 1 to avoid division by zero
+                    val safeDuration = duration.coerceAtLeast(1)
+                    
+                    Slider(
+                        value = currentPosition.toFloat().coerceIn(0f, safeDuration.toFloat()),
+                        onValueChange = { musicViewModel.seekTo(it.toInt()) },
+                        valueRange = 0f..safeDuration.toFloat(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White,
+                            activeTrackColor = Color.White,
+                            inactiveTrackColor = Color(0x40FFFFFF)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = formatDuration(currentPosition),
+                            color = Color(0xFFCCCCCC),
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = formatDuration(safeDuration),
+                            color = Color(0xFFCCCCCC),
+                            fontSize = 12.sp
+                        )
                     }
                 }
-                
-                // Add some debugging for when the song changes
-                LaunchedEffect(currentSong) {
-                    Log.d("MusicPlayerScreen", "Song changed: ${currentSong?.title}, Duration: $duration")
-                }
 
-                // Ensure duration is at least 1 to avoid division by zero
-                val safeDuration = duration.coerceAtLeast(1)
-                
-                Slider(
-                    value = currentPosition.toFloat().coerceIn(0f, safeDuration.toFloat()),
-                    onValueChange = { musicViewModel.seekTo(it.toInt()) },
-                    valueRange = 0f..safeDuration.toFloat(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.White,
-                        activeTrackColor = Color.White,
-                        inactiveTrackColor = Color(0x40FFFFFF)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Spacer(modifier = Modifier.weight(0.7f))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatDuration(currentPosition),
-                        color = Color(0xFFCCCCCC),
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = formatDuration(safeDuration),
-                        color = Color(0xFFCCCCCC),
-                        fontSize = 12.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(0.7f))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 200.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { musicViewModel.toggleShuffle() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (isShuffleOn) Color(0xFF1DB954) else Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { musicViewModel.playPrevious() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = "Previous",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                IconButton(
-                    onClick = { musicViewModel.togglePlayPause() },
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
+                        .fillMaxWidth()
+                        .padding(bottom = 200.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.Black,
-                        modifier = Modifier.size(36.dp)
-                    )
+                    IconButton(
+                        onClick = { musicViewModel.toggleShuffle() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint = if (isShuffleOn) Color(0xFF1DB954) else Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { musicViewModel.playPrevious() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipPrevious,
+                            contentDescription = "Previous",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { musicViewModel.togglePlayPause() },
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { musicViewModel.playNext() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = "Next",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { musicViewModel.toggleRepeatMode() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = when (repeatMode) {
+                                RepeatMode.OFF -> Icons.Rounded.Repeat
+                                RepeatMode.ALL -> Icons.Rounded.Repeat
+                                RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                            },
+                            contentDescription = "Repeat",
+                            tint = when (repeatMode) {
+                                RepeatMode.OFF -> Color.White
+                                RepeatMode.ALL -> Color(0xFF1DB954)
+                                RepeatMode.ONE -> Color(0xFF1DB954)
+                            },
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
-                IconButton(
-                    onClick = { musicViewModel.playNext() },
-                    modifier = Modifier.size(40.dp)
+                // Audio device selector
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "Next",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                    IconButton(
+                        onClick = { musicViewModel.showAudioDeviceSelector() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Headphones,
+                            contentDescription = "Select Audio Output",
+                            tint = Color.White
+                        )
+                    }
+                    
+                    Text(
+                        text = currentAudioDevice,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
-
-                IconButton(
-                    onClick = { musicViewModel.toggleRepeatMode() },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = when (repeatMode) {
-                            RepeatMode.OFF -> Icons.Rounded.Repeat
-                            RepeatMode.ALL -> Icons.Rounded.Repeat
-                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                        },
-                        contentDescription = "Repeat",
-                        tint = when (repeatMode) {
-                            RepeatMode.OFF -> Color.White
-                            RepeatMode.ALL -> Color(0xFF1DB954)
-                            RepeatMode.ONE -> Color(0xFF1DB954)
-                        },
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            // Audio device selector
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { musicViewModel.showAudioDeviceSelector() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Headphones,
-                        contentDescription = "Select Audio Output",
-                        tint = Color.White
-                    )
-                }
-                
-                Text(
-                    text = currentAudioDevice,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
             }
         }
     }
