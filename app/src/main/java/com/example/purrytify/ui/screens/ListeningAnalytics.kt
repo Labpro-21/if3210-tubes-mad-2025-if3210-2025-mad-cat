@@ -90,7 +90,7 @@ object ListeningAnalytics {
     private var sessionStartTime: Long = 0
     fun startPlayback(song: Song, musicViewModel: MusicViewModel, context: Context, email: String) {
         val currentSong = musicViewModel.currentSong.value
-        val songKey = "${song.title}_${song.artist}"
+        val songKey = "${email}_${song.title}_${song.artist}"
 
         if (song.coverUri.isNotEmpty()) {
             val isOnlineSong = song.uri.startsWith("http")
@@ -217,10 +217,15 @@ object ListeningAnalytics {
 
         if (streakSongs.isNotEmpty()) {
             val (songKey, streakDays) = streakSongs.first()
-            val songTitle = songKey.split("_").first()
-            val artistName = songKey.split("_").getOrNull(1) ?: "Unknown"
-            _streakSong.value = Triple(songTitle, artistName, streakDays)
-            Log.d("ListeningAnalytics", "Updated streak song to: $songTitle by $artistName ($streakDays days)")
+            val parts = songKey.split("_")
+            if (parts.size >= 3) {
+                val songTitle = parts[1]  // Skip email, ambil title
+                val artistName = parts[2]  // Ambil artist
+                _streakSong.value = Triple(songTitle, artistName, streakDays)
+                Log.d("ListeningAnalytics", "Updated streak song to: $songTitle by $artistName ($streakDays days)")
+            } else {
+                _streakSong.value = Triple("", "", 0)
+            }
         } else {
             _streakSong.value = Triple("", "", 0)
         }
@@ -311,6 +316,10 @@ object ListeningAnalytics {
         lastContext = context
         lastUserEmail = email
 
+        // Clear existing data
+        songStreakDays.clear()
+        songLastPlayed.clear()
+        
         val tokenManager = TokenManager(context)
         val today = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
 
@@ -546,8 +555,8 @@ object ListeningAnalytics {
     fun getAllSongPlayData(): List<Quad<String, String, Int, String?>> {
         return songPlayCounts.map { (songKey, count) ->
             val parts = songKey.split("_")
-            val title = parts.firstOrNull() ?: songKey
-            val artist = parts.getOrNull(1) ?: "Unknown"
+            val title = if (parts.size >= 2) parts[1] else songKey
+            val artist = if (parts.size >= 3) parts[2] else "Unknown"
             val coverUrl = songCoverUrls[songKey]
             
             // Log for debugging
@@ -801,10 +810,12 @@ object ListeningAnalytics {
                 date.monthValue == month
             }.maxByOrNull { it.value }
 
-            val topSong = topSongData?.key?.split("_")?.firstOrNull()
-            val topSongCoverUrl = topSongData?.key?.let { 
-                val parts = it.split("_")
-                getSongCoverUrl(parts.first(), parts.getOrNull(1) ?: "") 
+            val topSong = topSongData?.key?.split("_")?.getOrNull(1) // Skip email, ambil title
+            val topSongCoverUrl = topSongData?.key?.let { key -> 
+                val parts = key.split("_")
+                if (parts.size >= 3) {
+                    getSongCoverUrl(parts[1], parts[2]) // title, artist
+                } else null
             }
 
             val monthKey = "${currentYear}-${month.toString().padStart(2, '0')}"
@@ -882,5 +893,20 @@ object ListeningAnalytics {
             return getArtistCoverUrl(topArtist)
         }
         return null
+    }
+
+    fun getStreakSongInfo(email: String): Triple<String, String, Int> {
+        val userStreaks = songStreakDays.filterKeys { it.startsWith("${email}_") }
+        
+        val maxStreak = userStreaks.maxByOrNull { it.value }
+        
+        if (maxStreak != null) {
+            val parts = maxStreak.key.split("_")
+            val songTitle = parts.getOrNull(1) ?: ""
+            val artistName = parts.getOrNull(2) ?: "Unknown"
+            return Triple(songTitle, artistName, maxStreak.value)
+        }
+        
+        return Triple("", "", 0)
     }
 }
