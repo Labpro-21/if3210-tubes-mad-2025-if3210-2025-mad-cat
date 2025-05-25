@@ -366,6 +366,8 @@ object ListeningAnalytics {
             }
         }
 
+        artistPlayCountsByMonth.clear()
+
         // Log the loaded data
         val currentMonth = getCurrentMonthKey()
         val currentMonthArtists = artistPlayCountsByMonth[currentMonth]
@@ -418,6 +420,8 @@ object ListeningAnalytics {
                 }
             }
         }
+        
+        songPlayCounts.clear()
 
         val songCountData = tokenManager.getString("${email}_song_counts")
         songCountData?.split("|")?.forEach {
