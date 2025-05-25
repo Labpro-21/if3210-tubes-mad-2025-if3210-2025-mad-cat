@@ -10,6 +10,7 @@ import android.os.Build
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import androidx.media.VolumeProviderCompat
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.example.purrytify.data.model.AudioDevice
@@ -231,43 +232,66 @@ class AudioDeviceManager private constructor(private val context: Context) {
                 }
             }
             
-            // Process Bluetooth devices
+            // Process Bluetooth devices - enumerate ALL connected Bluetooth devices
             if (bluetoothHeadsetStateProvider.isHeadsetConnected.value) {
-                val bluetoothDevice = audioDevices.find {
+                val bluetoothDevices = audioDevices.filter {
                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
                 }
                 
-                if (bluetoothDevice != null) {
-                    // Get actual Bluetooth device name instead of phone name
-                    val deviceName = getBluetoothDeviceName(bluetoothDevice)
-                    
-                    val bluetoothIsActive = !audioManager.isSpeakerphoneOn && bluetoothHeadsetStateProvider.isHeadsetConnected.value
-                    devices.add(
-                        AudioDevice(
-                            id = "bluetooth_${bluetoothDevice.id}",
-                            name = deviceName,
-                            type = if (bluetoothDevice.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) 
-                                       AudioDeviceType.BLUETOOTH_HEADPHONES 
-                                   else AudioDeviceType.BLUETOOTH_HEADSET,
-                            isConnected = true,
-                            isActive = bluetoothIsActive,
-                            deviceInfo = bluetoothDevice
+                if (bluetoothDevices.isNotEmpty()) {
+                    // Add each Bluetooth device separately
+                    bluetoothDevices.forEachIndexed { index, bluetoothDevice ->
+                        val deviceName = getBluetoothDeviceNameForDevice(bluetoothDevice, index)
+                        
+                        // Only mark one Bluetooth device as active at a time
+                        val bluetoothIsActive = !audioManager.isSpeakerphoneOn && 
+                                              bluetoothHeadsetStateProvider.isHeadsetConnected.value &&
+                                              (if (isManualSelection && manuallySelectedDeviceId != null) {
+                                                  "bluetooth_${bluetoothDevice.id}" == manuallySelectedDeviceId
+                                              } else {
+                                                  index == 0 // Default to first device if no manual selection
+                                              })
+                        
+                        devices.add(
+                            AudioDevice(
+                                id = "bluetooth_${bluetoothDevice.id}",
+                                name = deviceName,
+                                type = if (bluetoothDevice.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) 
+                                           AudioDeviceType.BLUETOOTH_HEADPHONES 
+                                       else AudioDeviceType.BLUETOOTH_HEADSET,
+                                isConnected = true,
+                                isActive = bluetoothIsActive,
+                                deviceInfo = bluetoothDevice
+                            )
                         )
-                    )
+                        
+                        Log.d("AudioDeviceManager", "Added Bluetooth device: $deviceName (ID: bluetooth_${bluetoothDevice.id})")
+                    }
                 } else {
-                    // Fallback: try to get Bluetooth device name from adapter
-                    val bluetoothDeviceName = getConnectedBluetoothDeviceName()
-                    val bluetoothIsActive = !audioManager.isSpeakerphoneOn && bluetoothHeadsetStateProvider.isHeadsetConnected.value
-                    devices.add(
-                        AudioDevice(
-                            id = "bluetooth_generic",
-                            name = bluetoothDeviceName,
-                            type = AudioDeviceType.BLUETOOTH_HEADSET,
-                            isConnected = true,
-                            isActive = bluetoothIsActive
+                    // Fallback: try to get Bluetooth device names from adapter
+                    val connectedBluetoothDevices = getConnectedBluetoothDevices()
+                    connectedBluetoothDevices.forEachIndexed { index, deviceName ->
+                        val bluetoothIsActive = !audioManager.isSpeakerphoneOn && 
+                                              bluetoothHeadsetStateProvider.isHeadsetConnected.value &&
+                                              (if (isManualSelection && manuallySelectedDeviceId != null) {
+                                                  "bluetooth_fallback_$index" == manuallySelectedDeviceId
+                                              } else {
+                                                  index == 0 // Default to first device if no manual selection
+                                              })
+                        
+                        devices.add(
+                            AudioDevice(
+                                id = "bluetooth_fallback_$index",
+                                name = deviceName,
+                                type = AudioDeviceType.BLUETOOTH_HEADSET,
+                                isConnected = true,
+                                isActive = bluetoothIsActive
+                            )
                         )
-                    )
+                        
+                        Log.d("AudioDeviceManager", "Added fallback Bluetooth device: $deviceName (ID: bluetooth_fallback_$index)")
+                    }
                 }
             }
             
@@ -354,14 +378,45 @@ class AudioDeviceManager private constructor(private val context: Context) {
         }
     }
     
-    private fun getConnectedBluetoothDeviceName(): String {
+    private fun getBluetoothDeviceNameForDevice(bluetoothAudioDevice: AudioDeviceInfo, index: Int): String {
+        return try {
+            // First, try to get the name from the AudioDeviceInfo
+            val productName = bluetoothAudioDevice.productName?.toString()
+            if (!productName.isNullOrBlank() && 
+                !productName.contains("phone", ignoreCase = true) && 
+                !productName.contains("android", ignoreCase = true) &&
+                productName.length > 3) {
+                return productName
+            }
+            
+            // Try to match with connected Bluetooth devices by address if available
+            val connectedDevices = getConnectedBluetoothDevices()
+            if (index < connectedDevices.size) {
+                return connectedDevices[index]
+            }
+            
+            // Final fallback based on device type
+            val baseName = when (bluetoothAudioDevice.type) {
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth Headphones"
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth Headset"
+                else -> "Bluetooth Device"
+            }
+            
+            return if (index > 0) "$baseName ${index + 1}" else baseName
+        } catch (e: Exception) {
+            Log.e("AudioDeviceManager", "Error getting Bluetooth device name for device", e)
+            "Bluetooth Device ${index + 1}"
+        }
+    }
+
+    private fun getConnectedBluetoothDevices(): List<String> {
         return try {
             val bluetoothAdapter = bluetoothManager.adapter
             if (bluetoothAdapter == null || !hasBluetoothPermission()) {
-                return "Bluetooth Audio"
+                return listOf("Bluetooth Audio")
             }
             
-            // Get connected audio devices
+            val deviceNames = mutableListOf<String>()
             val connectedDevices = bluetoothAdapter.bondedDevices
             
             for (device in connectedDevices) {
@@ -375,15 +430,25 @@ class AudioDeviceManager private constructor(private val context: Context) {
                     }
                     
                     if (!deviceName.isNullOrBlank() && deviceName.length > 2) {
-                        Log.d("AudioDeviceManager", "Found Bluetooth device: $deviceName")
-                        return deviceName
+                        deviceNames.add(deviceName)
+                        Log.d("AudioDeviceManager", "Found connected Bluetooth device: $deviceName")
                     }
                 } catch (e: Exception) {
                     Log.e("AudioDeviceManager", "Error getting Bluetooth device name", e)
                 }
             }
             
-            "Bluetooth Audio"
+            return if (deviceNames.isEmpty()) listOf("Bluetooth Audio") else deviceNames
+        } catch (e: Exception) {
+            Log.e("AudioDeviceManager", "Error getting connected Bluetooth devices", e)
+            listOf("Bluetooth Audio")
+        }
+    }
+
+    private fun getConnectedBluetoothDeviceName(): String {
+        return try {
+            val devices = getConnectedBluetoothDevices()
+            return devices.firstOrNull() ?: "Bluetooth Audio"
         } catch (e: Exception) {
             Log.e("AudioDeviceManager", "Error getting connected Bluetooth device name", e)
             "Bluetooth Audio"
@@ -425,20 +490,65 @@ class AudioDeviceManager private constructor(private val context: Context) {
             
             when (device.type) {
                 AudioDeviceType.SPEAKER -> {
-                    // Force use speaker even if headphones are connected
-                    audioManager.isSpeakerphoneOn = true
-                    audioManager.mode = AudioManager.MODE_NORMAL
+                    Log.d("AudioDeviceManager", "=== FORCING SPEAKER SELECTION ===")
                     
-                    // If we're on Android 12+, clear any previously set communication device
+                    // Step 1: Clear any previously set communication device first
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         try {
                             audioManager.clearCommunicationDevice()
+                            Log.d("AudioDeviceManager", "Cleared communication device for speaker")
                         } catch (e: Exception) {
                             Log.e("AudioDeviceManager", "Error clearing communication device", e)
                         }
                     }
                     
-                    Log.d("AudioDeviceManager", "Switched to speaker - speakerphone: ${audioManager.isSpeakerphoneOn}")
+                    // Step 2: Force speakerphone on and set proper mode
+                    audioManager.isSpeakerphoneOn = true
+                    audioManager.mode = AudioManager.MODE_NORMAL
+                    
+                    // Step 3: Find and explicitly set the built-in speaker as communication device
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                            val builtinSpeaker = audioDevices.find { 
+                                it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER 
+                            }
+                            
+                            if (builtinSpeaker != null) {
+                                val success = audioManager.setCommunicationDevice(builtinSpeaker)
+                                Log.d("AudioDeviceManager", "Set built-in speaker as communication device: $success")
+                                
+                                if (!success) {
+                                    Log.w("AudioDeviceManager", "Failed to set built-in speaker, trying alternative")
+                                    // Force speaker routing by disabling Bluetooth SCO
+                                    try {
+                                        audioManager.stopBluetoothSco()
+                                        audioManager.isBluetoothScoOn = false
+                                    } catch (e: Exception) {
+                                        Log.e("AudioDeviceManager", "Error stopping Bluetooth SCO", e)
+                                    }
+                                }
+                            } else {
+                                Log.w("AudioDeviceManager", "Built-in speaker not found in audio devices")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("AudioDeviceManager", "Error setting built-in speaker as communication device", e)
+                        }
+                    }
+                    
+                    // Step 4: Additional legacy approach for older Android versions
+                    try {
+                        // Disable Bluetooth SCO to ensure audio doesn't route to Bluetooth
+                        audioManager.stopBluetoothSco()
+                        audioManager.isBluetoothScoOn = false
+                        Log.d("AudioDeviceManager", "Disabled Bluetooth SCO for speaker")
+                    } catch (e: Exception) {
+                        Log.e("AudioDeviceManager", "Error disabling Bluetooth SCO", e)
+                    }
+                    
+                    Log.d("AudioDeviceManager", "=== SPEAKER SELECTION COMPLETE ===")
+                    Log.d("AudioDeviceManager", "Speakerphone: ${audioManager.isSpeakerphoneOn}")
+                    Log.d("AudioDeviceManager", "Bluetooth SCO: ${audioManager.isBluetoothScoOn}")
                 }
                 
                 AudioDeviceType.BLUETOOTH_HEADSET, 
@@ -448,16 +558,57 @@ class AudioDeviceManager private constructor(private val context: Context) {
                     audioManager.isSpeakerphoneOn = false
                     audioManager.mode = AudioManager.MODE_NORMAL
                     
-                    // On Android 12+, try to set communication device
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && device.deviceInfo != null) {
+                    // Clear any previously set communication device first
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         try {
-                            audioManager.setCommunicationDevice(device.deviceInfo)
+                            audioManager.clearCommunicationDevice()
+                            Log.d("AudioDeviceManager", "Cleared previous communication device")
                         } catch (e: Exception) {
-                            Log.e("AudioDeviceManager", "Error setting Bluetooth as communication device", e)
+                            Log.e("AudioDeviceManager", "Error clearing communication device", e)
                         }
                     }
                     
-                    Log.d("AudioDeviceManager", "Switched to Bluetooth device - speakerphone: ${audioManager.isSpeakerphoneOn}")
+                    // Set the specific Bluetooth device as communication device
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && device.deviceInfo != null) {
+                        try {
+                            val success = audioManager.setCommunicationDevice(device.deviceInfo)
+                            Log.d("AudioDeviceManager", "Set Bluetooth communication device: ${device.name}, success: $success")
+                            
+                            if (!success) {
+                                Log.w("AudioDeviceManager", "Failed to set communication device, trying alternative approach")
+                                // Alternative approach: force audio routing through media session
+                                try {
+                                    mediaSession?.setPlaybackToRemote(
+                                        object : VolumeProviderCompat(
+                                            VOLUME_CONTROL_FIXED,
+                                            100,
+                                            50
+                                        ) {
+                                            override fun onSetVolumeTo(volume: Int) {
+                                                // Handle volume changes if needed
+                                            }
+                                        }
+                                    )
+                                } catch (e2: Exception) {
+                                    Log.e("AudioDeviceManager", "Error setting playback to remote", e2)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("AudioDeviceManager", "Error setting Bluetooth as communication device", e)
+                        }
+                    } else {
+                        // For older Android versions, use legacy approach
+                        try {
+                            // Force audio routing by temporarily changing stream volume
+                            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, AudioManager.FLAG_SHOW_UI)
+                            Log.d("AudioDeviceManager", "Applied legacy Bluetooth routing for device: ${device.name}")
+                        } catch (e: Exception) {
+                            Log.e("AudioDeviceManager", "Error applying legacy Bluetooth routing", e)
+                        }
+                    }
+                    
+                    Log.d("AudioDeviceManager", "Switched to Bluetooth device: ${device.name} - speakerphone: ${audioManager.isSpeakerphoneOn}")
                 }
                 
                 AudioDeviceType.WIRED_HEADSET,
@@ -487,11 +638,23 @@ class AudioDeviceManager private constructor(private val context: Context) {
                 }
             }
             
-            // Force audio routing refresh
+            // Force audio routing refresh with enhanced approach for different device types
             try {
-                // This forces the system to re-evaluate audio routing
-                val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, 0)
+                when {
+                    device.type.isBluetooth() -> {
+                        // Enhanced refresh for Bluetooth devices
+                        forceBluetoothAudioRouting(device)
+                    }
+                    device.type == AudioDeviceType.SPEAKER -> {
+                        // Enhanced refresh for speaker to ensure it routes to built-in speaker
+                        forceSpeakerAudioRouting()
+                    }
+                    else -> {
+                        // Standard refresh for other devices
+                        val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, 0)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("AudioDeviceManager", "Error refreshing audio routing", e)
             }
@@ -562,7 +725,11 @@ class AudioDeviceManager private constructor(private val context: Context) {
         val activeDevice = when {
             // Bluetooth has highest priority if connected
             bluetoothHeadsetStateProvider.isHeadsetConnected.value -> {
-                devices.find { it.type.isBluetooth() }?.also {
+                // Find the first Bluetooth device (default) or keep existing active Bluetooth device
+                val bluetoothDevices = devices.filter { it.type.isBluetooth() }
+                val currentActiveBluetoothDevice = bluetoothDevices.find { it.isActive }
+                
+                (currentActiveBluetoothDevice ?: bluetoothDevices.firstOrNull())?.also {
                     Log.d("AudioDeviceManager", "Auto-selecting Bluetooth device: ${it.name}")
                 }
             }
@@ -590,12 +757,190 @@ class AudioDeviceManager private constructor(private val context: Context) {
         _errorMessage.value = null
     }
     
+    fun debugLogAvailableDevices() {
+        try {
+            Log.d("AudioDeviceManager", "=== DEBUG: Available Audio Devices ===")
+            val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            audioDevices.forEachIndexed { index, device ->
+                Log.d("AudioDeviceManager", "Device $index: type=${device.type}, id=${device.id}, product=${device.productName}")
+                when (device.type) {
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> Log.d("AudioDeviceManager", "  -> Bluetooth SCO")
+                    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> Log.d("AudioDeviceManager", "  -> Bluetooth A2DP")
+                    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> Log.d("AudioDeviceManager", "  -> Built-in Speaker")
+                    AudioDeviceInfo.TYPE_WIRED_HEADSET -> Log.d("AudioDeviceManager", "  -> Wired Headset")
+                    AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> Log.d("AudioDeviceManager", "  -> Wired Headphones")
+                    else -> Log.d("AudioDeviceManager", "  -> Other: ${device.type}")
+                }
+            }
+            
+            Log.d("AudioDeviceManager", "Current app devices:")
+            _availableDevices.value.forEach { device ->
+                Log.d("AudioDeviceManager", "  ${device.name} (${device.id}) - Active: ${device.isActive}")
+            }
+            
+            Log.d("AudioDeviceManager", "System state:")
+            Log.d("AudioDeviceManager", "  Speakerphone: ${audioManager.isSpeakerphoneOn}")
+            Log.d("AudioDeviceManager", "  Bluetooth connected: ${bluetoothHeadsetStateProvider.isHeadsetConnected.value}")
+            Log.d("AudioDeviceManager", "  Wired connected: ${headsetStateProvider.isHeadsetPlugged.value}")
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val commDevice = audioManager.communicationDevice
+                Log.d("AudioDeviceManager", "  Communication device: ${commDevice?.productName} (type: ${commDevice?.type}, id: ${commDevice?.id})")
+            }
+            Log.d("AudioDeviceManager", "  Bluetooth SCO: ${audioManager.isBluetoothScoOn}")
+            Log.d("AudioDeviceManager", "  Audio mode: ${audioManager.mode}")
+            
+            // Log all Bluetooth devices specifically
+            val bluetoothDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter {
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+            }
+            Log.d("AudioDeviceManager", "Bluetooth audio devices found: ${bluetoothDevices.size}")
+            bluetoothDevices.forEachIndexed { index, device ->
+                Log.d("AudioDeviceManager", "  BT Device $index: ${device.productName} (type: ${device.type}, id: ${device.id})")
+            }
+            
+            Log.d("AudioDeviceManager", "=== END DEBUG ===")
+        } catch (e: Exception) {
+            Log.e("AudioDeviceManager", "Error in debug logging", e)
+        }
+    }
+    
     fun startDeviceDiscovery() {
         updateAvailableDevices()
     }
     
+    private fun getCurrentlyActiveAudioDevice(): AudioDeviceInfo? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.communicationDevice
+            } else {
+                // For older versions, try to determine from available devices
+                val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                outputDevices.find { device ->
+                    when {
+                        audioManager.isSpeakerphoneOn -> device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                        bluetoothHeadsetStateProvider.isHeadsetConnected.value -> 
+                            device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || 
+                            device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                        headsetStateProvider.isHeadsetPlugged.value -> 
+                            device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || 
+                            device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                            device.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                        else -> device.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("AudioDeviceManager", "Error getting currently active audio device", e)
+            null
+        }
+    }
+    
     fun switchToDevice(device: AudioDevice): Boolean {
         return selectAudioDevice(device)
+    }
+    
+    private fun forceBluetoothAudioRouting(device: AudioDevice) {
+        try {
+            Log.d("AudioDeviceManager", "Forcing Bluetooth audio routing for: ${device.name}")
+            
+            // Multiple approaches to ensure Bluetooth routing works
+            
+            // 1. Force volume change with audio focus
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, AudioManager.FLAG_SHOW_UI)
+            
+            // 2. Brief mode change to force re-evaluation
+            val currentMode = audioManager.mode
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            Thread.sleep(50) // Brief delay
+            audioManager.mode = currentMode
+            
+            // 3. For Android 12+, ensure communication device is properly set
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && device.deviceInfo != null) {
+                // Small delay then re-set communication device
+                Thread.sleep(100)
+                try {
+                    audioManager.setCommunicationDevice(device.deviceInfo)
+                    Log.d("AudioDeviceManager", "Re-applied communication device for: ${device.name}")
+                } catch (e: Exception) {
+                    Log.e("AudioDeviceManager", "Error re-applying communication device", e)
+                }
+            }
+            
+            // 4. Update media session to trigger routing refresh
+            mediaSession?.setPlaybackState(
+                PlaybackStateCompat.Builder()
+                    .setState(PlaybackStateCompat.STATE_PLAYING, 0L, 1.0f)
+                    .setActions(PlaybackStateCompat.ACTION_PLAY)
+                    .build()
+            )
+            
+            Log.d("AudioDeviceManager", "Completed Bluetooth audio routing refresh")
+        } catch (e: Exception) {
+            Log.e("AudioDeviceManager", "Error forcing Bluetooth audio routing", e)
+        }
+    }
+    
+    private fun forceSpeakerAudioRouting() {
+        try {
+            Log.d("AudioDeviceManager", "Forcing speaker audio routing")
+            
+            // Multiple approaches to ensure speaker routing works
+            
+            // 1. Ensure speakerphone is on
+            audioManager.isSpeakerphoneOn = true
+            
+            // 2. Disable all Bluetooth audio connections
+            try {
+                audioManager.stopBluetoothSco()
+                audioManager.isBluetoothScoOn = false
+                Log.d("AudioDeviceManager", "Disabled Bluetooth SCO for speaker routing")
+            } catch (e: Exception) {
+                Log.e("AudioDeviceManager", "Error disabling Bluetooth SCO", e)
+            }
+            
+            // 3. Force volume change to trigger routing refresh
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, AudioManager.FLAG_SHOW_UI)
+            
+            // 4. Brief mode change to force re-evaluation
+            val currentMode = audioManager.mode
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            Thread.sleep(50) // Brief delay
+            audioManager.mode = AudioManager.MODE_NORMAL
+            
+            // 5. For Android 12+, ensure built-in speaker is set as communication device
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                    val builtinSpeaker = audioDevices.find { 
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER 
+                    }
+                    
+                    if (builtinSpeaker != null) {
+                        Thread.sleep(100) // Small delay
+                        val success = audioManager.setCommunicationDevice(builtinSpeaker)
+                        Log.d("AudioDeviceManager", "Re-applied built-in speaker as communication device: $success")
+                    }
+                } catch (e: Exception) {
+                    Log.e("AudioDeviceManager", "Error re-applying built-in speaker", e)
+                }
+            }
+            
+            // 6. Update media session to trigger routing refresh
+            mediaSession?.setPlaybackState(
+                PlaybackStateCompat.Builder()
+                    .setState(PlaybackStateCompat.STATE_PLAYING, 0L, 1.0f)
+                    .setActions(PlaybackStateCompat.ACTION_PLAY)
+                    .build()
+            )
+            
+            Log.d("AudioDeviceManager", "Completed speaker audio routing refresh")
+            Log.d("AudioDeviceManager", "Final state - Speakerphone: ${audioManager.isSpeakerphoneOn}, Bluetooth SCO: ${audioManager.isBluetoothScoOn}")
+        } catch (e: Exception) {
+            Log.e("AudioDeviceManager", "Error forcing speaker audio routing", e)
+        }
     }
     
     /**
