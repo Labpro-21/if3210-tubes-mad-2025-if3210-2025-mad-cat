@@ -29,7 +29,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import java.io.File
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import com.example.purrytify.ui.viewmodel.HomeViewModel
@@ -178,13 +178,17 @@ fun MixPlaylistScreen(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF121212))
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF121212)),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
             // Header
@@ -345,15 +349,6 @@ fun MixPlaylistScreen(
                 }
             }
         }
-
-        BottomNavBar(
-            navController = navController,
-            musicViewModel = musicViewModel,
-            songViewModel = songViewModel,
-            currentRoute = "",
-            onMiniPlayerClick = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 

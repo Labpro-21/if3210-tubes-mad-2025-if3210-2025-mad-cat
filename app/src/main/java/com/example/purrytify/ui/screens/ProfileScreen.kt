@@ -44,7 +44,7 @@ import com.example.purrytify.data.models.ProfileResponse
 import com.example.purrytify.data.network.ConnectivityObserver
 import com.example.purrytify.data.network.NetworkConnectivityObserver
 import com.example.purrytify.data.preferences.TokenManager
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
@@ -235,21 +235,25 @@ fun ProfileScreen(
         Color(0xFF000000)
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to Color(0xFF095256),
-                        0.25f to Color(0xFF121212),
-                        1.0f to Color.Black
-                    )
-                )
-            )
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "profile",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color(0xFF095256),
+                            0.25f to Color(0xFF121212),
+                            1.0f to Color.Black
+                        )
+                    )
+                )
         ) {
             Box(
                 modifier = Modifier
@@ -648,15 +652,6 @@ fun ProfileScreen(
                 }
             }
         }
-
-        BottomNavBar(
-            navController = navController,
-            musicViewModel = musicViewModel,
-            currentRoute = "profile",
-            songViewModel = songViewModel,
-            onMiniPlayerClick = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
 
         // Add confirmation dialog
         if (showResetConfirmation) {

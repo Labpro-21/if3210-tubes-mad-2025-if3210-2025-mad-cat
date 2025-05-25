@@ -26,7 +26,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
 
@@ -44,12 +44,18 @@ fun TopArtistsScreen(
 
     val gradientColors = listOf(Color(0xFF000000), Color(0xFF1B1B1B))
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(brush = Brush.verticalGradient(colors = gradientColors, startY = 0f, endY = 1200f))
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "top_artists",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(brush = Brush.verticalGradient(colors = gradientColors, startY = 0f, endY = 1200f))
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -157,15 +163,6 @@ fun TopArtistsScreen(
                 if (label != "Top Artists") Spacer(modifier = Modifier.width(8.dp))
             }
         }
-
-        BottomNavBar(
-            navController = navController,
-            musicViewModel = musicViewModel,
-            songViewModel = songViewModel,
-            currentRoute = "top_artists",
-            onMiniPlayerClick = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 

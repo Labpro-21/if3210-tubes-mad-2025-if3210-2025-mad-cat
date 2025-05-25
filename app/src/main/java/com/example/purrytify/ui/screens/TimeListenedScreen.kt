@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.example.purrytify.ui.components.BottomNavBar
+import com.example.purrytify.ui.components.AdaptiveNavigation
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import com.example.purrytify.ui.viewmodel.SongViewModel
 import androidx.compose.foundation.layout.height
@@ -88,19 +88,23 @@ fun TimeListenedScreen(
         Color(0xFF121212)
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = gradientColors,
-                    startY = 0f,
-                    endY = 1200f
-                )
-            )
+    AdaptiveNavigation(
+        navController = navController,
+        musicViewModel = musicViewModel,
+        songViewModel = songViewModel,
+        currentRoute = "time_listened",
+        onMiniPlayerClick = onNavigateToPlayer
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = gradientColors,
+                        startY = 0f,
+                        endY = 1200f
+                    )
+                )
         ) {
             Row(
                 modifier = Modifier
@@ -352,15 +356,6 @@ fun TimeListenedScreen(
                 )
             }
         }
-
-        BottomNavBar(
-            navController = navController,
-            musicViewModel = musicViewModel,
-            songViewModel = songViewModel,
-            currentRoute = "time_listened",
-            onMiniPlayerClick = onNavigateToPlayer,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 
