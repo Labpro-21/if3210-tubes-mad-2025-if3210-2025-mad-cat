@@ -3,6 +3,7 @@ package com.example.purrytify.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import com.example.purrytify.data.preferences.TokenManager
 import com.example.purrytify.MainActivity
 import com.example.purrytify.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
+import com.example.purrytify.ui.screens.ListeningAnalytics
 
 // Extension function to find Activity from Context
 fun Context.findActivity(): Activity? {
@@ -170,6 +172,14 @@ fun SettingsScreen(navController: NavController, musicViewModel: MusicViewModel)
                                 // Stop the media service completely
                                 val intent = android.content.Intent(context, com.example.purrytify.service.MediaPlaybackService::class.java)
                                 context.stopService(intent)
+
+                                val email = tokenManager.getEmail()
+                                if (email != null) {
+                                    Log.d("SettingsScreen", "Saving data for user $email before logout")
+                                    ListeningAnalytics.resetLastLoadedEmail()
+                                } else {
+                                    Log.d("SettingsScreen", "No email found for current user during logout")
+                                }
                                 
                                 // Clear token to ensure complete logout
                                 tokenManager.clearTokens()

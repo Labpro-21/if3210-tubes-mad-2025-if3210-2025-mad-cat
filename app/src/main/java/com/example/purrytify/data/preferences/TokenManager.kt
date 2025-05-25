@@ -157,20 +157,20 @@ class TokenManager(private val context: Context) {
     }
 
     fun getRefreshToken(): String? {
-        return try {
-            sharedPrefs.getString("refreshToken", null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting refresh token", e)
-            null
-        }
-    }
-
+        return sharedPrefs.getString("refreshToken", null)
+    }    
+    
     fun clearTokens() {
-        try {
-            Log.d(TAG, "Clearing all tokens")
-            sharedPrefs.edit().clear().apply()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error clearing tokens", e)
+        Log.d(TAG, "Clearing authentication tokens only")
+        val editor = sharedPrefs.edit()
+        editor.remove("jwt_token")
+        editor.remove("refreshToken")
+        val email = getEmail()
+        editor.apply()
+        
+        // After tokens are cleared, re-save the email for reference
+        if (email != null) {
+            saveEmail(email)
         }
     }
 

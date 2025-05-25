@@ -39,6 +39,7 @@ import com.example.purrytify.data.api.RetrofitClient
 import com.example.purrytify.data.network.ConnectivityObserver
 import com.example.purrytify.data.network.NetworkConnectivityObserver
 import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.ui.screens.ListeningAnalytics
 import com.example.purrytify.ui.viewmodel.NetworkViewModel
 import com.example.purrytify.ui.viewmodel.NetworkViewModelFactory
 import com.example.purrytify.ui.viewmodel.SongViewModel
@@ -263,10 +264,14 @@ fun LoginScreen(navController: NavController, songViewModel: SongViewModel) {
                                                     )
                                                     tokenManager.saveRefreshToken(it)
                                                 }
-
                                                 tokenManager.saveEmail(email)
                                                 songViewModel.updateUserEmail(email)
-
+                                                
+                                                ListeningAnalytics.loadFromPreferences(context, email)
+                                                ListenedSongsTracker.loadListenedSongs(email, context)
+                                                
+                                                Log.d("LoginScreen", "Successfully loaded user analytics data for $email")
+                                                
                                                 navController.navigate("home") {
                                                     popUpTo("login") { inclusive = true }
                                                 }
