@@ -6,7 +6,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
 data class UserProfile(
-    val email: String,
+    val email: String?,
     val name: String,
     val age: Int,
     val gender: String,
@@ -20,19 +20,25 @@ class UserProfileManager(context: Context) {
     private val gson = Gson()
     
     fun saveUserProfile(profile: UserProfile) {
+        android.util.Log.d("UserProfileManager", "Saving profile for ${profile.email} with country: ${profile.country}")
         val profileJson = gson.toJson(profile)
         sharedPreferences.edit()
             .putString(profile.email, profileJson)
             .apply()
+        android.util.Log.d("UserProfileManager", "Profile saved successfully for ${profile.email}")
     }
     
     fun getUserProfile(email: String): UserProfile? {
+        android.util.Log.d("UserProfileManager", "Getting profile for email: $email")
+        // Clear any cached data to ensure we get the most recent profile
         val profileJson = sharedPreferences.getString(email, null)
-        return if (profileJson != null) {
+        val profile = if (profileJson != null) {
             gson.fromJson(profileJson, UserProfile::class.java)
         } else {
             null
         }
+        android.util.Log.d("UserProfileManager", "Retrieved profile for $email: country=${profile?.country}")
+        return profile
     }
     
     fun updateUserCountry(email: String, countryCode: String) {

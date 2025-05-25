@@ -54,13 +54,18 @@ class HomeViewModel(
             _isLoadingCountry.value = true
             _errorMessage.value = null
             
+            // Log the country code being used for debugging
+            android.util.Log.d("HomeViewModel", "Fetching songs for country code: $countryCode")
+            
             trendingRepository.getTopCountrySongs(countryCode)
                 .onSuccess { songs ->
                     _countryTopSongs.value = songs
+                    android.util.Log.d("HomeViewModel", "Successfully fetched ${songs.size} songs for country: $countryCode")
                 }
                 .onFailure { exception ->
                     _errorMessage.value = "Failed to load country top songs: ${exception.message}"
                     _countryTopSongs.value = emptyList()
+                    android.util.Log.e("HomeViewModel", "Failed to fetch songs for country: $countryCode", exception)
                 }
             
             _isLoadingCountry.value = false

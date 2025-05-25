@@ -67,15 +67,12 @@ class MusicViewModel : ViewModel() {
     private val _isShuffleOn = MutableStateFlow(false)
     val isShuffleOn: StateFlow<Boolean> = _isShuffleOn
     
-    // Track the online song ID if playing from online source
     private val _currentOnlineSongId = MutableStateFlow<Int?>(null)
     val currentOnlineSongId: StateFlow<Int?> = _currentOnlineSongId
 
-    // Playlist context - to track where the song is being played from
     private val _playlistContext = MutableStateFlow(PlaylistContext.LIBRARY)
     val playlistContext: StateFlow<PlaylistContext> = _playlistContext
 
-    // Online playlist storage
     private var onlinePlaylist: List<Song> = listOf()
     private var onlinePlaylistType: String = "" // "global" or country code
 
@@ -88,18 +85,15 @@ class MusicViewModel : ViewModel() {
 
     private var context: Context? = null
 
-    // Media service
     private var mediaService: MediaPlaybackService? = null
     private var isServiceBound = false
 
     private val _currentAudioDevice = MutableStateFlow<String>("Internal Speaker")
     val currentAudioDevice: StateFlow<String> = _currentAudioDevice
 
-    // Audio device selector state
     private val _showAudioDeviceSelector = MutableStateFlow(false)
     val showAudioDeviceSelector: StateFlow<Boolean> = _showAudioDeviceSelector
 
-    // BroadcastReceiver for playback state changes
     private val playbackStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.example.purrytify.PLAYBACK_STATE_CHANGED") {
@@ -110,7 +104,6 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // BroadcastReceiver for media actions
     private val mediaActionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.example.purrytify.MEDIA_ACTION") {
@@ -142,7 +135,6 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Audio device change receiver
     private val audioDeviceReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -153,7 +145,6 @@ class MusicViewModel : ViewModel() {
                 "com.example.purrytify.PLAYBACK_ERROR" -> {
                     val error = intent.getStringExtra("error")
                     error?.let { errorMessage ->
-                        // Show error message to user (you can use a LiveData or StateFlow for this)
                         Log.e("MusicViewModel", "Playback error: $errorMessage")
                     }
                 }
@@ -161,7 +152,6 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Register receivers
     private fun registerReceivers() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context?.registerReceiver(
@@ -201,7 +191,6 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Service connection
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             Log.d("MusicViewModel", "Service connected")
@@ -210,7 +199,6 @@ class MusicViewModel : ViewModel() {
                 mediaService = binder.getService()
                 isServiceBound = true
 
-                // If a song is currently playing, update the service
                 currentSong.value?.let { song ->
                     if (_isPlaying.value) {
                         Log.d("MusicViewModel", "Updating service with current song: ${song.title}")
@@ -218,10 +206,8 @@ class MusicViewModel : ViewModel() {
                     }
                 }
 
-                // Register broadcast receivers
                 registerReceivers()
 
-                // Start updating progress if we have a current song
                 if (currentSong.value != null) {
                     startUpdatingProgress()
                 }
@@ -235,7 +221,6 @@ class MusicViewModel : ViewModel() {
             mediaService = null
             isServiceBound = false
 
-            // Unregister receivers when service disconnects
             context?.let { ctx ->
                 try {
                     ctx.unregisterReceiver(playbackStateReceiver)
@@ -261,21 +246,21 @@ class MusicViewModel : ViewModel() {
 
         // Start and bind to the media service
         val intent = Intent(context, MediaPlaybackService::class.java)
-        intent.action = "START_FOREGROUND" // Add specific action for starting foreground
+        intent.action = "START_FOREGROUND"
 
-        // Start service in a try/catch and delay binding to ensure service is ready
         try {
-            context.startService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
             Log.d("MusicViewModel", "Service started successfully")
-
-            // Delay binding slightly to give the service time to start
             viewModelScope.launch {
-                delay(500) // Short delay for service to initialize
+                delay(500)
                 try {
                     serviceConnected = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
                     Log.d("MusicViewModel", "Service binding initiated, connected: $serviceConnected")
 
-                    // Save the full playlist
                     try {
                         currentPlaylist = songViewModel.allSongs.first()
                         Log.d("MusicViewModel", "Playlist loaded with ${currentPlaylist.size} songs")
@@ -283,8 +268,6 @@ class MusicViewModel : ViewModel() {
                             Log.w("MusicViewModel", "Warning: Playlist is empty!")
                         }
 
-                        // Don't auto-play on app start
-                        // Just load the playlist, song will be played when user selects it
                     } catch (e: Exception) {
                         Log.e("MusicViewModel", "Error loading playlist", e)
                         currentPlaylist = emptyList()
@@ -298,7 +281,6 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    // Set online playlist for charts playback
     fun setOnlinePlaylist(songs: List<Song>, type: String) {
         onlinePlaylist = songs
         onlinePlaylistType = type
@@ -309,14 +291,11 @@ class MusicViewModel : ViewModel() {
         Log.d("MusicViewModel", "Loading song without playing: ${song.title} by ${song.artist}")
         Log.d("MusicViewModel", "From online: $fromOnlinePlaylist, type: $onlineType, onlineId: $onlineSongId")
         
-        // Store the online song ID if provided
         _currentOnlineSongId.value = onlineSongId
         
-        // Set playlist context
         if (fromOnlinePlaylist) {
             _playlistContext.value = PlaylistContext.ONLINE
             onlinePlaylistType = onlineType
-            // Use the current online playlist
             if (onlinePlaylist.isEmpty()) {
                 Log.e("MusicViewModel", "Online playlist is empty when trying to load online song!")
                 return
@@ -333,21 +312,17 @@ class MusicViewModel : ViewModel() {
             Log.d("MusicViewModel", "Using library playlist - need to implement")
         }
         
-        // Find the index of the song in the playlist
         currentIndex = currentPlaylist.indexOfFirst {
             it.title == song.title && it.artist == song.artist
         }.takeIf { it != -1 } ?: 0
 
-        // Update the current song and reset position
         _currentSong.value = song
         _currentPosition.value = 0
-        _isPlaying.value = false  // Don't start playing
+        _isPlaying.value = false
         
-        // Load duration without playing
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
-                    // Create a temporary MediaPlayer just to get duration
                     val tempPlayer = MediaPlayer().apply {
                         setDataSource(context, Uri.parse(song.uri))
                         prepare()
@@ -372,7 +347,6 @@ class MusicViewModel : ViewModel() {
         Log.d("MusicViewModel", "From online: $fromOnlinePlaylist, type: $onlineType, songId: $onlineSongId")
         Log.d("MusicViewModel", "Current repeat mode: ${_repeatMode.value}, shuffle: ${_isShuffleOn.value}")
         
-        // Store the online song ID if provided
         _currentOnlineSongId.value = onlineSongId
 
         // Set playlist context
@@ -441,7 +415,11 @@ class MusicViewModel : ViewModel() {
                 if (this.context != null) {
                     val intent = Intent(this.context, MediaPlaybackService::class.java)
                     intent.action = "START_FOREGROUND"
-                    this.context?.startService(intent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        this.context?.startForegroundService(intent)
+                    } else {
+                        this.context?.startService(intent)
+                    }
                     serviceConnected = this.context?.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE) ?: false
                     Log.d("MusicViewModel", "Re-attempting service connection: $serviceConnected")
                 }

@@ -54,8 +54,6 @@ import com.example.purrytify.ui.screens.Song
 class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
     private val musicViewModel by viewModels<MusicViewModel>()
-    
-    // Deep link tracking
     private var deepLinkSongId: Int? = null
     private var deepLinkNavigationPending = false
     
@@ -63,10 +61,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
 
-        // Handle deep links
         handleIntent(intent)
 
-        // Request post notification permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) 
                 != PackageManager.PERMISSION_GRANTED) {
@@ -78,19 +74,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        // Initialize RetrofitClient with AuthInterceptor
         RetrofitClient.initialize(applicationContext)
-
-        // Run token refresh worker
         startTokenAutoRefreshWorker()
-
-        // Run one immediate token refresh when app starts
         runOneTimeTokenRefresh()
 
         val connectivityObserver = NetworkConnectivityObserver(applicationContext)
         enableEdgeToEdge()
         
-        // Check if we're being launched from a notification
         val shouldNavigateToPlayer = intent?.action == "OPEN_PLAYER_SCREEN"
         Log.d(TAG, "Should navigate to player: $shouldNavigateToPlayer")
         
@@ -99,26 +89,17 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
                     val songViewModel: SongViewModel = viewModel()
-
                     val networkViewModel: NetworkViewModel = viewModel(
                         factory = NetworkViewModelFactory(connectivityObserver)
                     )
                     val status = networkViewModel.status.collectAsState().value
-                    
-                    // Provide a way to navigate to player when needed
                     var startDestination by remember { mutableStateOf("splash") }
-                    
-                    // If coming from notification, go straight to player after splash
                     var goToPlayerAfterSplash by remember { mutableStateOf(shouldNavigateToPlayer) }
-                    
                     val context = LocalContext.current
-                    
-                    // Handle deep link navigation
                     LaunchedEffect(navController) {
                         if (deepLinkNavigationPending && deepLinkSongId != null) {
                             Log.d(TAG, "Processing deep link navigation for song ID: $deepLinkSongId")
                             
-                            // Fetch and load the song
                             try {
                                 val trendingApi = RetrofitClient.getInstance(context).create(TrendingApiService::class.java)
                                 val response = trendingApi.getSongById(deepLinkSongId!!)
@@ -127,7 +108,6 @@ class MainActivity : ComponentActivity() {
                                     response.body()?.let { onlineSong ->
                                         Log.d(TAG, "Successfully fetched song: ${onlineSong.title}")
                                         
-                                        // Convert OnlineSong to Song
                                         val song = Song(
                                             title = onlineSong.title,
                                             artist = onlineSong.artist,
@@ -136,23 +116,17 @@ class MainActivity : ComponentActivity() {
                                             duration = onlineSong.duration
                                         )
                                         
-                                        // Create a single-song playlist for deep link
                                         val deepLinkPlaylist = listOf(song)
                                         musicViewModel.setOnlinePlaylist(deepLinkPlaylist, "deeplink")
-                                        
-                                        // Delay to ensure NavHost is ready
                                         delay(500)
                                         
-                                        // Navigate to player without playing the song
                                         if (navController.currentBackStackEntry?.destination?.route != "player") {
                                             navController.navigate("player") {
-                                                // Clear the back stack to prevent issues
                                                 launchSingleTop = true
                                                 restoreState = true
                                             }
                                         }
                                         
-                                        // Load the song after navigation
                                         delay(100)
                                         musicViewModel.loadSongWithoutPlaying(
                                             song, 
@@ -239,7 +213,6 @@ class MainActivity : ComponentActivity() {
                                 val context = LocalContext.current
                                 QRScannerScreen(
                                     onSongScanned = { songId ->
-                                        // Handle the scanned song
                                         lifecycleScope.launch {
                                             try {
                                                 val trendingApi = RetrofitClient.getInstance(context).create(TrendingApiService::class.java)
@@ -266,13 +239,49 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             
-                            // Add top charts navigation routes
                             addTopChartsNavigation(
                                 navController = navController,
                                 musicViewModel = musicViewModel,
                                 songViewModel = songViewModel,
                                 onNavigateToPlayer = { navController.navigate("player") }
                             )
+                            
+                            composable("mix_playlist/{mixName}") { backStackEntry ->
+                                val mixName = backStackEntry.arguments?.getString("mixName") ?: "Your Daily Mix"
+                                MixPlaylistScreen(
+                                    navController = navController,
+                                    mixName = mixName,
+                                    musicViewModel = musicViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            composable("top_songs") {
+                                TopSongsScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            composable("time_listened") {
+                                TimeListenedScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
+                            
+                            composable("top_artists") {
+                                TopArtistsScreen(
+                                    navController = navController,
+                                    musicViewModel = musicViewModel,
+                                    songViewModel = songViewModel,
+                                    onNavigateToPlayer = { navController.navigate("player") }
+                                )
+                            }
                         }
 
                         if (status != ConnectivityObserver.Status.Available) {
@@ -286,7 +295,6 @@ class MainActivity : ComponentActivity() {
         }
         
         try {
-            // Initialize music playback controller with more error handling
             val songViewModel: SongViewModel = SongViewModel(application)
             musicViewModel.initializePlaybackControls(songViewModel, this)
             Log.d(TAG, "Initialized music controller")
@@ -308,11 +316,9 @@ class MainActivity : ComponentActivity() {
             var songId: Int? = null
             
             when {
-                // Handle purrytify://song/{id}
                 data.scheme == "purrytify" && data.host == "song" -> {
                     songId = data.lastPathSegment?.toIntOrNull()
                 }
-                // Handle https://purrytify.com/open/song/{id}
                 data.scheme == "https" && data.host == "purrytify.com" && data.path?.startsWith("/open/song") == true -> {
                     songId = data.lastPathSegment?.toIntOrNull()
                 }
@@ -320,7 +326,6 @@ class MainActivity : ComponentActivity() {
             
             if (songId != null) {
                 Log.d(TAG, "Handling deep link for song ID: $songId")
-                // Set the deep link data
                 deepLinkSongId = songId
                 deepLinkNavigationPending = true
             }
@@ -331,7 +336,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         Log.d(TAG, "onDestroy called")
         
-        // Stop the music service when app is closed
         try {
             val intent = Intent(this, MediaPlaybackService::class.java)
             stopService(intent)
@@ -341,7 +345,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Worker dipanggil secara terjadwal
     private fun startTokenAutoRefreshWorker() {
         val workRequest = PeriodicWorkRequestBuilder<TokenAutoRefreshWorker>(
             4, TimeUnit.MINUTES

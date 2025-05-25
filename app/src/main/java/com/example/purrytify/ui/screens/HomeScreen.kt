@@ -24,8 +24,10 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
 import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.data.PlayHistoryTracker
 import com.example.purrytify.ui.components.BottomNavBar
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -37,38 +39,12 @@ import com.example.purrytify.ui.viewmodel.HomeViewModel
 import com.example.purrytify.ui.viewmodel.HomeViewModelFactory
 import com.example.purrytify.ui.components.ChartsSection
 import kotlinx.coroutines.launch
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.os.Environment
+import androidx.compose.ui.graphics.Brush
 import java.io.File
-import java.io.FileOutputStream
 import com.example.purrytify.data.preferences.UserProfileManager
-
-object PlayHistoryTracker {
-    private val userHistories = mutableMapOf<String, MutableList<Song>>()
-    private const val MAX_HISTORY_SIZE = 10
-
-    fun addSongToHistory(email: String, song: Song, tokenManager: TokenManager, context: android.content.Context) {
-        val history = tokenManager.getRecentlyPlayed(email).toMutableList()
-
-        history.removeAll { it.title == song.title && it.artist == song.artist }
-        history.add(0, song)
-
-        if (history.size > MAX_HISTORY_SIZE) {
-            history.removeAt(history.size - 1)
-        }
-
-        tokenManager.saveRecentlyPlayed(email, history)
-    }
-
-    fun getRecentlyPlayedSongs(email: String, tokenManager: TokenManager): List<Song> {
-        return tokenManager.getRecentlyPlayed(email)
-    }
-
-    fun clearHistory(email: String, tokenManager: TokenManager) {
-        tokenManager.saveRecentlyPlayed(email, emptyList())
-    }
-}
+import com.example.purrytify.data.preferences.UserProfile
+import androidx.compose.runtime.mutableStateOf
+import com.example.purrytify.data.api.RetrofitClient
 
 @Composable
 fun HomeScreen(
@@ -82,9 +58,51 @@ fun HomeScreen(
     val tokenManager = remember { TokenManager(context) }
     val userProfileManager = remember { UserProfileManager(context) }
     val userEmail = tokenManager.getEmail() ?: ""
-    val userProfile = userProfileManager.getUserProfile(userEmail)
-    val userCountryCode = userProfile?.country ?: "ID"
+    
+    // Track navigation state to refresh profile when returning from EditProfileScreen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    // State for user profile
+    var userProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var userCountryCode by remember { mutableStateOf("ID") }
+    
+    // Fetch fresh profile data when navigating to home or returning from edit screen
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "home" || currentRoute == null) {
+            try {
+                val response = RetrofitClient.apiService.getProfile()
+                if (response.isSuccessful) {
+                    response.body()?.let { profile ->
+                        val localProfile = UserProfile(
+                            email = profile.email,
+                            name = profile.username ?: "",
+                            age = 0,
+                            gender = "",
+                            country = profile.location ?: "ID",
+                            profileImageUrl = profile.profilePhoto
+                        )
+                        userProfileManager.saveUserProfile(localProfile)
+                        userProfile = localProfile
+                        userCountryCode = profile.location ?: "ID"
+                        Log.d("HomeScreen", "Fetched fresh profile with country: ${profile.location}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("HomeScreen", "Error fetching profile", e)
+                // Fall back to local cache if network fails
+                userProfile = userProfileManager.getUserProfile(userEmail)
+                userCountryCode = userProfile?.country ?: "ID"
+            }
+        }
+    }
+    
     val userCountryName = homeViewModel.getSupportedCountries()[userCountryCode] ?: "Indonesia"
+
+    // Log the country code being used
+    LaunchedEffect(userCountryCode) {
+        Log.d("HomeScreen", "Current user country code: $userCountryCode for user: $userEmail")
+    }
 
     val scope = rememberCoroutineScope()
 
@@ -189,10 +207,24 @@ fun HomeScreen(
                         onCountryClick = {
                             navController.navigate("top_charts/$userCountryCode/$userCountryName")
                         },
+                chartTitle = "Top 10 Country",
                         countryName = userCountryName,
                         countryCode = userCountryCode,
                         isCountrySupported = homeViewModel.isCountrySupported(userCountryCode)
                     )
+                }
+
+                // Top Mixes section
+                item {
+                    TopMixesSection(
+                        likedSongs = allSongs.value,
+                        recentlyPlayedSongs = recentlyPlayedSongs,
+                        userCountryCode = userCountryCode,
+                        onPlaylistClick = { mixName ->
+                            navController.navigate("mix_playlist/$mixName")
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
 
                 item {
@@ -203,7 +235,7 @@ fun HomeScreen(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 12.dp)
                     )
                 }
 
@@ -370,12 +402,12 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val imageModel = when {
             song.coverUri.startsWith("http://") || song.coverUri.startsWith("https://") -> {
-                // For online songs with URLs
+                // For online songs
                 song.coverUri
             }
             song.coverUri.isNotEmpty() && File(song.coverUri).exists() -> {
@@ -402,7 +434,6 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Show a music note icon as fallback
                 Icon(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = null,
@@ -440,5 +471,207 @@ fun RecentlySongItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modif
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+fun TopMixesSection(
+    likedSongs: List<Song>,
+    recentlyPlayedSongs: List<Song>,
+    userCountryCode: String,
+    onPlaylistClick: (String) -> Unit
+) {
+    // Get context and view models
+    val context = LocalContext.current
+    val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory(context))
+    
+    // Mix names
+    val mixOneName = "Your Daily Mix"
+    val mixTwoName = "Favorites Mix"
+    
+    android.util.Log.d("TopMixesSection", "Using country code: $userCountryCode")
+    
+    // Daily Mix: Fetch global and country top songs
+    val globalTopSongs = homeViewModel.globalTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
+    val countryTopSongs = homeViewModel.countryTopSongs.collectAsStateWithLifecycle(initialValue = emptyList()).value
+
+    LaunchedEffect(userCountryCode) {
+        Log.d("TopMixesSection", "Country code changed to: $userCountryCode, fetching new songs")
+        homeViewModel.fetchGlobalTopSongs()
+        // Make sure we use the latest country code
+        homeViewModel.fetchCountryTopSongs(userCountryCode)
+    }
+
+    // Convert online songs to local
+    val globalSongs = remember(globalTopSongs) {
+        globalTopSongs.map { onlineSong ->
+            Song(
+                title = onlineSong.title,
+                artist = onlineSong.artist,
+                coverUri = onlineSong.artworkUrl,
+                uri = onlineSong.audioUrl,
+                duration = onlineSong.duration
+            )
+        }
+    }
+    
+    val countrySongs = remember(countryTopSongs) {
+        countryTopSongs.map { onlineSong ->
+            Song(
+                title = onlineSong.title,
+                artist = onlineSong.artist,
+                coverUri = onlineSong.artworkUrl,
+                uri = onlineSong.audioUrl,
+                duration = onlineSong.duration
+            )
+        }
+    }
+    
+    // Daily mix (15 songs max)
+    val dailyMixSongs = remember(globalSongs, countrySongs, recentlyPlayedSongs) {
+        val alreadyListenedTitles = recentlyPlayedSongs.map { "${it.title}_${it.artist}" }.toSet()
+        val unheardGlobalSongs = globalSongs
+            .filter { song -> 
+                !alreadyListenedTitles.contains("${song.title}_${song.artist}")
+            }
+            .take(8)
+        val unheardCountrySongs = countrySongs
+            .filter { song -> 
+                !alreadyListenedTitles.contains("${song.title}_${song.artist}") &&
+                !unheardGlobalSongs.any { it.title == song.title && it.artist == song.artist }
+            }
+            .take(7)
+        val combinedList = (unheardGlobalSongs + unheardCountrySongs).take(15)
+        if (combinedList.size < 15) {
+            val additionalSongs = likedSongs
+                .filter { song ->
+                    !alreadyListenedTitles.contains("${song.title}_${song.artist}") &&
+                    !combinedList.any { it.title == song.title && it.artist == song.artist }
+                }
+                .shuffled()
+                .take(15 - combinedList.size)
+                
+            combinedList + additionalSongs
+        } else {
+            combinedList
+        }
+    }
+                        
+    // Favorites Mix: combination of liked songs and frequently played songs
+    val favoritesSongs = likedSongs.take(7).toMutableList()
+    if (favoritesSongs.size < 7) {
+        val additionalSongs = recentlyPlayedSongs.shuffled()
+            .filter { recent -> !favoritesSongs.any { it.title == recent.title && it.artist == recent.artist } }
+            .take(7 - favoritesSongs.size)
+        favoritesSongs.addAll(additionalSongs)
+    }
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text(
+            text = "Top Mixes",
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            ),
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.height(180.dp)
+        ) {
+            // Daily Mix Item
+            item {
+                PlaylistItem(
+                    name = mixOneName,
+                    description = "Fresh tunes",
+                    songCount = dailyMixSongs.size,
+                    coverColors = listOf(Color(0xFF1DB954), Color(0xFF191414)),
+                    onClick = { onPlaylistClick(mixOneName) }
+                )
+            }
+            
+            // Favorites Mix Item
+            item {
+                PlaylistItem(
+                    name = mixTwoName,
+                    description = "Songs You Love",
+                    songCount = favoritesSongs.size,
+                    coverColors = listOf(Color(0xFF9C27B0), Color(0xFF3F51B5)),
+                    onClick = { onPlaylistClick(mixTwoName) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaylistItem(
+    name: String,
+    description: String,
+    songCount: Int,
+    coverColors: List<Color>,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(130.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(130.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = coverColors,
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(130f, 130f)
+                    )
+                )
+        ) {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(40.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = name,
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Text(
+            text = description,
+            style = TextStyle(
+                color = Color.Gray,
+                fontSize = 11.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Text(
+            text = "$songCount songs",
+            style = TextStyle(
+                color = Color.Gray,
+                fontSize = 12.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

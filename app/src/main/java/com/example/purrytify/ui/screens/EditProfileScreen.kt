@@ -45,7 +45,13 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.purrytify.R
 import com.example.purrytify.data.api.RetrofitClient
+import com.example.purrytify.data.repository.TrendingRepository
+import com.example.purrytify.di.NetworkModule
+import com.example.purrytify.ui.viewmodel.HomeViewModel
 import com.example.purrytify.data.models.ProfileResponse
+import com.example.purrytify.data.preferences.TokenManager
+import com.example.purrytify.data.preferences.UserProfile
+import com.example.purrytify.data.preferences.UserProfileManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -80,7 +86,7 @@ fun EditProfileScreen(
             imageUri = it
         }
     }
-    
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -90,7 +96,7 @@ fun EditProfileScreen(
             }
         }
     }
-    
+
     val mapsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -100,7 +106,7 @@ fun EditProfileScreen(
             }
         }
     }
-    
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -111,7 +117,7 @@ fun EditProfileScreen(
             }
         }
     }
-    
+
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -121,7 +127,7 @@ fun EditProfileScreen(
             showPhotoOptions = false
         }
     }
-    
+
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -130,12 +136,12 @@ fun EditProfileScreen(
             showPhotoOptions = false
         }
     }
-    
+
     val gradientColors = listOf(
         Color(0xFF095256),
         Color(0xFF121212)
     )
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -165,7 +171,7 @@ fun EditProfileScreen(
                         tint = Color.White
                     )
                 }
-                
+
                 Text(
                     text = "Edit Profile",
                     style = TextStyle(
@@ -176,9 +182,9 @@ fun EditProfileScreen(
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             // Profile Image Section
             Box(
                 modifier = Modifier
@@ -222,7 +228,7 @@ fun EditProfileScreen(
                         )
                     }
                 }
-                
+
                 IconButton(
                     onClick = { showPhotoOptions = true },
                     modifier = Modifier
@@ -238,9 +244,9 @@ fun EditProfileScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Text(
                 text = "Location",
                 style = TextStyle(
@@ -250,7 +256,7 @@ fun EditProfileScreen(
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -272,9 +278,9 @@ fun EditProfileScreen(
                         style = TextStyle(fontSize = 16.sp)
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.width(8.dp))
-                
+
                 IconButton(
                     onClick = {
                         if (ContextCompat.checkSelfPermission(
@@ -313,9 +319,9 @@ fun EditProfileScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             Row(modifier = Modifier.fillMaxWidth()) {
                 Button(
                     onClick = {
@@ -339,9 +345,9 @@ fun EditProfileScreen(
                         )
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.width(8.dp))
-                
+
                 Button(
                     onClick = {
                         val intent = Intent(context, CountrySelectionActivity::class.java).apply {
@@ -366,9 +372,9 @@ fun EditProfileScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.weight(1f))
-            
+
             Button(
                 onClick = {
                     coroutineScope.launch {
@@ -416,7 +422,7 @@ fun EditProfileScreen(
                 }
             }
         }
-        
+
         if (showPhotoOptions) {
             AlertDialog(
                 containerColor = Color(0xFF1E1E1E),
@@ -453,7 +459,7 @@ fun EditProfileScreen(
                         ) {
                             Text("Take Photo", color = Color.White)
                         }
-                        
+
                         Button(
                             onClick = {
                                 val galleryPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -461,7 +467,7 @@ fun EditProfileScreen(
                                 } else {
                                     Manifest.permission.READ_EXTERNAL_STORAGE
                                 }
-                                
+
                                 if (ContextCompat.checkSelfPermission(
                                         context,
                                         galleryPermission
@@ -494,7 +500,7 @@ fun EditProfileScreen(
                 }
             )
         }
-        
+
         if (showCountryDialog) {
             val countries = listOf(
                 "ID" to "Indonesia",
@@ -506,7 +512,7 @@ fun EditProfileScreen(
                 "JP" to "Japan",
                 "CN" to "China"
             )
-            
+
             AlertDialog(
                 onDismissRequest = { showCountryDialog = false },
                 title = { Text("Select Country", color = Color.White) },
@@ -528,7 +534,7 @@ fun EditProfileScreen(
                                     color = Color.White,
                                     modifier = Modifier.weight(1f)
                                 )
-                                
+
                                 if (code == location) {
                                     Text(
                                         text = "✓",
@@ -575,7 +581,7 @@ private fun getCurrentLocation(
 ) {
     try {
         val cancellationTokenSource = CancellationTokenSource()
-        
+
         if (ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -660,7 +666,7 @@ private suspend fun updateProfile(
     try {
         // Create location part
         val locationPart = location.toRequestBody("text/plain".toMediaTypeOrNull())
-        
+
         // Create image part if available
         val imagePart = imageUri?.let { uri ->
             val inputStream = context.contentResolver.openInputStream(uri)
@@ -670,18 +676,43 @@ private suspend fun updateProfile(
                     input.copyTo(output)
                 }
             }
-            
+
             val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
             MultipartBody.Part.createFormData("profilePhoto", file.name, requestFile)
         }
-        
+
         // Make API call
         val response = RetrofitClient.apiService.updateProfile(
             location = locationPart,
             profilePhoto = imagePart
         )
-        
+
         if (response.isSuccessful) {
+            // CRITICAL FIX: Update local user profile immediately after successful server update
+            val tokenManager = TokenManager(context)
+            val userEmail = tokenManager.getEmail() ?: ""
+            val userProfileManager = UserProfileManager(context)
+
+            // Get the current profile and update it with the new location
+            val currentProfile = userProfileManager.getUserProfile(userEmail)
+            if (currentProfile != null) {
+                val updatedProfile = currentProfile.copy(country = location)
+                userProfileManager.saveUserProfile(updatedProfile)
+                Log.d("EditProfileScreen", "Updated local profile with country: $location")
+            } else {
+                // Create a new profile if it doesn't exist
+                val newProfile = UserProfile(
+                    email = userEmail,
+                    name = "",
+                    age = 0,
+                    gender = "",
+                    country = location,
+                    profileImageUrl = null
+                )
+                userProfileManager.saveUserProfile(newProfile)
+                Log.d("EditProfileScreen", "Created new local profile with country: $location")
+            }
+
             onSuccess()
         } else {
             onError("Server returned ${response.code()}")

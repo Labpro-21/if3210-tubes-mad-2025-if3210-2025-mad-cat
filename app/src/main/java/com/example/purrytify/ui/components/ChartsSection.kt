@@ -13,11 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.compose.foundation.Image
+import com.example.purrytify.R
 
 @Composable
 fun ChartsSection(
@@ -26,6 +30,7 @@ fun ChartsSection(
     countryName: String,
     countryCode: String,
     isCountrySupported: Boolean,
+    chartTitle: String = "Top 50",
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -55,9 +60,9 @@ fun ChartsSection(
                 modifier = Modifier.weight(1f)
             )
             
-            // Top 50 Country Card
+            // Top Country Card
             ChartCard(
-                title = if (isCountrySupported) "Top 50" else "Not Available",
+                title = if (isCountrySupported) chartTitle else "Not Available",
                 subtitle = countryName.uppercase(),
                 onClick = if (isCountrySupported) onCountryClick else null,
                 gradientColors = if (isCountrySupported) {
@@ -99,8 +104,8 @@ fun ChartCard(
 ) {
     Card(
         modifier = modifier
-            .height(140.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .aspectRatio(1f) // Make it square
+            .clip(RoundedCornerShape(8.dp))
             .then(
                 if (enabled && onClick != null) {
                     Modifier.clickable { onClick() }
@@ -113,29 +118,53 @@ fun ChartCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(colors = gradientColors)
-                )
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+            // Background image or gradient
+            if (subtitle == "GLOBAL") {
+                Image(
+                    painter = painterResource(id = R.drawable.top50global),
+                    contentDescription = "Top 50 Global",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else if (subtitle.contains("INDONESIA")) {
+                Image(
+                    painter = painterResource(id = R.drawable.top50indonesia),
+                    contentDescription = "Top 50 Indonesia",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // For other countries or when images aren't available, use gradient
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(colors = gradientColors)
+                        )
                 )
                 
-                Text(
-                    text = subtitle,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
+                // Only show text for countries without specific images
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                }
             }
         }
     }
